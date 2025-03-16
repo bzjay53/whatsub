@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "WhatSub - 실시간 자막 서비스",
+  "version": "1.0.0",
+  "description": "모든 온라인 영상 콘텐츠에서 실시간 자막을 제공하는 크롬 확장 프로그램",
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["subtitles/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+} 

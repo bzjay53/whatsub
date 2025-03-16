@@ -1,0 +1,27 @@
+#whatsub-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    text-shadow: 2px 2px 2px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+    user-select: none;
+    pointer-events: none;
+}
+
+#whatsub-container.draggable {
+    cursor: move;
+    user-select: none;
+    pointer-events: auto;
+}
+
+#whatsub-container.dual-subtitle {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#whatsub-container .original-subtitle,
+#whatsub-container .translated-subtitle {
+    padding: 4px 8px;
+    border-radius: 4px;
+} 
