@@ -1,0 +1,626 @@
+:root {
+    --primary-color: #4CAF50;
+    --secondary-color: #2196F3;
+    --error-color: #f44336;
+    --success-color: #4CAF50;
+    --warning-color: #ff9800;
+    --text-color: #333;
+    --text-light: #666;
+    --bg-color: #fff;
+    --border-color: #ddd;
+    --hover-color: #43A047;
+}
+
+body {
+    width: 360px;
+    margin: 0;
+    padding: 16px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--text-color);
+    background: var(--bg-color);
+}
+
+.container {
+    padding: 16px;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.logo {
+    width: 32px;
+    height: 32px;
+    margin-right: 12px;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 500;
+}
+
+h3 {
+    margin: 0 0 12px;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.section {
+    margin-bottom: 20px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #fff;
+}
+
+/* 버튼 스타일 */
+.primary-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: var(--primary-color);
+    color: white;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.primary-btn:hover {
+    background: #45a049;
+}
+
+.secondary-btn {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--primary-color);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--primary-color);
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.secondary-btn:hover {
+    background: #E8F5E9;
+}
+
+/* 자막 컨트롤 */
+.subtitle-controls {
+    margin-bottom: 16px;
+}
+
+.sync-control {
+    margin-top: 10px;
+}
+
+.sync-control label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.sync-control input[type="range"] {
+    width: 100%;
+    margin: 8px 0;
+}
+
+/* 파일 업로드 */
+.file-upload {
+    margin-bottom: 16px;
+    padding: 16px;
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.file-upload input[type="file"] {
+    display: none;
+}
+
+/* 번역 설정 */
+.translation-settings {
+    margin-bottom: 16px;
+}
+
+.toggle-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.toggle-label {
+    margin-left: 8px;
+}
+
+.language-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.language-select select {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* 회원 전용 기능 */
+.subtitle-actions {
+    margin-bottom: 16px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: var(--hover-color);
+}
+
+.rating {
+    display: flex;
+    gap: 8px;
+}
+
+.rating-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.rating-btn:hover {
+    background: var(--hover-color);
+}
+
+/* 댓글 */
+.comments {
+    margin-bottom: 16px;
+}
+
+.comments-container {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.comment-input {
+    display: flex;
+    gap: 8px;
+}
+
+.comment-input input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.comment-input button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    background: var(--primary-color);
+    color: white;
+    cursor: pointer;
+}
+
+/* 사용량 정보 */
+.usage-info {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-light);
+}
+
+.usage-bar {
+    width: 100%;
+    height: 4px;
+    margin-top: 4px;
+    background: #eee;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.usage-progress {
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+/* 상태 메시지 */
+.status-message {
+    margin: 8px 0;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.status-message.info {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.status-message.success {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.status-message.error {
+    background: #ffebee;
+    color: #c62828;
+}
+
+/* 인증 섹션 */
+.auth-status {
+    text-align: center;
+}
+
+.guest-message {
+    margin-bottom: 16px;
+}
+
+.feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
+    text-align: left;
+}
+
+.feature-list li {
+    margin: 4px 0;
+    padding-left: 20px;
+    position: relative;
+}
+
+.feature-list li:before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--primary-color);
+}
+
+.auth-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.auth-button {
+    flex: 1;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.auth-button:not(.secondary) {
+    background: var(--primary-color);
+    color: white;
+}
+
+.auth-button.secondary {
+    background: transparent;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.auth-button:hover:not(.secondary) {
+    background: var(--hover-color);
+}
+
+.auth-button.secondary:hover {
+    background: rgba(76, 175, 80, 0.1);
+}
+
+/* 푸터 */
+.footer {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-light);
+}
+
+/* 프리미엄 기능 */
+.premium-features {
+    margin: 16px 0;
+    padding: 12px;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+.feature-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.feature-status {
+    font-size: 12px;
+    color: var(--text-light);
+}
+
+/* 경고 텍스트 */
+.warning-text {
+    color: var(--error-color);
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+/* 구독 플랜 정보 */
+.plan-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+}
+
+#current-plan {
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+/* 기능 비활성화 스타일 */
+.toggle-container input:disabled + .toggle-label {
+    color: var(--text-light);
+    cursor: not-allowed;
+}
+
+.premium-features.disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* 업그레이드 버튼 강조 */
+#upgrade-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#upgrade-btn:hover {
+    background: #43A047;
+}
+
+/* 커뮤니티 기능 */
+.community-features {
+    margin-top: 20px;
+}
+
+.rating-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.comment-section {
+    margin-top: 15px;
+}
+
+textarea {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    resize: vertical;
+}
+
+.comment {
+    padding: 8px;
+    margin-bottom: 8px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+/* 구독 정보 */
+.subscription-info {
+    text-align: center;
+}
+
+.upgrade-button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    background: var(--secondary-color);
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.upgrade-button:hover {
+    background: #1976D2;
+}
+
+/* 컨트롤 섹션 스타일 */
+.toggle-button {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 16px;
+    border: none;
+    border-radius: 8px;
+    background: var(--primary-color);
+    color: white;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.toggle-button:hover {
+    background: var(--hover-color);
+}
+
+.toggle-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* Whisper 섹션 스타일 */
+.whisper-section {
+    margin: 16px 0;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.section-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+/* 파일 관리 스타일 */
+.subtitle-files {
+    margin: 16px 0;
+}
+
+.file-controls {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.control-button {
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: white;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.control-button:hover {
+    background: #f5f5f5;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* 설정 스타일 */
+.setting-group {
+    margin-bottom: 12px;
+}
+
+.setting-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 14px;
+    color: var(--text-light);
+}
+
+.setting-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.setting-input[type="range"] {
+    padding: 0;
+}
+
+.setting-input[type="color"] {
+    padding: 2px;
+    height: 32px;
+}
+
+/* 토글 스위치 스타일 */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+    background-color: var(--primary-color);
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+}
+
+/* 반응형 조정 */
+@media (max-width: 400px) {
+    body {
+        width: 100%;
+        padding: 10px;
+    }
+} 

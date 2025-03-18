@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "whatsub",
+  "version": "1.0.0",
+  "description": "YouTube 자막 생성 및 번역 확장 프로그램",
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting",
+    "tabCapture"
+  ],
+  "host_permissions": [
+    "*://*.youtube.com/*"
+  ],
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "css": ["styles/content.css"],
+      "js": [
+        "services/errorHandler.js",
+        "services/debugLogger.js",
+        "services/statusIndicator.js",
+        "services/authService.js",
+        "services/whisperApi.js",
+        "services/translationService.js",
+        "services/monitoringService.js",
+        "services/offlineRecognition.js",
+        "services/audioService.js",
+        "services/subtitleService.js",
+        "content.js"
+      ]
+    }
+  ],
+  "options_page": "options/options.html",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [{
+    "resources": [
+      "assets/*",
+      "services/*.js",
+      "components/*.js",
+      "styles/*.css",
+      "popup/*"
+    ],
+    "matches": ["<all_urls>"]
+  }]
+} 

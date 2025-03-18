@@ -1,0 +1,59 @@
+#whatsub-container {
+    position: fixed;
+    bottom: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999999;
+    min-width: 400px;
+    max-width: 80%;
+    padding: 12px 20px;
+    border-radius: 8px;
+    background-color: rgba(0, 0, 0, 0.8);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.subtitle-text {
+    margin: 4px 0;
+    font-size: 20px;
+    line-height: 1.4;
+    color: #ffffff;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    word-wrap: break-word;
+    white-space: pre-line;
+}
+
+.original-subtitle {
+    font-weight: 500;
+}
+
+.translated-subtitle {
+    font-size: 18px;
+    color: #e0e0e0;
+    margin-top: 4px;
+}
+
+/* 드래그 가능한 영역 스타일 */
+#whatsub-container.draggable {
+    cursor: move;
+    user-select: none;
+}
+
+/* 자막 컨테이너 호버 효과 */
+#whatsub-container:hover {
+    background-color: rgba(0, 0, 0, 0.85);
+}
+
+#whatsub-container.dual-subtitle {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#whatsub-container .original-subtitle,
+#whatsub-container .translated-subtitle {
+    padding: 4px 8px;
+    border-radius: 4px;
+} 
