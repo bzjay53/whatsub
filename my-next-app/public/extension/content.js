@@ -44,12 +44,17 @@
                 backgroundColor: '#000000',
                 opacity: 0.8
             };
-            this.initialize();
         }
 
-        initialize() {
-            this.createContainer();
-            this.setupDraggable();
+        async initialize() {
+            try {
+                this.createContainer();
+                this.setupDraggable();
+                return true;
+            } catch (error) {
+                console.error('자막 표시 초기화 실패:', error);
+                return false;
+            }
         }
 
         createContainer() {
@@ -352,7 +357,6 @@
                 error: (message) => console.error(`[WhatSub] ${message}`),
                 warn: (message) => console.warn(`[WhatSub] ${message}`)
             };
-            await chrome.runtime.sendMessage({ action: 'serviceInitialized', service: 'debugLogger' });
 
             // 상태 표시 서비스 초기화
             services.statusIndicator = {
@@ -361,23 +365,34 @@
                     chrome.runtime.sendMessage({ 
                         action: 'updateStatus', 
                         status: { message, type } 
+                    }).catch(error => {
+                        console.error('상태 업데이트 실패:', error);
                     });
                 }
             };
-            await chrome.runtime.sendMessage({ action: 'serviceInitialized', service: 'statusIndicator' });
 
             // 자막 표시 서비스 초기화
             services.subtitleDisplay = new SubtitleDisplay();
-            await chrome.runtime.sendMessage({ action: 'serviceInitialized', service: 'subtitleService' });
+            await services.subtitleDisplay.initialize();
 
             // 오디오 캡처 서비스 초기화
-            const AudioCaptureService = (await import('./services/audioCapture.js')).default;
-            services.audioCapture = new AudioCaptureService();
-            if (!await services.audioCapture.initialize()) {
-                throw new Error('오디오 캡처 서비스 초기화 실패');
-            }
-            services.audioCapture.setAudioDataCallback(handleAudioData);
-            await chrome.runtime.sendMessage({ action: 'serviceInitialized', service: 'audioCapture' });
+            services.audioCapture = {
+                initialize: async () => {
+                    try {
+                        await chrome.runtime.sendMessage({ action: 'startAudioCapture' });
+                        return true;
+                    } catch (error) {
+                        services.debugLogger.error('오디오 캡처 초기화 실패: ' + error.message);
+                        return false;
+                    }
+                },
+                setAudioDataCallback: (callback) => {
+                    state.audioDataCallback = callback;
+                },
+                destroy: () => {
+                    chrome.runtime.sendMessage({ action: 'stopAudioCapture' }).catch(console.error);
+                }
+            };
 
             // 인증 서비스 초기화
             services.authService = {
@@ -395,13 +410,28 @@
                     }
                 }
             };
-            await chrome.runtime.sendMessage({ action: 'serviceInitialized', service: 'authService' });
 
+            // 초기화 완료 상태 설정
             state.isInitialized = true;
             services.statusIndicator.updateStatus('모든 서비스가 초기화되었습니다.', 'success');
+            
+            // background script에 초기화 완료 알림
+            await chrome.runtime.sendMessage({ 
+                action: 'initialized',
+                success: true
+            });
+
             return true;
         } catch (error) {
             services.debugLogger?.error('서비스 초기화 실패: ' + error.message);
+            
+            // background script에 초기화 실패 알림
+            await chrome.runtime.sendMessage({ 
+                action: 'initialized',
+                success: false,
+                error: error.message
+            });
+            
             return false;
         }
     }
@@ -423,22 +453,12 @@
             
             state.isInitialized = true;
             services.statusIndicator.updateStatus('초기화가 완료되었습니다.', 'success');
-            
-            // background script에 초기화 완료 알림
-            await chrome.runtime.sendMessage({ 
-                action: 'initialized',
-                success: true
-            });
         } catch (error) {
             console.error('초기화 오류:', error);
-            services.statusIndicator?.updateStatus('초기화 중 오류가 발생했습니다: ' + error.message, 'error');
-            
-            // background script에 초기화 실패 알림
-            await chrome.runtime.sendMessage({ 
-                action: 'initialized',
-                success: false,
-                error: error.message
-            });
+            if (services.statusIndicator) {
+                services.statusIndicator.updateStatus('초기화 중 오류가 발생했습니다: ' + error.message, 'error');
+            }
+            throw error;
         }
     }
 

@@ -278,151 +278,117 @@ async function processAudioData(audioData, sender) {
 
 // 메시지 리스너 설정
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    handleMessage(message, sender, sendResponse);
+    const tabId = sender.tab?.id || state.activeTabId;
+    let currentTabState;
+
+    const handleAsyncMessage = async () => {
+        try {
+            switch (message.action) {
+                case 'initialize':
+                    const initResult = await handleInitialize();
+                    sendResponse(initResult);
+                    break;
+
+                case 'checkAuth':
+                    // 인증 상태 확인
+                    sendResponse({
+                        success: true,
+                        isAuthenticated: true, // 임시로 true 반환
+                        user: {
+                            name: "테스트 사용자",
+                            email: "test@example.com"
+                        },
+                        plan: "free"
+                    });
+                    break;
+
+                case 'openLoginPage':
+                    chrome.tabs.create({ url: chrome.runtime.getURL('/public/extension/popup/login.html') });
+                    sendResponse({ success: true });
+                    break;
+
+                case 'openSignupPage':
+                    chrome.tabs.create({ url: chrome.runtime.getURL('/public/extension/popup/signup.html') });
+                    sendResponse({ success: true });
+                    break;
+
+                case 'openUpgradePage':
+                    chrome.tabs.create({ url: chrome.runtime.getURL('/public/extension/popup/upgrade.html') });
+                    sendResponse({ success: true });
+                    break;
+
+                case 'logout':
+                    if (tabId) {
+                        currentTabState = initializeTabState(tabId);
+                        currentTabState.isAuthenticated = false;
+                        currentTabState.user = null;
+                    }
+                    sendResponse({ success: true });
+                    break;
+
+                case 'updateStatus':
+                    if (!message.status) {
+                        throw new Error('상태 정보가 필요합니다.');
+                    }
+                    if (tabId) {
+                        currentTabState = initializeTabState(tabId);
+                        currentTabState.status = message.status;
+                    }
+                    sendResponse({ success: true });
+                    break;
+
+                case 'toggleSubtitles':
+                    if (!tabId) {
+                        throw new Error('탭 ID가 필요합니다.');
+                    }
+                    currentTabState = initializeTabState(tabId);
+                    currentTabState.subtitleEnabled = !currentTabState.subtitleEnabled;
+                    
+                    if (currentTabState.subtitleEnabled) {
+                        await startTabCapture(tabId);
+                    } else {
+                        stopTabCapture();
+                    }
+                    
+                    sendResponse({ 
+                        success: true,
+                        state: {
+                            subtitleEnabled: currentTabState.subtitleEnabled
+                        }
+                    });
+                    break;
+
+                case 'updateSettings':
+                    if (!message.settings) {
+                        throw new Error('설정 데이터가 필요합니다.');
+                    }
+                    if (tabId) {
+                        currentTabState = initializeTabState(tabId);
+                        currentTabState.settings = { ...currentTabState.settings, ...message.settings };
+                    }
+                    state.settings = { ...state.settings, ...message.settings };
+                    await chrome.storage.local.set(message.settings);
+                    sendResponse({ success: true });
+                    break;
+
+                case 'processAudio':
+                    await processAudioData(message.data, sender);
+                    sendResponse({ success: true });
+                    break;
+
+                default:
+                    sendResponse({ success: false, error: `알 수 없는 액션: ${message.action}` });
+                    break;
+            }
+        } catch (error) {
+            console.error('메시지 처리 오류:', error);
+            sendResponse({ success: false, error: error.message });
+        }
+    };
+
+    handleAsyncMessage();
     return true; // 비동기 응답을 위해 true 반환
 });
-
-// 메시지 처리 함수
-async function handleMessage(message, sender, sendResponse) {
-    try {
-        const tabId = sender.tab?.id || message.tabId;
-        let currentTabState;
-
-        switch (message.action) {
-            case 'initialize':
-                await handleInitialize();
-                return { success: true, state };
-
-            case 'initialized':
-                if (tabId) {
-                    currentTabState = initializeTabState(tabId);
-                    currentTabState.isInitialized = true;
-                }
-                return { success: true };
-
-            case 'updateStatus':
-                if (!message.status) {
-                    throw new Error('상태 정보가 필요합니다.');
-                }
-                if (tabId) {
-                    currentTabState = initializeTabState(tabId);
-                    currentTabState.status = message.status;
-                }
-                return { success: true };
-
-            case 'toggleSubtitles':
-                if (!tabId) {
-                    throw new Error('탭 ID가 필요합니다.');
-                }
-                currentTabState = initializeTabState(tabId);
-                currentTabState.subtitleEnabled = !currentTabState.subtitleEnabled;
-                return { 
-                    success: true,
-                    state: {
-                        subtitleEnabled: currentTabState.subtitleEnabled
-                    }
-                };
-
-            case 'getAuthStatus':
-                if (!tabId) {
-                    throw new Error('탭 ID가 필요합니다.');
-                }
-                currentTabState = initializeTabState(tabId);
-                return { 
-                    success: true, 
-                    state: {
-                        isInitialized: currentTabState.isInitialized,
-                        isAuthenticated: currentTabState.isAuthenticated || false,
-                        services: Array.from(currentTabState.services.entries())
-                    }
-                };
-
-            case 'serviceInitialized':
-                if (!message.service) {
-                    throw new Error('서비스 이름이 지정되지 않았습니다.');
-                }
-                if (tabId) {
-                    currentTabState = initializeTabState(tabId);
-                    currentTabState.services.set(message.service, true);
-                    // 모든 필수 서비스가 초기화되었는지 확인
-                    const requiredServices = ['authService', 'whisperService', 'translationService'];
-                    const allServicesInitialized = requiredServices.every(service => 
-                        currentTabState.services.get(service)
-                    );
-                    if (allServicesInitialized) {
-                        currentTabState.isInitialized = true;
-                    }
-                }
-                state.services.set(message.service, true);
-                return { success: true };
-
-            case 'popup':
-                if (!tabId) {
-                    throw new Error('탭 ID가 필요합니다.');
-                }
-                currentTabState = initializeTabState(tabId);
-                return { 
-                    success: true, 
-                    state: {
-                        isInitialized: currentTabState.isInitialized,
-                        services: Array.from(currentTabState.services.entries()),
-                        settings: currentTabState.settings,
-                        subtitleEnabled: currentTabState.subtitleEnabled || false
-                    }
-                };
-
-            case 'updateSettings':
-                if (!message.settings) {
-                    throw new Error('설정 데이터가 필요합니다.');
-                }
-                if (tabId) {
-                    currentTabState = initializeTabState(tabId);
-                    currentTabState.settings = { ...currentTabState.settings, ...message.settings };
-                }
-                state.settings = { ...state.settings, ...message.settings };
-                await chrome.storage.local.set(message.settings);
-                return { success: true };
-
-            case 'startCapture':
-                if (!tabId) {
-                    throw new Error('탭 ID가 필요합니다.');
-                }
-                await startTabCapture(tabId);
-                return { success: true };
-
-            case 'stopCapture':
-                stopTabCapture();
-                return { success: true };
-
-            case 'checkFeatureAccess':
-                if (!message.feature) {
-                    throw new Error('기능 이름이 필요합니다.');
-                }
-                // 임시로 모든 기능 접근 허용
-                return { success: true, hasAccess: true };
-
-            case 'getRemainingUsage':
-                // 임시 사용량 정보 반환
-                return { 
-                    success: true, 
-                    usage: {
-                        whisperMinutes: 60,
-                        translationChars: 5000
-                    }
-                };
-
-            case 'processAudio':
-                await processAudioData(message.data, sender);
-                return { success: true };
-
-            default:
-                throw new Error(`알 수 없는 액션: ${message.action}`);
-        }
-    } catch (error) {
-        console.error('메시지 처리 오류:', error);
-        return { success: false, error: error.message };
-    }
-}
 
 // 탭 제거 시 상태 정리
 chrome.tabs.onRemoved.addListener((tabId) => {
@@ -444,4 +410,17 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (changeInfo.status === 'loading') {
         stopTabCapture();
     }
-}); 
+});
+
+// Service Worker 등록
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js', {
+            scope: '/'
+        }).then(registration => {
+            console.log('Service Worker 등록 성공:', registration.scope);
+        }).catch(error => {
+            console.error('Service Worker 등록 실패:', error);
+        });
+    });
+} 
