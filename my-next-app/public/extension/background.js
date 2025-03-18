@@ -9,17 +9,20 @@ let isInitialized = false;
 
 // 상태 관리
 const state = {
-    isInitialized: false,
+    audioStream: null,
+    audioContext: null,
+    mediaStreamSource: null,
     activeTabId: null,
-    services: new Map(),
-    tabs: new Map(),  // 탭 상태를 저장할 Map 추가
     settings: {
         translationEnabled: true,
         sourceLanguage: 'auto',
         targetLanguage: 'ko',
         subtitleSettings: {},
         syncValue: 0
-    }
+    },
+    services: new Map(),
+    tabs: new Map(),  // 탭 상태를 저장할 Map 추가
+    isInitialized: false
 };
 
 // 탭 활성화 감지
@@ -105,7 +108,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 async function startTabCapture(tabId) {
     try {
         // 기존 캡처 중지
-        if (audioStream) {
+        if (state.audioStream) {
             stopTabCapture();
         }
 
@@ -119,18 +122,18 @@ async function startTabCapture(tabId) {
             throw new Error('오디오 스트림을 캡처할 수 없습니다.');
         }
 
-        audioStream = stream;
+        state.audioStream = stream;
 
         // AudioContext 생성
-        if (!audioContext) {
-            audioContext = new AudioContext();
+        if (!state.audioContext) {
+            state.audioContext = new AudioContext();
         }
 
         // 미디어 스트림 소스 생성
-        mediaStreamSource = audioContext.createMediaStreamSource(stream);
+        state.mediaStreamSource = state.audioContext.createMediaStreamSource(stream);
 
         // 스크립트 프로세서 노드 생성
-        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        const processor = state.audioContext.createScriptProcessor(4096, 1, 1);
         
         // 오디오 처리
         processor.onaudioprocess = (e) => {
@@ -139,18 +142,23 @@ async function startTabCapture(tabId) {
             chrome.tabs.sendMessage(tabId, {
                 action: 'audioData',
                 data: Array.from(inputData)
+            }).catch(error => {
+                console.error('오디오 데이터 전송 오류:', error);
             });
         };
 
         // 노드 연결
-        mediaStreamSource.connect(processor);
-        processor.connect(audioContext.destination);
+        state.mediaStreamSource.connect(processor);
+        processor.connect(state.audioContext.destination);
 
         // content script에 스트림 준비 완료 알림
         chrome.tabs.sendMessage(tabId, {
             action: 'audioStreamReady'
+        }).catch(error => {
+            console.error('스트림 준비 알림 오류:', error);
         });
 
+        return { success: true };
     } catch (error) {
         console.error('탭 캡처 오류:', error);
         throw error;
@@ -159,15 +167,22 @@ async function startTabCapture(tabId) {
 
 // 탭 오디오 캡처 중지
 function stopTabCapture() {
-    if (audioStream) {
-        audioStream.getTracks().forEach(track => track.stop());
-        audioStream = null;
+    try {
+        if (state.audioStream) {
+            state.audioStream.getTracks().forEach(track => track.stop());
+            state.audioStream = null;
+        }
+        if (state.mediaStreamSource) {
+            state.mediaStreamSource.disconnect();
+            state.mediaStreamSource = null;
+        }
+        if (state.audioContext) {
+            state.audioContext.close();
+            state.audioContext = null;
+        }
+    } catch (error) {
+        console.error('탭 캡처 중지 오류:', error);
     }
-    if (audioContext) {
-        audioContext.close();
-        audioContext = null;
-    }
-    mediaStreamSource = null;
 }
 
 // 설정 로드

@@ -1,0 +1,72 @@
+#whatsub-container {
+    position: fixed;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: move;
+    user-select: none;
+    min-width: 200px;
+    text-align: center;
+}
+
+.subtitle-text {
+    color: #ffffff;
+    font-size: 20px;
+    line-height: 1.5;
+    margin: 5px 0;
+}
+
+.original-subtitle {
+    font-weight: bold;
+}
+
+.translated-subtitle {
+    font-size: 18px;
+    opacity: 0.9;
+}
+
+.draggable {
+    cursor: move;
+}
+
+.draggable:active {
+    cursor: grabbing;
+}
+
+/* 상태 표시 스타일 */
+.status-indicator {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    transition: opacity 0.3s ease;
+}
+
+.status-success {
+    background-color: rgba(76, 175, 80, 0.9);
+    color: white;
+}
+
+.status-error {
+    background-color: rgba(244, 67, 54, 0.9);
+    color: white;
+}
+
+.status-info {
+    background-color: rgba(33, 150, 243, 0.9);
+    color: white;
+}
+
+.status-warning {
+    background-color: rgba(255, 152, 0, 0.9);
+    color: white;
+} 

@@ -220,13 +220,16 @@
     // 자막 싱크 조절
     async function adjustSync(value) {
         try {
+            if (!services.audioService) {
+                throw new Error('오디오 서비스가 초기화되지 않았습니다.');
+            }
             state.syncValue = value;
             services.audioService.adjustSync(value);
             await chrome.storage.local.set({ syncValue: value });
-            services.statusIndicator.updateStatus(`자막 싱크가 ${value > 0 ? '+' : ''}${value}초로 조정되었습니다.`, 'info');
+            services.statusIndicator?.updateStatus(`자막 싱크가 ${value > 0 ? '+' : ''}${value}초로 조정되었습니다.`, 'info');
         } catch (error) {
             console.error('싱크 조절 오류:', error);
-            services.statusIndicator.updateStatus('싱크 조절 중 오류가 발생했습니다.', 'error');
+            services.statusIndicator?.updateStatus('싱크 조절 중 오류가 발생했습니다.', 'error');
         }
     }
 
@@ -353,21 +356,36 @@
         try {
             // 디버그 로거 초기화
             services.debugLogger = {
-                log: (message) => console.log(`[WhatSub] ${message}`),
-                error: (message) => console.error(`[WhatSub] ${message}`),
-                warn: (message) => console.warn(`[WhatSub] ${message}`)
+                log: (message) => console.log('[WhatsUp]', message),
+                error: (message) => console.error('[WhatsUp]', message),
+                warn: (message) => console.warn('[WhatsUp]', message),
+                info: (message) => console.info('[WhatsUp]', message)
             };
 
-            // 상태 표시 서비스 초기화
+            // 상태 표시기 초기화
             services.statusIndicator = {
-                updateStatus: (message, type = 'info') => {
-                    services.debugLogger.log(`Status: ${message} (${type})`);
-                    chrome.runtime.sendMessage({ 
-                        action: 'updateStatus', 
-                        status: { message, type } 
-                    }).catch(error => {
-                        console.error('상태 업데이트 실패:', error);
-                    });
+                element: null,
+                timeout: null,
+                createStatusElement() {
+                    if (!this.element) {
+                        this.element = document.createElement('div');
+                        this.element.className = 'status-indicator';
+                        document.body.appendChild(this.element);
+                    }
+                },
+                updateStatus(message, type = 'info') {
+                    this.createStatusElement();
+                    this.element.textContent = message;
+                    this.element.className = `status-indicator status-${type}`;
+                    this.element.style.opacity = '1';
+
+                    if (this.timeout) {
+                        clearTimeout(this.timeout);
+                    }
+
+                    this.timeout = setTimeout(() => {
+                        this.element.style.opacity = '0';
+                    }, 3000);
                 }
             };
 
@@ -375,63 +393,41 @@
             services.subtitleDisplay = new SubtitleDisplay();
             await services.subtitleDisplay.initialize();
 
-            // 오디오 캡처 서비스 초기화
-            services.audioCapture = {
-                initialize: async () => {
-                    try {
-                        await chrome.runtime.sendMessage({ action: 'startAudioCapture' });
-                        return true;
-                    } catch (error) {
-                        services.debugLogger.error('오디오 캡처 초기화 실패: ' + error.message);
-                        return false;
-                    }
+            // 오디오 서비스 초기화
+            services.audioService = {
+                syncValue: 0,
+                translationEnabled: true,
+                sourceLanguage: 'en',
+                targetLanguage: 'ko',
+                adjustSync(value) {
+                    this.syncValue = value;
                 },
-                setAudioDataCallback: (callback) => {
-                    state.audioDataCallback = callback;
-                },
-                destroy: () => {
-                    chrome.runtime.sendMessage({ action: 'stopAudioCapture' }).catch(console.error);
+                setTranslationOptions(enabled, source, target) {
+                    this.translationEnabled = enabled;
+                    this.sourceLanguage = source;
+                    this.targetLanguage = target;
                 }
             };
 
             // 인증 서비스 초기화
             services.authService = {
-                isInitialized: true,
-                canUseWhisperAI: async () => {
-                    try {
-                        const response = await chrome.runtime.sendMessage({ 
-                            action: 'checkFeatureAccess',
-                            feature: 'whisperAI'
+                async checkAuth() {
+                    return new Promise((resolve) => {
+                        chrome.runtime.sendMessage({ action: 'checkAuth' }, (response) => {
+                            resolve(response);
                         });
-                        return response.hasAccess;
-                    } catch (error) {
-                        services.debugLogger.error('WhisperAI 접근 권한 확인 실패');
-                        return false;
-                    }
+                    });
                 }
             };
 
-            // 초기화 완료 상태 설정
+            // 모든 서비스가 초기화되었음을 알림
             state.isInitialized = true;
-            services.statusIndicator.updateStatus('모든 서비스가 초기화되었습니다.', 'success');
+            services.statusIndicator.updateStatus('서비스가 초기화되었습니다.', 'success');
             
-            // background script에 초기화 완료 알림
-            await chrome.runtime.sendMessage({ 
-                action: 'initialized',
-                success: true
-            });
-
             return true;
         } catch (error) {
-            services.debugLogger?.error('서비스 초기화 실패: ' + error.message);
-            
-            // background script에 초기화 실패 알림
-            await chrome.runtime.sendMessage({ 
-                action: 'initialized',
-                success: false,
-                error: error.message
-            });
-            
+            console.error('서비스 초기화 오류:', error);
+            services.statusIndicator?.updateStatus('서비스 초기화 중 오류가 발생했습니다.', 'error');
             return false;
         }
     }
@@ -594,30 +590,39 @@
     // 초기화 시작
     async function restoreSettings() {
         try {
-            services.statusIndicator.updateStatus('설정을 복원하는 중...', 'info');
-            
             const data = await chrome.storage.local.get([
-                'subtitleEnabled',
                 'subtitleSettings',
                 'syncValue',
-                'lastUsed'
+                'lastUsed',
+                'subtitleEnabled',
+                'translationEnabled',
+                'sourceLanguage',
+                'targetLanguage'
             ]);
 
-            // 싱크 값 복원
-            if (data.syncValue !== undefined) {
-                state.syncValue = data.syncValue;
-                services.audioService.adjustSync(state.syncValue);
-            }
-
-            // 자막 스타일 복원
+            // 자막 설정 복원
             if (data.subtitleSettings) {
-                await updateSubtitleStyle(data.subtitleSettings);
+                services.subtitleDisplay?.applySettings(data.subtitleSettings);
             }
 
-            // 자막 활성화 상태 복원 (마지막 사용 시간이 24시간 이내인 경우에만)
+            // 싱크 값 복원
+            if (typeof data.syncValue === 'number' && services.audioService) {
+                services.audioService.adjustSync(data.syncValue);
+            }
+
+            // 번역 설정 복원
+            if (services.audioService) {
+                services.audioService.setTranslationOptions(
+                    data.translationEnabled !== false,
+                    data.sourceLanguage || 'en',
+                    data.targetLanguage || 'ko'
+                );
+            }
+
+            // 자막 상태 복원
             if (data.subtitleEnabled && data.lastUsed) {
-                const lastUsed = new Date(data.lastUsed);
                 const now = new Date();
+                const lastUsed = new Date(data.lastUsed);
                 const hoursDiff = (now - lastUsed) / (1000 * 60 * 60);
                 
                 if (hoursDiff <= 24) {
@@ -625,10 +630,10 @@
                 }
             }
 
-            services.statusIndicator.updateStatus('설정이 복원되었습니다.', 'success');
+            services.statusIndicator?.updateStatus('설정이 복원되었습니다.', 'success');
         } catch (error) {
             console.error('설정 복원 오류:', error);
-            services.statusIndicator.updateStatus('설정을 복원하는 중 오류가 발생했습니다.', 'error');
+            services.statusIndicator?.updateStatus('설정을 복원하는 중 오류가 발생했습니다.', 'error');
         }
     }
 
