@@ -3,387 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatSub - 실시간 자막 서비스</title>
+    <title>WhatsUb - 자막 확장 프로그램</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="popup.css">
-    <style>
-        :root {
-            --primary-color: #4CAF50;
-            --error-color: #f44336;
-            --text-color: #333;
-            --bg-color: #fff;
-            --border-color: #ddd;
-        }
-
-        body {
-            width: 320px;
-            margin: 0;
-            padding: 16px;
-            font-family: 'Noto Sans KR', sans-serif;
-            color: var(--text-color);
-            background: var(--bg-color);
-        }
-
-        .header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 16px;
-            padding-bottom: 16px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .logo {
-            width: 32px;
-            height: 32px;
-            margin-right: 12px;
-        }
-
-        .title {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 500;
-        }
-
-        .status {
-            margin-top: 4px;
-            font-size: 14px;
-            color: #666;
-        }
-
-        .controls {
-            margin-bottom: 16px;
-        }
-
-        .toggle-button {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            background: var(--primary-color);
-            color: white;
-            font-size: 16px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .toggle-button:hover {
-            background: #43A047;
-        }
-
-        .toggle-button.disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-
-        .settings {
-            margin-bottom: 16px;
-        }
-
-        .settings-title {
-            margin: 0 0 8px;
-            font-size: 16px;
-            font-weight: 500;
-        }
-
-        .setting-group {
-            margin-bottom: 12px;
-        }
-
-        .setting-label {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 14px;
-        }
-
-        .setting-input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: 14px;
-        }
-
-        .setting-input[type="range"] {
-            padding: 0;
-        }
-
-        .setting-input[type="color"] {
-            padding: 2px;
-            height: 32px;
-        }
-
-        .footer {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid var(--border-color);
-            font-size: 12px;
-            color: #666;
-            text-align: center;
-        }
-
-        .error {
-            margin: 8px 0;
-            padding: 8px;
-            border-radius: 4px;
-            background: #ffebee;
-            color: var(--error-color);
-            font-size: 14px;
-        }
-
-        .usage {
-            margin-top: 8px;
-            padding: 8px;
-            border-radius: 4px;
-            background: #e8f5e9;
-            font-size: 14px;
-        }
-
-        .usage-bar {
-            width: 100%;
-            height: 4px;
-            margin-top: 4px;
-            background: #ddd;
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .usage-progress {
-            height: 100%;
-            background: var(--primary-color);
-            transition: width 0.3s ease;
-        }
-
-        .translation-settings {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .language-select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-
-        .translation-toggle {
-            display: flex;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
-            margin-left: 8px;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 24px;
-        }
-
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .toggle-slider {
-            background-color: var(--primary-color);
-        }
-
-        input:checked + .toggle-slider:before {
-            transform: translateX(26px);
-        }
-
-        .language-pair {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .language-pair select {
-            flex: 1;
-        }
-
-        .arrow-icon {
-            display: flex;
-            align-items: center;
-            color: #666;
-            font-size: 18px;
-        }
-    </style>
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <img src="../assets/icon48.png" alt="WhatSub 로고" class="logo">
-            <h1>WhatSub</h1>
-        </header>
+    <div class="header">
+        <div class="logo">
+            <img src="../assets/icon48.png" alt="WhatsUb 로고">
+            <h1>WhatsUb</h1>
+        </div>
+    </div>
 
+    <div class="content">
         <!-- 인증 섹션 -->
-        <section id="auth-section" class="section">
+        <div id="auth-section" class="auth-section">
+            <!-- 로그인 전 화면 -->
             <div id="auth-status" class="auth-status">
-                <div class="guest-message">
-                    <p>로그인하고 더 많은 기능을 사용해보세요!</p>
-                    <ul class="feature-list">
-                        <li>무제한 자막 생성</li>
-                        <li>자막 저장 및 공유</li>
-                        <li>고급 번역 기능</li>
-                    </ul>
-                </div>
-                <div class="auth-buttons">
-                    <button id="login-button" class="auth-button">로그인</button>
-                    <button id="signup-button" class="auth-button secondary">회원가입</button>
-                </div>
+                <p>로그인하여 자막 서비스를 이용하세요</p>
+                <button id="login-button" class="login-button">
+                    <img src="../assets/google-logo.svg" alt="Google">
+                    Google로 로그인
+                </button>
             </div>
-            <div id="user-info" class="user-info" style="display: none;">
-                <p class="welcome-message">환영합니다, <span id="user-name"></span>님!</p>
-                <button id="logout-button" class="auth-button">로그아웃</button>
-            </div>
-        </section>
-
-        <!-- 상태 표시 섹션 -->
-        <section id="status-section">
-            <div id="status" class="status-message"></div>
-        </section>
-
-        <!-- 자막 제어 섹션 -->
-        <section id="controls-section" class="section">
-            <button id="toggle-button" class="toggle-button">자막 시작</button>
             
-            <!-- Whisper AI 자막 생성 -->
-            <div class="whisper-section">
-                <div class="section-header">
-                    <h3>Whisper AI 자막 생성</h3>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="whisper-toggle">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <div class="usage-info">
-                    <span>사용량: </span>
-                    <span id="whisper-usage">0/60</span>
-                    <span> 분</span>
-                </div>
-            </div>
-
-            <!-- 자막 파일 관리 -->
-            <div class="subtitle-files">
-                <h3>자막 파일 관리</h3>
-                <div class="file-controls">
-                    <button id="upload-button" class="control-button">업로드</button>
-                    <button id="download-button" class="control-button">다운로드</button>
-                    <button id="save-button" class="control-button">저장</button>
-                    <button id="share-button" class="control-button">공유</button>
-                </div>
-            </div>
-
-            <!-- 번역 설정 -->
-            <div class="translation-settings">
-                <h3>번역 설정</h3>
-                <div class="translation-toggle">
-                    <span>듀얼 자막</span>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="translation-toggle">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <div class="language-pair">
-                    <select id="source-language" class="language-select">
-                        <option value="ko">한국어</option>
-                        <option value="en">영어</option>
-                        <option value="ja">일본어</option>
-                        <option value="zh">중국어</option>
-                    </select>
-                    <div class="arrow-icon">→</div>
-                    <select id="target-language" class="language-select">
-                        <option value="en">영어</option>
-                        <option value="ko">한국어</option>
-                        <option value="ja">일본어</option>
-                        <option value="zh">중국어</option>
-                    </select>
-                </div>
-                <div class="usage-info">
-                    <span>번역 사용량: </span>
-                    <span id="translation-usage">0/5,000</span>
-                    <span> 자</span>
-                    <div class="usage-bar">
-                        <div id="translation-progress" class="usage-progress" style="width: 0%"></div>
+            <!-- 로그인 후 화면 -->
+            <div id="user-info" class="user-info" style="display: none;">
+                <img id="user-avatar" class="user-avatar" src="../assets/default-avatar.svg" alt="사용자 프로필">
+                <div class="user-details">
+                    <h3 id="user-name" class="user-name">사용자 이름</h3>
+                    <div class="user-plan">
+                        <span>구독:</span>
+                        <span id="current-plan" class="plan-badge">무료</span>
                     </div>
                 </div>
+                <button id="logout-button" class="logout-button">로그아웃</button>
             </div>
-
-            <!-- 자막 설정 -->
-            <div class="subtitle-settings">
-                <h3>자막 설정</h3>
-                <div class="setting-group">
-                    <label for="sync-adjust" class="setting-label">자막 싱크 조절</label>
-                    <input type="range" id="sync-adjust" class="setting-input" 
-                           min="-5" max="5" step="0.1" value="0">
-                    <span id="sync-value">0초</span>
+        </div>
+        
+        <!-- 구독 정보 섹션 -->
+        <div id="subscription-info" class="subscription-info" style="display: none;">
+            <h3>사용량</h3>
+            
+            <!-- Whisper AI 사용량 -->
+            <div class="usage-item">
+                <div class="usage-label">
+                    <strong>Whisper AI</strong>
+                    <span id="whisper-usage" class="usage-value">0/60분</span>
                 </div>
-                <div class="setting-group">
-                    <label for="font-size" class="setting-label">글자 크기</label>
-                    <input type="range" id="font-size" class="setting-input"
-                           min="12" max="48" step="2" value="20">
-                    <span id="font-size-value">20px</span>
-                </div>
-                <div class="setting-group">
-                    <label for="opacity" class="setting-label">투명도</label>
-                    <input type="range" id="opacity" class="setting-input"
-                           min="0" max="1" step="0.1" value="0.8">
-                    <span id="opacity-value">0.8</span>
-                </div>
-                <div class="setting-group">
-                    <label for="text-color" class="setting-label">글자 색상</label>
-                    <input type="color" id="text-color" class="setting-input" value="#FFFFFF">
-                </div>
-                <div class="setting-group">
-                    <label for="bg-color" class="setting-label">배경 색상</label>
-                    <input type="color" id="bg-color" class="setting-input" value="#000000">
+                <div class="progress-bar">
+                    <div id="whisper-progress" class="progress" style="width: 0%;"></div>
                 </div>
             </div>
-        </section>
-
-        <!-- 구독 정보 -->
-        <section id="subscription-section" class="section">
-            <div class="subscription-info">
-                <h3>구독 정보</h3>
-                <p id="plan-info">현재 플랜: <span id="current-plan">Free</span></p>
-                <button id="upgrade-button" class="upgrade-button">Pro 플랜으로 업그레이드</button>
+            
+            <!-- 번역 사용량 -->
+            <div class="usage-item">
+                <div class="usage-label">
+                    <strong>번역</strong>
+                    <span id="translation-usage" class="usage-value">0/5000자</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="translation-progress" class="progress" style="width: 0%;"></div>
+                </div>
             </div>
-        </section>
-
-        <footer class="footer">
-            <p>WhatSub v1.0.0 - 실시간 자막 및 번역 서비스</p>
-        </footer>
+            
+            <button id="upgrade-button" class="upgrade-button">프리미엄으로 업그레이드</button>
+        </div>
+        
+        <!-- 자막 제어 -->
+        <div class="controls">
+            <h3>자막 제어</h3>
+            <button id="toggleButton" class="toggle-button">자막 시작</button>
+        </div>
+        
+        <!-- 상태 메시지 -->
+        <div id="status" class="status-message info">준비 완료</div>
     </div>
-    <script src="popup.js"></script>
+    
+    <div class="footer">
+        <p>© 2023 WhatsUb | <a href="https://whatsub.io" target="_blank">웹사이트</a> | <a href="https://whatsub.io/privacy" target="_blank">개인정보 처리방침</a></p>
+    </div>
+
+    <script type="module" src="popup.js"></script>
 </body>
-</html> 
 </html> 

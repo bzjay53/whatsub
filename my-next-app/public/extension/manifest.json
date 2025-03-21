@@ -1,36 +1,51 @@
 {
   "manifest_version": 3,
-  "name": "WhatsUp",
+  "name": "Whatsub - 유튜브 자막 AI 번역",
   "version": "1.0.0",
-  "description": "실시간 자막 및 번역 서비스",
+  "description": "유튜브 영상의 자막을 OpenAI Whisper로 추출하고 번역해주는 서비스",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  },
   "permissions": [
-    "storage",
-    "tabs",
     "activeTab",
-    "tabCapture",
-    "scripting"
+    "storage",
+    "identity",
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
-    "*://*.youtube.com/*"
+    "https://www.youtube.com/*"
   ],
-  "background": {
-    "service_worker": "background.js"
-  },
   "content_scripts": [
     {
-      "matches": ["*://*.youtube.com/*"],
+      "matches": ["https://www.youtube.com/*"],
       "js": ["content.js"],
-      "css": ["styles.css"]
+      "css": ["styles/content.css"]
     }
   ],
-  "action": {
-    "default_popup": "popup/popup.html"
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*", "lib/*", "styles/*"],
+      "matches": ["https://www.youtube.com/*"]
+    }
+  ],
+  "oauth2": {
+    "client_id": "1063753446688-6gkerrm8uojk9qs17ndtqhgjt98reic4.apps.googleusercontent.com",
+    "scopes": ["profile", "email"]
   },
-  "web_accessible_resources": [{
-    "resources": [
-      "popup/*",
-      "styles.css"
-    ],
-    "matches": ["*://*.youtube.com/*"]
-  }]
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzQHVDJc9D6eBmAfxhI0RwRKnI6rjnWm5QOK9jZBQyZmm+aFrr3GXgFdBn7BFE/7lz+CQ5q4EI2ldHkz5xBULDSDSGDaKYbP6/J5TAHtuhAXQA9XdYiCbFPPVE+K1lvj9X2e4NpGq1RPUl3m2IpOi0wUt0yipuRQ8QRjmBcYFqN6Bf9WJemZI4ZaLRVJcI0QuhU8gor4lwEijwlQXiKAW1BeDwiyVpGEMbclFsGHKpx3w0qNGGMp5KCkAp9pYpN1aUz6D9de0GZ3BN9NUd6HhzCbYxeKjOy6HtYnnzZPW4X/kLO/o+xL3WbVZ+rHLQRCBKYVXLOkV+vMW4aTZn/WIDQIDAQAB"
 } 

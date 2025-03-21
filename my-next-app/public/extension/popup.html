@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whatsub - 유튜브 자막 AI 번역</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="assets/logo.png" alt="WhatsUb 로고" class="logo">
+      <h1>Whatsub</h1>
+    </div>
+    
+    <!-- 상태 메시지 컨테이너 -->
+    <div id="statusContainer" class="status-container"></div>
+    
+    <!-- 로그인 상태에 따라 표시할 섹션 -->
+    <div id="loginPrompt" class="login-section">
+      <p>YouTube 자막 AI 번역을 사용하려면 로그인하세요</p>
+      <button id="loginButton" class="button primary">
+        <img src="assets/google-icon.svg" alt="Google" class="google-icon">
+        Google로 로그인
+      </button>
+    </div>
+    
+    <!-- 로그인 후 표시할 사용자 정보 섹션 -->
+    <div id="userSection" class="user-section" style="display: none;"></div>
+    
+    <!-- 구독 정보 섹션 -->
+    <div id="subscriptionSection" class="subscription-section">
+      <div id="subscriptionInfo"></div>
+      <div id="usageInfo"></div>
+    </div>
+    
+    <!-- 기능 버튼 섹션 -->
+    <div class="actions-section">
+      <button id="startButton" class="button primary action-button">
+        <img src="assets/play-icon.svg" alt="시작" class="action-icon">
+        자막 추출 시작
+      </button>
+      
+      <button id="upgradeButton" class="button secondary action-button">
+        <img src="assets/premium-icon.svg" alt="프리미엄" class="action-icon">
+        프리미엄 이용하기
+      </button>
+    </div>
+    
+    <!-- 로그아웃 버튼 -->
+    <button id="logoutButton" class="button text logout-button" style="display: none;">
+      로그아웃
+    </button>
+    
+    <!-- 푸터 섹션 -->
+    <div class="footer">
+      <a href="#" id="helpButton" class="footer-link">도움말</a>
+      <a href="#" id="privacyButton" class="footer-link">개인정보 처리방침</a>
+      <a href="#" id="termsButton" class="footer-link">이용약관</a>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html> 

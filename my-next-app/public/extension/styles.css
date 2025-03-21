@@ -69,4 +69,9 @@
 .status-warning {
     background-color: rgba(255, 152, 0, 0.9);
     color: white;
+}
+
+/* 기본 스타일 */
+.whatsup-extension {
+  font-family: Arial, sans-serif;
 } 

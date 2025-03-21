@@ -65,7 +65,7 @@ export default function Register() {
     <>
       <Head>
         <title>회원가입 - Whatsub</title>
-        <meta name="description" content="Whatsub 회원가입 페이지" />
+        <meta name="description" content="Whatsub에 가입하여 AI 자막 서비스를 이용해보세요." />
       </Head>
 
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

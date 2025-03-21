@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whatsub - 인증 테스트</title>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1a73e8;
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #1765cc;
+        }
+        .button-group {
+            margin: 15px 0;
+        }
+        .result-box {
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            min-height: 100px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            overflow-x: auto;
+        }
+        .user-info {
+            background-color: #e8f5e9;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            display: none;
+        }
+        .user-info.active {
+            display: block;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Whatsub - 인증 테스트</h1>
+        
+        <div class="user-info" id="userInfoBox">
+            <h2>로그인된 사용자 정보</h2>
+            <div id="userInfo"></div>
+            <div class="button-group">
+                <button id="logoutBtn">로그아웃</button>
+                <button id="checkSubscription">구독 상태 확인</button>
+            </div>
+        </div>
+        
+        <div class="button-group">
+            <button id="loginGoogleBtn">Google로 로그인</button>
+            <button id="getCurrentUserBtn">현재 사용자 확인</button>
+        </div>
+        
+        <div class="usage-test">
+            <h2>사용량 테스트</h2>
+            <div class="form-group">
+                <label for="usageType">사용량 유형</label>
+                <select id="usageType">
+                    <option value="whisper">Whisper AI (분)</option>
+                    <option value="translation">번역 (문자)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="usageAmount">사용량</label>
+                <input type="number" id="usageAmount" min="1" value="1">
+            </div>
+            <button id="updateUsageBtn">사용량 업데이트</button>
+        </div>
+        
+        <h2>결과</h2>
+        <div class="result-box" id="resultBox"></div>
+    </div>
+    
+    <script type="module">
+        import { signInWithGoogle, signOut, getCurrentUser, checkSubscription } from '../lib/firebase-sdk.js';
+        
+        // DOM 요소
+        const userInfoBox = document.getElementById('userInfoBox');
+        const userInfo = document.getElementById('userInfo');
+        const resultBox = document.getElementById('resultBox');
+        const loginGoogleBtn = document.getElementById('loginGoogleBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const getCurrentUserBtn = document.getElementById('getCurrentUserBtn');
+        const checkSubscriptionBtn = document.getElementById('checkSubscription');
+        const usageType = document.getElementById('usageType');
+        const usageAmount = document.getElementById('usageAmount');
+        const updateUsageBtn = document.getElementById('updateUsageBtn');
+        
+        // 결과 표시 함수
+        function showResult(title, data) {
+            const result = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+            resultBox.innerHTML += `<strong>${title}</strong>\n${result}\n\n`;
+            resultBox.scrollTop = resultBox.scrollHeight;
+        }
+        
+        // 사용자 정보 표시
+        function displayUserInfo(user) {
+            if (user) {
+                userInfo.innerHTML = `
+                    <p><strong>이름:</strong> ${user.name || '이름 없음'}</p>
+                    <p><strong>이메일:</strong> ${user.email || '이메일 없음'}</p>
+                    <p><strong>사진:</strong> ${user.photoURL ? `<img src="${user.photoURL}" width="50">` : '없음'}</p>
+                `;
+                userInfoBox.classList.add('active');
+            } else {
+                userInfoBox.classList.remove('active');
+            }
+        }
+        
+        // 이벤트 리스너
+        loginGoogleBtn.addEventListener('click', async () => {
+            try {
+                resultBox.innerHTML = '로그인 중...\n';
+                const user = await signInWithGoogle();
+                showResult('로그인 성공:', user);
+                displayUserInfo(user);
+            } catch (error) {
+                showResult('로그인 오류:', error.message);
+            }
+        });
+        
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                resultBox.innerHTML = '로그아웃 중...\n';
+                await signOut();
+                showResult('로그아웃 성공', '사용자가 로그아웃되었습니다.');
+                userInfoBox.classList.remove('active');
+            } catch (error) {
+                showResult('로그아웃 오류:', error.message);
+            }
+        });
+        
+        getCurrentUserBtn.addEventListener('click', () => {
+            const user = getCurrentUser();
+            if (user) {
+                showResult('현재 사용자:', user);
+                displayUserInfo(user);
+            } else {
+                showResult('현재 사용자:', '로그인된 사용자가 없습니다.');
+            }
+        });
+        
+        checkSubscriptionBtn.addEventListener('click', async () => {
+            try {
+                const user = getCurrentUser();
+                if (!user) {
+                    showResult('구독 확인 오류:', '로그인된 사용자가 없습니다.');
+                    return;
+                }
+                
+                resultBox.innerHTML = '구독 상태 확인 중...\n';
+                const subscription = await checkSubscription(user.email);
+                showResult('구독 상태:', subscription);
+            } catch (error) {
+                showResult('구독 확인 오류:', error.message);
+            }
+        });
+        
+        updateUsageBtn.addEventListener('click', async () => {
+            try {
+                const user = getCurrentUser();
+                if (!user) {
+                    showResult('사용량 업데이트 오류:', '로그인된 사용자가 없습니다.');
+                    return;
+                }
+                
+                const type = usageType.value;
+                const amount = parseInt(usageAmount.value);
+                
+                resultBox.innerHTML = '사용량 업데이트 중...\n';
+                const response = await chrome.runtime.sendMessage({
+                    action: 'updateUsage',
+                    type,
+                    amount
+                });
+                
+                showResult('사용량 업데이트 결과:', response);
+            } catch (error) {
+                showResult('사용량 업데이트 오류:', error.message);
+            }
+        });
+        
+        // 페이지 로드 시 현재 사용자 확인
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = getCurrentUser();
+            if (user) {
+                displayUserInfo(user);
+                showResult('현재 로그인된 사용자:', user);
+            }
+        });
+    </script>
+</body>
+</html> 

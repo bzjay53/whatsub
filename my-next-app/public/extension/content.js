@@ -655,4 +655,7 @@
     } else {
         initialize();
     }
-})(); 
+})();
+
+// 기본 content script
+console.log('Content script loaded'); 

@@ -1,3 +1,6 @@
+// 백그라운드 스크립트를 통해 Airtable API 사용
+// import { signInWithGoogle, signOut, getCurrentUser, checkSubscription } from '../lib/firebase-sdk.js';
+
 // DOM 요소
 const elements = {
     // 인증 관련
@@ -5,105 +8,86 @@ const elements = {
     authStatus: document.getElementById('auth-status'),
     userInfo: document.getElementById('user-info'),
     userName: document.getElementById('user-name'),
+    userAvatar: document.getElementById('user-avatar'),
     loginButton: document.getElementById('login-button'),
-    signupButton: document.getElementById('signup-button'),
     logoutButton: document.getElementById('logout-button'),
+    currentPlan: document.getElementById('current-plan'),
 
     // 상태 표시
     status: document.getElementById('status'),
 
     // 자막 제어
-    toggleButton: document.getElementById('toggle-button'),
-    
-    // Whisper AI
-    whisperToggle: document.getElementById('whisper-toggle'),
-    whisperUsage: document.getElementById('whisper-usage'),
-    
-    // 자막 파일 관리
-    uploadButton: document.getElementById('upload-button'),
-    downloadButton: document.getElementById('download-button'),
-    saveButton: document.getElementById('save-button'),
-    shareButton: document.getElementById('share-button'),
-    
-    // 번역 설정
-    translationToggle: document.getElementById('translation-toggle'),
-    sourceLanguage: document.getElementById('source-language'),
-    targetLanguage: document.getElementById('target-language'),
-    translationUsage: document.getElementById('translation-usage'),
-    translationProgress: document.getElementById('translation-progress'),
-    
-    // 자막 설정
-    syncAdjust: document.getElementById('sync-adjust'),
-    syncValue: document.getElementById('sync-value'),
-    fontSize: document.getElementById('font-size'),
-    fontSizeValue: document.getElementById('font-size-value'),
-    opacity: document.getElementById('opacity'),
-    opacityValue: document.getElementById('opacity-value'),
-    textColor: document.getElementById('text-color'),
-    bgColor: document.getElementById('bg-color'),
+    toggleButton: document.getElementById('toggleButton'),
     
     // 구독 정보
-    currentPlan: document.getElementById('current-plan'),
+    subscriptionInfo: document.getElementById('subscription-info'),
+    whisperUsage: document.getElementById('whisper-usage'),
+    whisperProgress: document.getElementById('whisper-progress'),
+    translationUsage: document.getElementById('translation-usage'),
+    translationProgress: document.getElementById('translation-progress'),
     upgradeButton: document.getElementById('upgrade-button')
 };
 
 // 상태 관리
 let state = {
-    isInitialized: false,
     isAuthenticated: false,
     user: null,
     subtitleEnabled: false,
-    whisperEnabled: false,
-    translationEnabled: false,
-    settings: {
-        syncValue: 0,
-        fontSize: '20px',
-        opacity: 0.8,
-        textColor: '#FFFFFF',
-        bgColor: '#000000',
-        sourceLanguage: 'ko',
-        targetLanguage: 'en'
-    },
+    plan: 'free',
     usage: {
         whisper: {
             used: 0,
-            limit: 100
+            limit: 60
         },
         translation: {
             used: 0,
-            limit: 100
+            limit: 5000
         }
-    },
-    plan: 'free'
+    }
 };
 
 // 초기화 함수
 async function initialize() {
     try {
-        // 상태 표시 업데이트
+        // 상태 메시지 업데이트
         updateStatus('초기화 중...', 'info');
         
-        // 인증 상태 확인
-        const authResponse = await chrome.runtime.sendMessage({ action: 'checkAuth' });
-        state.isAuthenticated = authResponse.isAuthenticated;
-        state.user = authResponse.user;
-        state.plan = authResponse.plan || 'free';
+        // 백그라운드 스크립트에 초기화 메시지 전송
+        const response = await chrome.runtime.sendMessage({ action: 'initialize' });
+        
+        if (response && response.success) {
+            // 인증 상태 확인
+            const authResponse = await chrome.runtime.sendMessage({ action: 'checkAuth' });
+            
+            if (authResponse && authResponse.isLoggedIn && authResponse.user) {
+                state.isAuthenticated = true;
+                state.user = authResponse.user;
+                
+                // 구독 상태 확인
+                const subscriptionResponse = await chrome.runtime.sendMessage({ 
+                    action: 'checkSubscription',
+                    email: state.user.email
+                });
+                
+                if (subscriptionResponse && subscriptionResponse.success) {
+                    state.plan = subscriptionResponse.subscription || 'free';
+                }
+                
+                // 사용량 정보 가져오기
+                const usageData = await chrome.storage.local.get('usage');
+                if (usageData.usage) {
+                    state.usage = usageData.usage;
+                }
+            }
+        }
         
         // UI 업데이트
         updateAuthUI();
+        updateUsageUI();
         
-        // 설정 로드
-        await loadSettings();
+        // 이벤트 리스너 설정
+        setupEventListeners();
         
-        // 상태 로드
-        const statusResponse = await chrome.runtime.sendMessage({ action: 'getStatus' });
-        state.subtitleEnabled = statusResponse.enabled;
-        updateToggleButton();
-        
-        // 사용량 정보 로드
-        await loadUsageInfo();
-        
-        state.isInitialized = true;
         updateStatus('준비 완료', 'success');
     } catch (error) {
         console.error('초기화 오류:', error);
@@ -115,80 +99,50 @@ async function initialize() {
 function updateAuthUI() {
     if (state.isAuthenticated && state.user) {
         elements.authStatus.style.display = 'none';
-        elements.userInfo.style.display = 'block';
-        elements.userName.textContent = state.user.name;
-        elements.currentPlan.textContent = state.plan;
+        elements.userInfo.style.display = 'flex';
+        elements.userName.textContent = state.user.name || state.user.email;
+        
+        // 프로필 이미지 설정
+        if (state.user.photoURL) {
+            elements.userAvatar.src = state.user.photoURL;
+        } else {
+            elements.userAvatar.src = '../assets/default-avatar.svg';
+        }
+        
+        // 구독 정보 표시
+        elements.currentPlan.textContent = state.plan === 'premium' ? '프리미엄' : '무료';
+        if (state.plan === 'premium') {
+            elements.currentPlan.classList.add('premium');
+        } else {
+            elements.currentPlan.classList.remove('premium');
+        }
+        
+        // 구독 정보 섹션 표시
+        elements.subscriptionInfo.style.display = 'block';
     } else {
-        elements.authStatus.style.display = 'block';
+        elements.authStatus.style.display = 'flex';
         elements.userInfo.style.display = 'none';
+        elements.subscriptionInfo.style.display = 'none';
     }
 }
 
-// 설정 로드
-async function loadSettings() {
-    try {
-        const settings = await chrome.storage.local.get([
-            'syncValue',
-            'fontSize',
-            'opacity',
-            'textColor',
-            'bgColor',
-            'sourceLanguage',
-            'targetLanguage',
-            'whisperEnabled',
-            'translationEnabled'
-        ]);
-        
-        // 설정 적용
-        state.settings = { ...state.settings, ...settings };
-        state.whisperEnabled = settings.whisperEnabled || false;
-        state.translationEnabled = settings.translationEnabled || false;
-        
-        // UI 업데이트
-        updateSettingsUI();
-    } catch (error) {
-        console.error('설정 로드 오류:', error);
-        updateStatus('설정을 불러오는 중 오류가 발생했습니다.', 'error');
-    }
-}
-
-// 설정 UI 업데이트
-function updateSettingsUI() {
-    // 자막 설정
-    elements.syncAdjust.value = state.settings.syncValue;
-    elements.syncValue.textContent = `${state.settings.syncValue}초`;
+// 사용량 UI 업데이트
+function updateUsageUI() {
+    // Whisper 사용량
+    const whisperPercentage = Math.min(100, (state.usage.whisper.used / state.usage.whisper.limit) * 100);
+    elements.whisperProgress.style.width = `${whisperPercentage}%`;
+    elements.whisperUsage.textContent = `${state.usage.whisper.used}/${state.usage.whisper.limit}분`;
     
-    elements.fontSize.value = parseInt(state.settings.fontSize);
-    elements.fontSizeValue.textContent = state.settings.fontSize;
+    // 번역 사용량
+    const translationPercentage = Math.min(100, (state.usage.translation.used / state.usage.translation.limit) * 100);
+    elements.translationProgress.style.width = `${translationPercentage}%`;
+    elements.translationUsage.textContent = `${state.usage.translation.used}/${state.usage.translation.limit}자`;
     
-    elements.opacity.value = state.settings.opacity;
-    elements.opacityValue.textContent = state.settings.opacity;
-    
-    elements.textColor.value = state.settings.textColor;
-    elements.bgColor.value = state.settings.bgColor;
-    
-    // 번역 설정
-    elements.sourceLanguage.value = state.settings.sourceLanguage;
-    elements.targetLanguage.value = state.settings.targetLanguage;
-    elements.translationToggle.checked = state.translationEnabled;
-    
-    // Whisper 설정
-    elements.whisperToggle.checked = state.whisperEnabled;
-}
-
-// 사용량 정보 로드
-async function loadUsageInfo() {
-    try {
-        const usage = await chrome.runtime.sendMessage({ action: 'getUsage' });
-        
-        // Whisper 사용량
-        elements.whisperUsage.textContent = `${usage.whisperMinutes}/60`;
-        
-        // 번역 사용량
-        elements.translationUsage.textContent = `${usage.translationChars}/5,000`;
-        elements.translationProgress.style.width = `${(usage.translationChars / 5000) * 100}%`;
-    } catch (error) {
-        console.error('사용량 정보 로드 오류:', error);
+    // 무료 계정인 경우 업그레이드 버튼 표시
+    if (state.plan === 'free') {
+        elements.upgradeButton.style.display = 'block';
+    } else {
+        elements.upgradeButton.style.display = 'none';
     }
 }
 
@@ -202,179 +156,169 @@ function updateToggleButton() {
 function updateStatus(message, type = 'info') {
     elements.status.textContent = message;
     elements.status.className = `status-message ${type}`;
-}
-
-// 설정 저장
-async function saveSettings(key, value) {
-    try {
-        await chrome.storage.local.set({ [key]: value });
-        state.settings[key] = value;
-        
-        // 컨텐츠 스크립트에 설정 변경 알림
-        await chrome.runtime.sendMessage({
-            action: 'updateSettings',
-            settings: { [key]: value }
-        });
-    } catch (error) {
-        console.error('설정 저장 오류:', error);
-        updateStatus('설정을 저장하는 중 오류가 발생했습니다.', 'error');
+    
+    // 3초 후 메시지 숨김
+    if (type === 'success' || type === 'error') {
+        setTimeout(() => {
+            elements.status.className = 'status-message hidden';
+        }, 3000);
     }
 }
 
 // 이벤트 리스너 설정
 function setupEventListeners() {
-    // 인증 관련
-    elements.loginButton?.addEventListener('click', () => {
-        chrome.runtime.sendMessage({ action: 'openLoginPage' });
-    });
+    // 로그인 버튼
+    elements.loginButton?.addEventListener('click', handleLogin);
     
-    elements.signupButton?.addEventListener('click', () => {
-        chrome.runtime.sendMessage({ action: 'openSignupPage' });
-    });
+    // 로그아웃 버튼
+    elements.logoutButton?.addEventListener('click', handleLogout);
     
-    elements.logoutButton?.addEventListener('click', async () => {
-        try {
-            await chrome.runtime.sendMessage({ action: 'logout' });
-            state.isAuthenticated = false;
-            state.user = null;
-            updateAuthUI();
-            updateStatus('로그아웃되었습니다.', 'info');
-        } catch (error) {
-            updateStatus('로그아웃 중 오류가 발생했습니다.', 'error');
-        }
-    });
-
-    // 자막 토글
-    elements.toggleButton?.addEventListener('click', async () => {
-        try {
-            const response = await chrome.runtime.sendMessage({ action: 'toggleSubtitles' });
-            state.subtitleEnabled = response.state.subtitleEnabled;
-            updateToggleButton();
-        } catch (error) {
-            updateStatus('자막 토글 중 오류가 발생했습니다.', 'error');
-        }
-    });
-
-    // Whisper 토글
-    elements.whisperToggle?.addEventListener('change', async () => {
-        try {
-            state.whisperEnabled = elements.whisperToggle.checked;
-            await saveSettings('whisperEnabled', state.whisperEnabled);
-            updateStatus(
-                state.whisperEnabled ? 'Whisper AI 자막이 활성화되었습니다.' : 'Whisper AI 자막이 비활성화되었습니다.',
-                'info'
-            );
-        } catch (error) {
-            updateStatus('Whisper 설정 변경 중 오류가 발생했습니다.', 'error');
-        }
-    });
-
-    // 번역 토글
-    elements.translationToggle?.addEventListener('change', async () => {
-        try {
-            state.translationEnabled = elements.translationToggle.checked;
-            await saveSettings('translationEnabled', state.translationEnabled);
-            updateStatus(
-                state.translationEnabled ? '듀얼 자막이 활성화되었습니다.' : '듀얼 자막이 비활성화되었습니다.',
-                'info'
-            );
-        } catch (error) {
-            updateStatus('번역 설정 변경 중 오류가 발생했습니다.', 'error');
-        }
-    });
-
-    // 언어 선택
-    elements.sourceLanguage?.addEventListener('change', async () => {
-        await saveSettings('sourceLanguage', elements.sourceLanguage.value);
-    });
-
-    elements.targetLanguage?.addEventListener('change', async () => {
-        await saveSettings('targetLanguage', elements.targetLanguage.value);
-    });
-
-    // 자막 설정
-    elements.syncAdjust?.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        elements.syncValue.textContent = `${value}초`;
-    });
-
-    elements.syncAdjust?.addEventListener('change', async (e) => {
-        const value = parseFloat(e.target.value);
-        await saveSettings('syncValue', value);
-    });
-
-    elements.fontSize?.addEventListener('input', (e) => {
-        const value = `${e.target.value}px`;
-        elements.fontSizeValue.textContent = value;
-    });
-
-    elements.fontSize?.addEventListener('change', async (e) => {
-        const value = `${e.target.value}px`;
-        await saveSettings('fontSize', value);
-    });
-
-    elements.opacity?.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        elements.opacityValue.textContent = value;
-    });
-
-    elements.opacity?.addEventListener('change', async (e) => {
-        const value = parseFloat(e.target.value);
-        await saveSettings('opacity', value);
-    });
-
-    elements.textColor?.addEventListener('change', async (e) => {
-        await saveSettings('textColor', e.target.value);
-    });
-
-    elements.bgColor?.addEventListener('change', async (e) => {
-        await saveSettings('bgColor', e.target.value);
-    });
-
-    // 파일 관리
-    elements.uploadButton?.addEventListener('click', () => {
-        // 파일 업로드 구현
-    });
-
-    elements.downloadButton?.addEventListener('click', () => {
-        // 파일 다운로드 구현
-    });
-
-    elements.saveButton?.addEventListener('click', () => {
-        // 자막 저장 구현
-    });
-
-    elements.shareButton?.addEventListener('click', () => {
-        // 자막 공유 구현
-    });
-
-    // 플랜 업그레이드
+    // 자막 토글 버튼
+    elements.toggleButton?.addEventListener('click', toggleSubtitles);
+    
+    // 업그레이드 버튼
     elements.upgradeButton?.addEventListener('click', () => {
-        chrome.runtime.sendMessage({ action: 'openUpgradePage' });
+        // 프리미엄 구독 페이지 열기 (도메인 접근 문제로 대체 URL 사용)
+        chrome.tabs.create({ url: 'https://whatsub-extension.web.app/premium' });
     });
 }
 
-// 메시지 리스너
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    switch (message.action) {
-        case 'updateStatus':
-            updateStatus(message.status.message, message.status.type);
-            break;
+// 로그인 처리
+async function handleLogin() {
+    try {
+        updateStatus('로그인 중...', 'info');
+        
+        // Chrome Identity API를 사용하여 Google 인증
+        chrome.identity.getAuthToken({ interactive: true }, async (token) => {
+            if (chrome.runtime.lastError) {
+                updateStatus('로그인 실패: ' + chrome.runtime.lastError.message, 'error');
+                return;
+            }
             
-        case 'updateAuth':
-            state.isAuthenticated = message.isAuthenticated;
-            state.user = message.user;
-            updateAuthUI();
-            break;
-            
-        case 'updateUsage':
-            loadUsageInfo();
-            break;
+            // Google 사용자 정보 가져오기
+            try {
+                const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                
+                if (!userInfoResponse.ok) {
+                    throw new Error(`Google API 오류: ${userInfoResponse.status}`);
+                }
+                
+                const googleUser = await userInfoResponse.json();
+                
+                if (!googleUser || !googleUser.email) {
+                    throw new Error('Google에서 사용자 정보를 가져올 수 없습니다.');
+                }
+                
+                // 사용자 데이터 구성
+                const userData = {
+                    uid: googleUser.sub || googleUser.id,
+                    email: googleUser.email,
+                    name: googleUser.name,
+                    photoURL: googleUser.picture,
+                    Email: googleUser.email,  // Airtable API 호환을 위해 추가
+                    Name: googleUser.name     // Airtable API 호환을 위해 추가
+                };
+                
+                // 백그라운드 스크립트에 로그인 사용자 정보 전송
+                const response = await chrome.runtime.sendMessage({
+                    action: 'userLoggedIn',
+                    user: userData
+                });
+                
+                if (response && response.success) {
+                    state.isAuthenticated = true;
+                    state.user = userData;
+                    
+                    // 구독 상태 확인
+                    const subscriptionResponse = await chrome.runtime.sendMessage({ 
+                        action: 'checkSubscription',
+                        email: userData.email
+                    });
+                    
+                    if (subscriptionResponse && subscriptionResponse.success) {
+                        state.plan = subscriptionResponse.subscription || 'free';
+                    }
+                    
+                    // 사용량 정보 가져오기
+                    const usageData = await chrome.storage.local.get('usage');
+                    if (usageData.usage) {
+                        state.usage = usageData.usage;
+                    }
+                    
+                    updateAuthUI();
+                    updateUsageUI();
+                    updateStatus('로그인 성공', 'success');
+                } else {
+                    throw new Error(response.error || '로그인에 실패했습니다.');
+                }
+            } catch (error) {
+                console.error('Google 로그인 오류:', error);
+                updateStatus('로그인 실패: ' + error.message, 'error');
+            }
+        });
+    } catch (error) {
+        console.error('로그인 오류:', error);
+        updateStatus('로그인 실패: ' + error.message, 'error');
     }
-});
+}
 
-// 초기화 시작
-document.addEventListener('DOMContentLoaded', () => {
-    setupEventListeners();
-    initialize();
-}); 
+// 로그아웃 처리
+async function handleLogout() {
+    try {
+        updateStatus('로그아웃 중...', 'info');
+        
+        // Chrome Identity API 토큰 제거
+        chrome.identity.clearAllCachedAuthTokens(() => {
+            if (chrome.runtime.lastError) {
+                console.warn('토큰 제거 오류:', chrome.runtime.lastError.message);
+            }
+        });
+        
+        // 백그라운드 스크립트에 로그아웃 메시지 전송
+        const response = await chrome.runtime.sendMessage({ action: 'userLoggedOut' });
+        
+        if (response && response.success) {
+            state.isAuthenticated = false;
+            state.user = null;
+            state.plan = 'free';
+            state.usage = {
+                whisper: { used: 0, limit: 60 },
+                translation: { used: 0, limit: 5000 }
+            };
+            
+            updateAuthUI();
+            updateStatus('로그아웃 성공', 'success');
+        } else {
+            throw new Error(response.error || '로그아웃에 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('로그아웃 오류:', error);
+        updateStatus('로그아웃 실패: ' + error.message, 'error');
+    }
+}
+
+// 자막 토글
+async function toggleSubtitles() {
+    try {
+        state.subtitleEnabled = !state.subtitleEnabled;
+        updateToggleButton();
+        
+        if (state.subtitleEnabled) {
+            updateStatus('자막을 활성화하는 중...', 'info');
+            // 여기에 자막 활성화 로직 구현
+            updateStatus('자막이 활성화되었습니다.', 'success');
+        } else {
+            updateStatus('자막을 비활성화하는 중...', 'info');
+            // 여기에 자막 비활성화 로직 구현
+            updateStatus('자막이 비활성화되었습니다.', 'success');
+        }
+    } catch (error) {
+        console.error('자막 토글 오류:', error);
+        updateStatus('자막 설정 실패: ' + error.message, 'error');
+    }
+}
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', initialize); 

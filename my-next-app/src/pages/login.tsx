@@ -53,7 +53,7 @@ export default function Login() {
     <>
       <Head>
         <title>로그인 - Whatsub</title>
-        <meta name="description" content="Whatsub 로그인 페이지" />
+        <meta name="description" content="Whatsub에 로그인하여 AI 자막 서비스를 이용해보세요." />
       </Head>
 
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

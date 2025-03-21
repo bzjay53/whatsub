@@ -2,12 +2,15 @@ const CACHE_NAME = 'whatsub-offline-v1';
 const OFFLINE_ASSETS = [
     'popup.html',
     'popup.js',
+    'popup.css',
+    'styles/content.css',
     'content.js',
-    'content.css',
-    'icons/icon48.png',
-    'icons/icon128.png',
-    'services/audioService.js',
-    'services/translationService.js',
+    'background.js',
+    'assets/icon16.png',
+    'assets/icon48.png',
+    'assets/icon128.png',
+    'lib/airtable-api.js',
+    'lib/firebase-sdk.js',
     'components/SubtitleDisplay.js',
     'components/StatusIndicator.js'
 ];
