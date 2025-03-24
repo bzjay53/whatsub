@@ -1,51 +1,85 @@
 {
   "manifest_version": 3,
-  "name": "Whatsub - 유튜브 자막 AI 번역",
+  "name": "Whatsub - 모든 동영상에 자막 서비스",
   "version": "1.0.0",
-  "description": "유튜브 영상의 자막을 OpenAI Whisper로 추출하고 번역해주는 서비스",
-  "background": {
-    "service_worker": "background.js",
-    "type": "module"
+  "description": "다양한 웹사이트의 동영상에 실시간 자막과 번역 서비스를 제공합니다.",
+  "author": "contact@whatsub.io",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
+  "permissions": [
+    "storage",
+    "tabs",
+    "identity",
+    "scripting",
+    "tabCapture",
+    "clipboardWrite"
+  ],
+  "oauth2": {
+    "client_id": "YOUR_OAUTH_CLIENT_ID",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+    ]
+  },
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "assets/icon16.png",
-      "48": "assets/icon48.png",
-      "128": "assets/icon128.png"
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
     }
   },
-  "icons": {
-    "16": "assets/icon16.png",
-    "48": "assets/icon48.png",
-    "128": "assets/icon128.png"
+  "background": {
+    "service_worker": "background.js"
   },
-  "permissions": [
-    "activeTab",
-    "storage",
-    "identity",
-    "scripting",
-    "tabs"
-  ],
-  "host_permissions": [
-    "https://www.youtube.com/*"
-  ],
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/*"],
+      "matches": ["https://*/*", "http://*/*"],
       "js": ["content.js"],
-      "css": ["styles/content.css"]
+      "css": ["styles/content.css"],
+      "run_at": "document_end"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["assets/*", "lib/*", "styles/*"],
-      "matches": ["https://www.youtube.com/*"]
+      "resources": [
+        "popup.html",
+        "content.js",
+        "styles/content.css",
+        "icon*.png",
+        "processors/*.js",
+        "readme.md"
+      ],
+      "matches": ["https://*/*", "http://*/*"]
     }
   ],
-  "oauth2": {
-    "client_id": "1063753446688-6gkerrm8uojk9qs17ndtqhgjt98reic4.apps.googleusercontent.com",
-    "scopes": ["profile", "email"]
+  "commands": {
+    "toggle-subtitles": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "자막 표시 토글"
+    },
+    "reset-position": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "자막 위치 초기화"
+    }
   },
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzQHVDJc9D6eBmAfxhI0RwRKnI6rjnWm5QOK9jZBQyZmm+aFrr3GXgFdBn7BFE/7lz+CQ5q4EI2ldHkz5xBULDSDSGDaKYbP6/J5TAHtuhAXQA9XdYiCbFPPVE+K1lvj9X2e4NpGq1RPUl3m2IpOi0wUt0yipuRQ8QRjmBcYFqN6Bf9WJemZI4ZaLRVJcI0QuhU8gor4lwEijwlQXiKAW1BeDwiyVpGEMbclFsGHKpx3w0qNGGMp5KCkAp9pYpN1aUz6D9de0GZ3BN9NUd6HhzCbYxeKjOy6HtYnnzZPW4X/kLO/o+xL3WbVZ+rHLQRCBKYVXLOkV+vMW4aTZn/WIDQIDAQAB"
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://accounts.google.com/ https://www.googleapis.com/ https://*.openai.com/ 'self'"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvK6Iv63I9b63HMjJQcV+tSekbcrGuNaFONJZQT44vZCnVpW6WYueIQUV3zwVF/M9Y6PrPR96nMUiT7vrDQgxwJnkZiJMQrjSYfBP2j8MtmDiL7gOYG/LEkZSWLOYkJHCzQwQHmSaDPBTNj3/4qIGz3KUJS85D6xqKGLtBSJE1QXsF5gJF/+NfF+E2H9mlesKTbGc/GRpaJDFSh/L4l2Y0Ck4YMcH8mGRbZ5TDBwbpwH+9m5QNlt9iGnZGFEPZiMtX/ZgOjFfxLKeBKGLCXkm1jXRjHnzZsJtR5k9ZrxOMr9ReneAm4aNIYGD6kXiSSjmJo9Dl544QWxj8j/2ZwIDAQAB"
 } 

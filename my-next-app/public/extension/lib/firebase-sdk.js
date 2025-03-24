@@ -71,146 +71,132 @@ async function loadUserFromStorage() {
   }
 }
 
-// Google 로그인 함수
-export async function signInWithGoogle() {
+/**
+ * Google OAuth2를 사용한 로그인 처리
+ * @param {string} clientId - Google OAuth 클라이언트 ID
+ * @returns {Promise<{success: boolean, user: object, idToken: string, error: string}>}
+ */
+export async function signInWithGoogle(clientId) {
   try {
-    console.log('Google 로그인 시작...');
+    console.log('[Firebase] Google 로그인 시작');
     
-    // OAuth 클라이언트 ID를 manifest에서 가져오기
-    const manifest = chrome.runtime.getManifest();
-    const clientId = manifest.oauth2?.client_id;
-    
-    console.log('OAuth 클라이언트 ID:', clientId);
-    
-    if (!clientId || clientId.trim() === '') {
-      console.error('유효한 OAuth 클라이언트 ID가 없습니다');
-      throw new Error('OAuth 클라이언트 ID가 설정되지 않았습니다');
+    // 클라이언트 ID 유효성 검사
+    if (!clientId || clientId === 'YOUR_OAUTH_CLIENT_ID_HERE') {
+      throw new Error('유효한 OAuth 클라이언트 ID가 필요합니다.');
     }
     
-    // 확장 프로그램 ID 가져오기
-    const extensionId = chrome.runtime.id;
-    console.log('확장 프로그램 ID:', extensionId);
+    // OAuth URL 구성
+    const url = new URL('https://accounts.google.com/o/oauth2/auth');
+    url.searchParams.append('client_id', clientId);
+    url.searchParams.append('response_type', 'token id_token');
+    url.searchParams.append('redirect_uri', chrome.identity.getRedirectURL());
+    url.searchParams.append('scope', 'openid profile email');
+    url.searchParams.append('prompt', 'select_account');
+    url.searchParams.append('nonce', Math.random().toString(36).substring(2, 15));
     
-    // 리다이렉트 URL 생성 및 확인
-    const redirectUrl = chrome.identity.getRedirectURL();
-    console.log('리다이렉트 URL:', redirectUrl);
+    console.log('[Firebase] 인증 페이지 이동:', url.toString());
     
-    // OAuth 2.0 인증 플로우 시작
-    const authParams = {
-      client_id: clientId,
-      response_type: 'token',
-      redirect_uri: redirectUrl,
-      scope: 'email profile',
-      // 항상 동의 화면을 표시하도록 설정
-      prompt: 'consent'
+    // Chrome Identity API를 사용하여 인증
+    const responseUrl = await chrome.identity.launchWebAuthFlow({
+      url: url.toString(),
+      interactive: true
+    });
+    
+    // 응답이 없으면 사용자가 인증을 취소한 것
+    if (!responseUrl) {
+      console.warn('[Firebase] 사용자가 인증을 취소했습니다.');
+      return {
+        success: false,
+        error: '로그인이 취소되었습니다.'
+      };
+    }
+    
+    console.log('[Firebase] 인증 응답 수신');
+    
+    // 응답 URL 파싱
+    const urlParams = new URLSearchParams(
+      responseUrl.split('#')[1] // URL 해시 부분 추출
+    );
+    
+    // 에러 확인
+    const error = urlParams.get('error');
+    if (error) {
+      let errorMessage = `인증 오류: ${error}`;
+      
+      // 일반적인 OAuth 에러 설명 추가
+      if (error === 'access_denied') {
+        errorMessage = '사용자가 계정 접근을 거부했습니다.';
+      } else if (error === 'invalid_client') {
+        errorMessage = '클라이언트 ID가 유효하지 않습니다. manifest.json에서 올바른 OAuth 클라이언트 ID를 설정했는지 확인하세요.';
+      } else if (error === 'unauthorized_client') {
+        errorMessage = '승인되지 않은 클라이언트입니다. OAuth 클라이언트 ID의 리디렉션 URI 설정을 확인하세요.';
+      }
+      
+      console.error('[Firebase] 인증 실패:', errorMessage);
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+    
+    // 토큰 추출
+    const idToken = urlParams.get('id_token');
+    const accessToken = urlParams.get('access_token');
+    
+    if (!idToken || !accessToken) {
+      console.error('[Firebase] 토큰이 누락되었습니다.');
+      return {
+        success: false,
+        error: '인증 토큰을 받지 못했습니다.'
+      };
+    }
+    
+    // Google API에서 사용자 정보 가져오기
+    const userInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
+    
+    if (!userInfoResponse.ok) {
+      console.error('[Firebase] 사용자 정보 요청 실패:', userInfoResponse.statusText);
+      return {
+        success: false,
+        error: '사용자 정보를 가져오지 못했습니다.'
+      };
+    }
+    
+    const userInfo = await userInfoResponse.json();
+    
+    // 사용자 정보 구성
+    const user = {
+      uid: userInfo.sub,
+      email: userInfo.email,
+      emailVerified: userInfo.email_verified,
+      displayName: userInfo.name,
+      photoURL: userInfo.picture,
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+      subscription: 'free'  // 기본 구독 플랜
     };
     
-    // URL 파라미터 생성
-    const queryParams = Object.keys(authParams)
-      .map(key => `${key}=${encodeURIComponent(authParams[key])}`)
-      .join('&');
-    
-    // 인증 URL 생성
-    const authUrl = `https://accounts.google.com/o/oauth2/auth?${queryParams}`;
-    
-    console.log('인증 URL:', authUrl);
-    
-    // Chrome 인증 API 호출
-    const responseUrl = await new Promise((resolve, reject) => {
-      try {
-        chrome.identity.launchWebAuthFlow(
-          { 
-            url: authUrl, 
-            interactive: true 
-          },
-          (redirectUrl) => {
-            // chrome.runtime.lastError 확인
-            if (chrome.runtime.lastError) {
-              console.error('인증 플로우 오류:', chrome.runtime.lastError);
-              
-              // 사용자가 창을 닫았거나 취소한 경우
-              if (chrome.runtime.lastError.message.includes("not approve") || 
-                  chrome.runtime.lastError.message.includes("user cancelled") || 
-                  chrome.runtime.lastError.message.includes("canceled")) {
-                reject(new Error('사용자가 로그인을 취소했습니다. 다시 시도해주세요.'));
-              } else {
-                reject(new Error(`인증 오류: ${chrome.runtime.lastError.message}`));
-              }
-              return;
-            }
-            
-            if (!redirectUrl) {
-              console.error('리다이렉트 URL이 비어있습니다');
-              reject(new Error('인증 프로세스가 취소되었습니다. 다시 시도해주세요.'));
-              return;
-            }
-            
-            console.log('인증 리다이렉트 URL 수신:', redirectUrl);
-            resolve(redirectUrl);
-          }
-        );
-      } catch (error) {
-        console.error('launchWebAuthFlow 실행 오류:', error);
-        reject(new Error(`인증 프로세스 시작 오류: ${error.message}`));
-      }
-    });
-    
-    // 액세스 토큰 추출
-    const urlParts = responseUrl.split('#');
-    
-    if (urlParts.length < 2) {
-      console.error('유효하지 않은 리다이렉트 URL:', responseUrl);
-      throw new Error('인증 응답에서 토큰을 찾을 수 없습니다. 다시 시도해주세요.');
-    }
-    
-    const params = new URLSearchParams(urlParts[1]);
-    const accessToken = params.get('access_token');
-    const errorParam = params.get('error');
-    
-    if (errorParam) {
-      console.error('OAuth 인증 오류:', errorParam);
-      
-      // 접근 거부 오류에 대해 더 친절한 메시지
-      if (errorParam === 'access_denied') {
-        throw new Error('Google 계정 접근이 거부되었습니다. 로그인을 위해 접근 권한을 허용해주세요.');
-      }
-      
-      throw new Error(`OAuth 오류: ${errorParam}`);
-    }
-    
-    if (!accessToken) {
-      console.error('액세스 토큰이 없습니다:', urlParts[1]);
-      throw new Error('로그인 실패: 액세스 토큰을 얻지 못했습니다.');
-    }
-    
-    console.log('액세스 토큰 획득 성공');
-    
-    // 사용자 정보 요청
-    const userInfo = await fetchUserInfo(accessToken);
-    console.log('사용자 정보 획득 성공:', userInfo.email);
-    
-    // 크롬 스토리지에 토큰 저장
-    await chrome.storage.local.set({ 
-      authToken: accessToken,
-      user: {
-        uid: userInfo.sub,
-        email: userInfo.email,
-        displayName: userInfo.name,
-        photoURL: userInfo.picture
-      }
-    });
+    console.log('[Firebase] 로그인 성공:', user.email);
     
     return {
-      user: {
-        uid: userInfo.sub,
-        email: userInfo.email,
-        displayName: userInfo.name,
-        photoURL: userInfo.picture
-      }
+      success: true,
+      user,
+      idToken,
+      accessToken
     };
   } catch (error) {
-    console.error('Google 로그인 오류:', error);
-    throw error;
+    console.error('[Firebase] 로그인 실패:', error);
+    
+    let errorMessage = error.message;
+    // 일반적인 에러 메시지를 더 사용자 친화적으로 변환
+    if (errorMessage.includes('OAuth2')) {
+      errorMessage = 'OAuth 인증 중 오류가 발생했습니다. 네트워크 연결과 클라이언트 ID 설정을 확인하세요.';
+    }
+    
+    return {
+      success: false,
+      error: errorMessage
+    };
   }
 }
 
@@ -319,27 +305,29 @@ async function checkAndCreateUserInAirtable(user) {
   }
 }
 
-// 구독 상태 확인
+/**
+ * 사용자의 구독 상태 확인
+ * @param {string} email - 사용자 이메일
+ * @returns {Promise<string>} - 구독 유형 (free, pro, enterprise)
+ */
 export async function checkSubscription(email) {
-  if (!email) {
-    console.warn('이메일이 제공되지 않았습니다. 기본 무료 구독으로 설정합니다.');
-    return 'free'; // 이메일이 없으면 기본으로 free 반환
-  }
-
   try {
-    // 에어테이블에서 사용자 확인
-    const user = await getUserByEmail(email);
+    // TODO: 이후 실제 구독 데이터베이스 연동
+    console.log('[Firebase] 구독 정보 확인:', email);
     
-    if (user && user.fields) {
-      // 사용자 정보에서 구독 타입 확인
-      return user.fields.subscriptionType || 'free';
+    // 현재는 이메일 도메인 기준으로 기본 구독 타입 설정 (테스트용)
+    if (email.endsWith('.edu') || email.endsWith('.ac.kr')) {
+      return 'academic';
+    } else if (email.includes('enterprise') || email.includes('business')) {
+      return 'enterprise';
+    } else if (email.includes('test') || email.includes('premium')) {
+      return 'premium';
     }
     
-    console.warn('사용자를 찾을 수 없습니다:', email);
-    return 'free'; // 사용자를 찾을 수 없으면 기본으로 free 반환
+    return 'free';
   } catch (error) {
-    console.error('구독 상태 확인 오류:', error);
-    return 'free'; // 오류 시 기본 free 반환
+    console.error('[Firebase] 구독 확인 오류:', error);
+    return 'free'; // 기본값
   }
 }
 
