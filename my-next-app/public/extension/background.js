@@ -8,7 +8,8 @@
  * 4. 사용량 추적
  */
 
-import { signInWithGoogle, signOut, checkAuth, getUserUsage, updateUsage } from './firebase-sdk.js';
+// import 문을 제거하고 직접 참조 방식으로 변경
+// 필요한 함수들은 firefox-sdk.js에서 전역 함수로 로드됨
 
 // 리디렉션 URI 확인 코드 추가
 console.log('===== 디버깅 정보 =====');

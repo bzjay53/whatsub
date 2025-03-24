@@ -55,8 +55,11 @@
         "popup.html",
         "content.js",
         "styles/content.css",
-        "icon*.png",
+        "icons/*",
+        "images/*",
         "processors/*.js",
+        "firebase-sdk.js",
+        "lib/*",
         "readme.md"
       ],
       "matches": ["https://*/*", "http://*/*"]

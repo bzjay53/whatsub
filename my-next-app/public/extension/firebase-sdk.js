@@ -368,12 +368,12 @@ async function updateUsage(minutes) {
     });
 }
 
-// 모듈 내보내기
-export {
-    signInWithGoogle,
-    signOut,
-    checkAuth,
-    validateToken,
-    getUserUsage,
-    updateUsage
-}; 
+// 모듈 내보내기 대신 전역 함수로 사용
+// export {
+//     signInWithGoogle,
+//     signOut,
+//     checkAuth,
+//     validateToken,
+//     getUserUsage,
+//     updateUsage
+// }; 
