@@ -1,5 +1,5 @@
-// WhatsUb 콘텐츠 스크립트 (기본 버전)
-console.log('WhatsUb 콘텐츠 스크립트가 로드되었습니다.');
+// Whatsub 콘텐츠 스크립트 (기본 버전)
+console.log('Whatsub 콘텐츠 스크립트가 로드되었습니다.');
 
 // 확장 프로그램 상태 초기화
 let isInitialized = false;
@@ -51,7 +51,7 @@ function initializeExtension() {
   });
   
   isInitialized = true;
-  console.log('WhatsUb 확장 프로그램이 초기화되었습니다.');
+  console.log('Whatsub 확장 프로그램이 초기화되었습니다.');
 }
 
 // 자막 컨테이너 생성
@@ -172,7 +172,7 @@ initializeExtension();
 // 테스트용 자막 표시 (실제로는 백그라운드에서 전달받음)
 setTimeout(() => {
   if (isInitialized) {
-    updateSubtitles('WhatsUb 확장 프로그램이 정상적으로 로드되었습니다.', 'WhatsUb extension loaded successfully.');
+    updateSubtitles('Whatsub 확장 프로그램이 정상적으로 로드되었습니다.', 'Whatsub extension loaded successfully.');
     showSubtitles();
     
     // 3초 후 숨김

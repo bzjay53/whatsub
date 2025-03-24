@@ -9,7 +9,7 @@
  */
 
 // import 문을 제거하고 직접 참조 방식으로 변경
-// 필요한 함수들은 firefox-sdk.js에서 전역 함수로 로드됨
+// 필요한 함수들은 firebase-sdk.js에서 전역 함수로 로드됨
 
 // 리디렉션 URI 확인 코드 추가
 console.log('===== 디버깅 정보 =====');
@@ -1312,11 +1312,11 @@ async function loadFirebaseSDK() {
                 const clientId = manifest.oauth2.client_id;
                 console.log('[Firebase] 사용할 클라이언트 ID:', clientId);
                 
-                if (clientId.includes('YOUR_') || clientId.includes('PLACEHOLDER') || clientId.length < 10) {
+                if (clientId === 'YOUR_CLIENT_ID_HERE' || clientId.includes('YOUR_') || clientId.includes('PLACEHOLDER') || clientId.length < 10) {
                     console.error('[Firebase] 유효하지 않은 OAuth 클라이언트 ID:', clientId);
                     return {
                         success: false,
-                        error: '유효한 OAuth 클라이언트 ID가 설정되지 않았습니다.',
+                        error: '유효한 OAuth 클라이언트 ID가 설정되지 않았습니다. manifest.json 파일에서 client_id를 설정해주세요.',
                         errorType: 'invalid_client_id',
                         invalidClientId: true
                     };
@@ -1343,18 +1343,54 @@ async function loadFirebaseSDK() {
                             const errorMessage = chrome.runtime.lastError.message || '인증 흐름 오류';
                             console.error('[Firebase] OAuth 흐름 오류:', errorMessage);
                             
-                            if (errorMessage.includes('canceled')) {
-                                reject(new Error('사용자가 로그인을 취소했습니다.'));
+                            if (errorMessage.includes('cancel') || errorMessage.includes('user did not approve')) {
+                                reject({
+                                    success: false,
+                                    error: '사용자가 로그인을 취소했거나 접근을 승인하지 않았습니다.',
+                                    errorType: 'user_canceled',
+                                    message: errorMessage
+                                });
                                 return;
                             }
                             
-                            reject(new Error(`인증 흐름 오류: ${errorMessage}`));
+                            if (errorMessage.includes('invalid_client')) {
+                                reject({
+                                    success: false,
+                                    error: 'OAuth 클라이언트 ID가 유효하지 않습니다.',
+                                    errorType: 'invalid_client',
+                                    message: errorMessage,
+                                    redirectUri: redirectUrl
+                                });
+                                return;
+                            }
+                            
+                            if (errorMessage.includes('redirect_uri_mismatch')) {
+                                reject({
+                                    success: false,
+                                    error: '리디렉션 URI가 Google 개발자 콘솔에 등록되지 않았습니다.',
+                                    errorType: 'redirect_uri_mismatch',
+                                    message: errorMessage,
+                                    redirectUri: redirectUrl
+                                });
+                                return;
+                            }
+                            
+                            reject({
+                                success: false,
+                                error: `인증 흐름 오류: ${errorMessage}`,
+                                errorType: 'auth_flow_error',
+                                message: errorMessage
+                            });
                             return;
                         }
                         
                         if (!redirectUrl) {
                             console.error('[Firebase] 리디렉션 URL이 비어 있습니다.');
-                            reject(new Error('리디렉션 URL이 비어 있습니다'));
+                            reject({
+                                success: false,
+                                error: '리디렉션 URL이 비어 있습니다',
+                                errorType: 'empty_redirect'
+                            });
                             return;
                         }
                         
@@ -1371,6 +1407,7 @@ async function loadFirebaseSDK() {
                     };
                 }
                 
+                // 여기서 계속 진행
                 console.log('[Firebase] 인증 응답 받음, 토큰 파싱 중...');
                 
                 // 응답 URL에서 토큰 파싱
@@ -1476,9 +1513,15 @@ async function loadFirebaseSDK() {
                 };
             } catch (error) {
                 console.error('[Firebase] Google 로그인 오류:', error);
+                
+                // 오류가 객체인 경우 그대로 반환
+                if (error && typeof error === 'object' && 'success' in error) {
+                    return error;
+                }
+                
                 return {
                     success: false,
-                    error: error.message || '로그인 중 오류가 발생했습니다.',
+                    error: error.message || '알 수 없는 로그인 오류',
                     errorType: 'unknown_error'
                 };
             }
