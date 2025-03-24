@@ -229,57 +229,108 @@ async function fetchUserInfo(accessToken) {
 }
 
 /**
- * 로그아웃 처리
+ * 로그아웃 처리 - 완전한 토큰 폐기 구현
  * @returns {Promise<{success: boolean, error: string}>}
  */
 export async function signOut() {
   try {
     console.log('[Firebase] 로그아웃 시작...');
     
-    // 1. 로컬 스토리지에서 인증 데이터 제거
-    try {
-      await chrome.storage.local.remove(['authToken', 'user']);
-      console.log('[Firebase] 로컬 스토리지에서 인증 정보 제거됨');
-    } catch (storageError) {
-      console.warn('[Firebase] 로컬 스토리지에서 인증 정보 제거 중 오류:', storageError);
-    }
+    // 1. 저장된 토큰 가져오기
+    const data = await chrome.storage.local.get(['authToken', 'user']);
+    const authToken = data.authToken;
     
-    // 2. 인증 토큰 제거
-    if (chrome.identity && chrome.identity.getAuthToken) {
+    // 2. 현재 토큰 명시적 폐기
+    if (authToken) {
       try {
         await new Promise((resolve) => {
-          chrome.identity.getAuthToken({ interactive: false }, (token) => {
-            if (token) {
-              chrome.identity.removeCachedAuthToken({ token }, () => {
-                console.log('[Firebase] 캐시된 인증 토큰 제거됨');
-                resolve();
-              });
-            } else {
-              console.log('[Firebase] 제거할 캐시된 토큰 없음');
-              resolve();
-            }
+          chrome.identity.removeCachedAuthToken({ token: authToken }, () => {
+            console.log('[Firebase] 특정 인증 토큰 제거 시도 완료');
+            resolve();
           });
         });
-      } catch (tokenError) {
-        console.warn('[Firebase] 토큰 제거 중 오류:', tokenError);
+      } catch (err) {
+        console.warn('[Firebase] 특정 토큰 제거 중 오류(계속 진행):', err);
       }
     }
     
-    // 3. Google에서 로그아웃 (선택적)
+    // 3. 비대화형 방식으로 현재 모든 토큰 가져와서 명시적 폐기
     try {
-      const iframe = document.createElement('iframe');
-      iframe.src = 'https://accounts.google.com/logout';
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-      
-      // 3초 후 iframe 제거
-      setTimeout(() => {
-        if (iframe && iframe.parentNode) {
-          iframe.parentNode.removeChild(iframe);
-        }
-      }, 3000);
+      // 비대화형 모드로 현재 토큰 가져오기
+      await new Promise((resolve) => {
+        chrome.identity.getAuthToken({ interactive: false }, async (token) => {
+          if (token) {
+            console.log('[Firebase] 현재 활성 토큰 발견, 폐기 시도...');
+            
+            // 토큰 폐기 (revoke)
+            try {
+              // Google OAuth 토큰 폐기 API 호출
+              const response = await fetch(`https://accounts.google.com/o/oauth2/revoke?token=${token}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded'
+                }
+              });
+              
+              // 로컬 캐시된 토큰도 제거
+              chrome.identity.removeCachedAuthToken({ token }, () => {
+                console.log('[Firebase] 토큰 폐기 및 캐시 제거 완료');
+                resolve();
+              });
+            } catch (revokeError) {
+              console.warn('[Firebase] 토큰 폐기 중 오류(계속 진행):', revokeError);
+              resolve();
+            }
+          } else {
+            console.log('[Firebase] 현재 활성 토큰 없음');
+            resolve();
+          }
+        });
+      });
+    } catch (tokenError) {
+      console.warn('[Firebase] 토큰 폐기 과정 중 오류(계속 진행):', tokenError);
+    }
+    
+    // 4. 모든 캐시된 토큰 제거 시도
+    if (chrome.identity.clearAllCachedAuthTokens) {
+      try {
+        await new Promise((resolve) => {
+          chrome.identity.clearAllCachedAuthTokens(() => {
+            console.log('[Firebase] 모든 캐시된 토큰 제거 시도 완료');
+            resolve();
+          });
+        });
+      } catch (clearError) {
+        console.warn('[Firebase] 모든 토큰 제거 중 오류(계속 진행):', clearError);
+      }
+    }
+    
+    // 5. 로컬 스토리지에서 인증 데이터 제거
+    try {
+      await chrome.storage.local.remove(['authToken', 'user', 'auth']);
+      console.log('[Firebase] 로컬 스토리지에서 인증 정보 제거됨');
+    } catch (storageError) {
+      console.warn('[Firebase] 로컬 스토리지 정보 제거 중 오류(계속 진행):', storageError);
+    }
+    
+    // 6. 세션 스토리지 초기화 시도
+    try {
+      await chrome.storage.session?.clear();
+      console.log('[Firebase] 세션 스토리지 초기화 완료');
+    } catch (sessionError) {
+      console.warn('[Firebase] 세션 스토리지 초기화 중 오류(무시됨):', sessionError);
+    }
+    
+    // 7. Google에서 로그아웃 (프레임 방식)
+    try {
+      // 백그라운드 스크립트에서는 iframe을 사용할 수 없으므로
+      // 메시지를 통해 content script나 popup에서 처리하도록 함
+      chrome.runtime.sendMessage({
+        action: 'createLogoutFrame',
+        url: 'https://accounts.google.com/logout'
+      }).catch(err => console.log('[Firebase] 로그아웃 프레임 메시지 전송 오류(무시됨):', err));
     } catch (logoutError) {
-      console.warn('[Firebase] Google 로그아웃 iframe 생성 중 오류:', logoutError);
+      console.warn('[Firebase] Google 로그아웃 프레임 생성 중 오류(무시됨):', logoutError);
     }
     
     console.log('[Firebase] 로그아웃 완료');

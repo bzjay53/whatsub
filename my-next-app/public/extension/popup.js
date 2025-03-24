@@ -353,12 +353,78 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // 로그아웃 함수
+    // 로그아웃 프레임 생성 함수
+    function createLogoutFrame(url) {
+        console.log('로그아웃 프레임 생성:', url);
+        try {
+            // 기존 로그아웃 프레임 제거
+            const existingFrame = document.getElementById('google-logout-frame');
+            if (existingFrame) {
+                existingFrame.remove();
+            }
+            
+            // 새 로그아웃 프레임 생성
+            const iframe = document.createElement('iframe');
+            iframe.id = 'google-logout-frame';
+            iframe.src = url;
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+            
+            // 5초 후 프레임 제거
+            setTimeout(() => {
+                if (iframe && iframe.parentNode) {
+                    iframe.parentNode.removeChild(iframe);
+                }
+            }, 5000);
+            
+            return true;
+        } catch (error) {
+            console.error('로그아웃 프레임 생성 오류:', error);
+            return false;
+        }
+    }
+    
+    // 메시지 리스너 등록
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        console.log('팝업에서 메시지 수신:', message.action);
+        
+        // 로그아웃 프레임 생성 요청 처리
+        if (message.action === 'createLogoutFrame' && message.url) {
+            const result = createLogoutFrame(message.url);
+            sendResponse({ success: result });
+            return true;
+        }
+        
+        // 인증 상태 변경 알림 처리
+        if (message.action === 'authStateChanged') {
+            console.log('인증 상태 변경 감지:', message.data);
+            
+            if (!message.data.isAuthenticated) {
+                // 로그아웃 상태로 변경
+                state.isLoggedIn = false;
+                state.user = null;
+                
+                // UI 업데이트
+                if (userNameElement) userNameElement.textContent = '';
+                if (userEmailElement) userEmailElement.textContent = '';
+                if (userAvatarElement) userAvatarElement.src = '';
+                
+                // 로그인 탭으로 전환
+                switchTab('signin');
+            }
+            
+            return true;
+        }
+        
+        return false;
+    });
+    
+    // 로그아웃 함수 개선
     function signOut() {
         showLoading(true);
         console.log('로그아웃 시작...');
         
-        // 로그아웃 타임아웃 설정 - 10초 후 강제 완료
+        // 로그아웃 타임아웃 설정 - 15초 후 강제 완료
         const timeoutId = setTimeout(() => {
             showLoading(false);
             console.warn('로그아웃 시간 초과');
@@ -368,9 +434,51 @@ document.addEventListener('DOMContentLoaded', () => {
             state.user = null;
             switchTab('signin');
             
-            showStatus('로그아웃 시간이 초과되었습니다. 하지만 UI를 로그아웃 상태로 전환했습니다.', 'warning');
-        }, 10000);
+            // 수동 로그아웃 안내
+            showStatus('로그아웃 시간이 초과되었습니다. UI를 로그아웃 상태로 전환했습니다. 브라우저 확장 페이지에서 Google 계정 연결을 해제하세요.', 'warning');
+            
+            // Google 계정 관리 페이지로 이동 안내
+            const manageLink = document.createElement('a');
+            manageLink.href = 'https://myaccount.google.com/permissions';
+            manageLink.target = '_blank';
+            manageLink.textContent = 'Google 계정 권한 관리';
+            manageLink.className = 'auth-link';
+            
+            statusContainer.appendChild(document.createElement('br'));
+            statusContainer.appendChild(manageLink);
+        }, 15000);
         
+        // 로그아웃 전 직접 토큰 무효화 시도
+        try {
+            // 1. 현재 토큰 가져오기
+            chrome.identity.getAuthToken({ interactive: false }, async (token) => {
+                if (token) {
+                    console.log('현재 활성 토큰 발견, 폐기 시도...');
+                    
+                    // 2. Google OAuth 토큰 폐기 API 호출
+                    try {
+                        await fetch(`https://accounts.google.com/o/oauth2/revoke?token=${token}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            }
+                        });
+                        console.log('토큰 폐기 API 호출 완료');
+                    } catch (err) {
+                        console.warn('토큰 폐기 API 오류(계속 진행):', err);
+                    }
+                    
+                    // 3. 캐시에서 토큰 제거
+                    chrome.identity.removeCachedAuthToken({ token }, () => {
+                        console.log('토큰 캐시 제거 완료');
+                    });
+                }
+            });
+        } catch (err) {
+            console.warn('토큰 사전 폐기 중 오류(계속 진행):', err);
+        }
+        
+        // 로그아웃 메시지 전송
         chrome.runtime.sendMessage({ action: 'signOut' }, (response) => {
             clearTimeout(timeoutId);
             showLoading(false);
@@ -398,19 +506,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 로그인 탭으로 전환
                 switchTab('signin');
                 
+                // 로그아웃 프레임 생성 (Google 로그아웃)
+                createLogoutFrame('https://accounts.google.com/logout');
+                
                 // 캐시 초기화를 위해 약간의 지연 후 상태 확인
                 setTimeout(() => {
                     // 상태가 실제로 변경되었는지 한 번 더 확인
                     chrome.runtime.sendMessage({ action: 'checkAuth' }, (checkResponse) => {
                         if (checkResponse && checkResponse.isLoggedIn) {
                             console.warn('로그아웃 처리 후에도 여전히 로그인 상태로 나타납니다.');
-                            showStatus('완전한 로그아웃이 되지 않았을 수 있습니다. 브라우저를 다시 시작해보세요.', 'warning');
+                            
+                            // 경고 메시지와 함께 Google 계정 관리 링크 제공
+                            showStatus('완전한 로그아웃이 되지 않았습니다. Google 계정 연결을 수동으로 해제하세요.', 'warning');
+                            
+                            const manageLink = document.createElement('a');
+                            manageLink.href = 'https://myaccount.google.com/permissions';
+                            manageLink.target = '_blank';
+                            manageLink.textContent = 'Google 계정 권한 관리';
+                            manageLink.className = 'auth-link';
+                            
+                            statusContainer.appendChild(document.createElement('br'));
+                            statusContainer.appendChild(manageLink);
+                            
+                            // 브라우저 확장 관리 페이지 링크도 추가
+                            const extensionsLink = document.createElement('a');
+                            extensionsLink.href = 'chrome://extensions/?id=' + chrome.runtime.id;
+                            extensionsLink.textContent = '확장 프로그램 관리';
+                            extensionsLink.className = 'auth-link';
+                            extensionsLink.style.marginLeft = '10px';
+                            
+                            statusContainer.appendChild(extensionsLink);
                         } else {
                             console.log('로그아웃 확인 완료');
                             showStatus('성공적으로 로그아웃되었습니다.', 'success');
                         }
                     });
-                }, 1000);
+                }, 2000);
             } else {
                 console.error('로그아웃 실패:', response ? response.error : '응답 없음');
                 showStatus('로그아웃 중 오류가 발생했습니다: ' + (response ? response.error : '응답 없음'), 'error');

@@ -496,16 +496,114 @@ async function handleSignOut(message, sender, sendResponse) {
     try {
         // 로그아웃 전 현재 인증 상태 확인
         const wasAuthenticated = state.auth.isAuthenticated;
+        const prevToken = state.auth.accessToken;
         
-        console.log("[Whatsub] 로그아웃 시작...");
+        console.log("[Whatsub] 완전한 로그아웃 프로세스 시작...");
         
-        // 1. Firebase SDK의 로그아웃 함수 호출
+        // 1. 토큰 폐기(revoke) - 서버에 토큰 무효화 요청
+        if (prevToken) {
+            try {
+                // Google OAuth 토큰 폐기 API 직접 호출
+                console.log("[Whatsub] 토큰 폐기 API 호출:", prevToken.substring(0, 10) + "...");
+                
+                const response = await fetch(`https://accounts.google.com/o/oauth2/revoke?token=${prevToken}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                });
+                
+                if (response.ok) {
+                    console.log("[Whatsub] 토큰 폐기 API 성공:", response.status);
+                } else {
+                    console.warn("[Whatsub] 토큰 폐기 API 실패:", response.status);
+                    const errorText = await response.text();
+                    console.warn("[Whatsub] 오류 응답:", errorText);
+                }
+            } catch (revokeError) {
+                console.warn("[Whatsub] 토큰 폐기 API 호출 중 예외 발생:", revokeError);
+            }
+        }
+        
+        // 2. Chrome 인증 토큰 캐시 제거
+        try {
+            if (prevToken) {
+                await new Promise((resolve) => {
+                    chrome.identity.removeCachedAuthToken({ token: prevToken }, () => {
+                        if (chrome.runtime.lastError) {
+                            console.warn("[Whatsub] 특정 토큰 제거 중 경고:", chrome.runtime.lastError.message);
+                        } else {
+                            console.log("[Whatsub] 특정 토큰 캐시에서 제거 완료");
+                        }
+                        resolve();
+                    });
+                });
+            }
+            
+            // 비대화형 방식으로 현재 토큰 조회 및 제거
+            await new Promise((resolve) => {
+                chrome.identity.getAuthToken({ interactive: false }, async (currentToken) => {
+                    if (chrome.runtime.lastError) {
+                        console.warn("[Whatsub] 현재 토큰 조회 중 경고:", chrome.runtime.lastError.message);
+                        resolve();
+                        return;
+                    }
+                    
+                    if (currentToken) {
+                        console.log("[Whatsub] 추가 토큰 발견, 제거 시도:", currentToken.substring(0, 10) + "...");
+                        
+                        // 토큰 폐기 다시 시도
+                        try {
+                            const revokeResponse = await fetch(`https://accounts.google.com/o/oauth2/revoke?token=${currentToken}`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded'
+                                }
+                            });
+                            
+                            console.log("[Whatsub] 추가 토큰 폐기 결과:", revokeResponse.status);
+                        } catch (err) {
+                            console.warn("[Whatsub] 추가 토큰 폐기 중 오류:", err);
+                        }
+                        
+                        // 캐시 제거
+                        chrome.identity.removeCachedAuthToken({ token: currentToken }, () => {
+                            console.log("[Whatsub] 추가 토큰 캐시에서 제거 완료");
+                            resolve();
+                        });
+                    } else {
+                        console.log("[Whatsub] 추가 토큰 없음");
+                        resolve();
+                    }
+                });
+            });
+        } catch (tokenError) {
+            console.warn("[Whatsub] 토큰 제거 프로세스 중 오류:", tokenError);
+        }
+        
+        // 3. 모든 캐시된 토큰 제거 (가능한 경우)
+        if (chrome.identity.clearAllCachedAuthTokens) {
+            try {
+                await new Promise((resolve) => {
+                    chrome.identity.clearAllCachedAuthTokens(() => {
+                        console.log("[Whatsub] 모든 캐시된 토큰 제거 시도 완료");
+                        resolve();
+                    });
+                });
+            } catch (clearError) {
+                console.warn("[Whatsub] 모든 토큰 제거 중 오류:", clearError);
+            }
+        }
+        
+        // 4. Firebase SDK의 로그아웃 함수 호출
         try {
             const signOutModule = await loadFirebaseSDK();
             if (signOutModule && typeof signOutModule.signOut === 'function') {
                 const signOutResult = await signOutModule.signOut();
                 if (!signOutResult.success) {
                     console.warn("[Whatsub] Firebase 로그아웃 중 경고:", signOutResult.error);
+                } else {
+                    console.log("[Whatsub] Firebase 로그아웃 성공");
                 }
             } else {
                 console.warn("[Whatsub] Firebase SDK 로그아웃 함수를 찾을 수 없습니다.");
@@ -514,49 +612,72 @@ async function handleSignOut(message, sender, sendResponse) {
             console.error("[Whatsub] Firebase 로그아웃 중 오류:", fbError);
         }
         
-        // 2. Chrome 인증 토큰 제거 (Firebase에서도 하지만 백업으로 한 번 더)
-        if (state.auth.accessToken) {
-            try {
-                await new Promise((resolve) => {
-                    chrome.identity.removeCachedAuthToken({ token: state.auth.accessToken }, () => {
-                        if (chrome.runtime.lastError) {
-                            console.warn("[Whatsub] 토큰 제거 중 경고:", chrome.runtime.lastError.message);
-                        }
-                        resolve();
-                    });
-                });
-            } catch (tokenError) {
-                console.warn("[Whatsub] 토큰 제거 중 경고:", tokenError);
-            }
+        // 5. 로컬 스토리지에서 모든 인증 관련 데이터 제거
+        const keysToRemove = ['auth', 'user', 'authToken', 'idToken', 'accessToken'];
+        try {
+            await chrome.storage.local.remove(keysToRemove);
+            console.log(`[Whatsub] 로컬 스토리지에서 인증 정보 제거됨: ${keysToRemove.join(', ')}`);
+        } catch (storageError) {
+            console.warn("[Whatsub] 로컬 스토리지 정보 제거 중 오류:", storageError);
         }
         
-        // 3. 로컬 스토리지에서 모든 인증 관련 데이터 제거
-        await chrome.storage.local.remove(['auth', 'user', 'authToken']);
+        // 6. 세션 스토리지 초기화 (가능한 경우)
+        try {
+            if (chrome.storage.session) {
+                await chrome.storage.session.clear();
+                console.log("[Whatsub] 세션 스토리지 초기화 완료");
+            }
+        } catch (sessionError) {
+            console.warn("[Whatsub] 세션 스토리지 초기화 중 오류:", sessionError);
+        }
         
-        // 4. 인증 상태 초기화
+        // 7. 인증 상태 초기화
         state.auth.isAuthenticated = false;
         state.auth.user = null;
         state.auth.idToken = null;
         state.auth.accessToken = null;
         state.auth.lastError = null;
         
-        // 5. 상태 저장
+        // 8. 상태 저장
         await saveAuthState();
         
-        // 6. 다른 확장 프로그램 컴포넌트에 로그아웃 알림
-        chrome.runtime.sendMessage({
-            action: 'authStateChanged',
-            data: {
-                isAuthenticated: false,
-                user: null
-            }
-        }).catch(err => console.log('[Whatsub] 로그아웃 알림 전송 중 오류 (무시됨):', err));
+        // 9. 다른 확장 프로그램 컴포넌트에 로그아웃 알림
+        try {
+            chrome.runtime.sendMessage({
+                action: 'authStateChanged',
+                data: {
+                    isAuthenticated: false,
+                    user: null
+                }
+            });
+        } catch (msgError) {
+            console.warn('[Whatsub] 로그아웃 알림 전송 중 오류:', msgError);
+        }
         
-        console.log("[Whatsub] 로그아웃 완료");
+        // 10. 확인을 위해 현재 인증 상태 다시 확인
+        let stillAuthenticated = false;
+        try {
+            await new Promise((resolve) => {
+                chrome.identity.getAuthToken({ interactive: false }, (token) => {
+                    if (token) {
+                        console.warn("[Whatsub] 로그아웃 후에도 여전히 토큰이 존재합니다:", token.substring(0, 10) + "...");
+                        stillAuthenticated = true;
+                    } else {
+                        console.log("[Whatsub] 로그아웃 후 토큰 없음 확인됨");
+                    }
+                    resolve();
+                });
+            });
+        } catch (checkError) {
+            console.warn("[Whatsub] 최종 토큰 확인 중 오류:", checkError);
+        }
+        
+        console.log("[Whatsub] 로그아웃 프로세스 완료");
         sendResponse({
             success: true,
             message: "로그아웃 성공",
-            previousState: wasAuthenticated ? "로그인됨" : "로그인안됨"
+            previousState: wasAuthenticated ? "로그인됨" : "로그인안됨",
+            stillAuthenticated: stillAuthenticated
         });
     } catch (error) {
         console.error("[Whatsub] 로그아웃 중 오류 발생:", error);

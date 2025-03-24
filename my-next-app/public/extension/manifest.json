@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Whatsub - 모든 동영상에 자막 서비스",
-  "version": "1.0.0",
-  "description": "다양한 웹사이트의 동영상에 실시간 자막과 번역 서비스를 제공합니다.",
+  "name": "WhatsUB",
+  "version": "0.2.1",
+  "description": "YouTube 동영상을 위한 자막 관리 도구",
   "author": "contact@whatsub.io",
   "icons": {
     "16": "icons/icon16.png",
@@ -19,7 +19,7 @@
     "clipboardWrite"
   ],
   "oauth2": {
-    "client_id": "YOUR_CLIENT_ID_HERE",
+    "client_id": "1060430808730-ic272t33ti0dje3ig6q3ge5l8895fq6n.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile"
