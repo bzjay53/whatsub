@@ -6,31 +6,39 @@
   <title>Whatsub - 자막 서비스</title>
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: 'Pretendard', 'Noto Sans KR', 'Segoe UI', Tahoma, sans-serif;
       margin: 0;
-      padding: 16px;
+      padding: 0;
       width: 360px;
       color: #333;
+      background-color: #f9f9f9;
     }
     
     h1, h2, h3 {
       margin-top: 0;
-      color: #444;
+      color: #333;
     }
     
     button {
       cursor: pointer;
-      padding: 8px 16px;
+      padding: 10px 16px;
       background-color: #4285f4;
       color: white;
       border: none;
-      border-radius: 4px;
+      border-radius: 8px;
       font-weight: 500;
-      transition: background-color 0.3s;
+      transition: all 0.2s ease;
+      font-size: 14px;
     }
     
     button:hover {
       background-color: #3367d6;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    button:active {
+      transform: translateY(0);
     }
     
     button:disabled {
@@ -40,6 +48,7 @@
     
     .tab-content {
       display: none;
+      padding: 16px;
     }
     
     .tab-content.active {
@@ -50,9 +59,10 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 16px;
-      padding-bottom: 8px;
+      padding: 16px;
+      background-color: white;
       border-bottom: 1px solid #eee;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     
     .logo {
@@ -63,17 +73,21 @@
     .logo img {
       width: 32px;
       height: 32px;
-      margin-right: 8px;
+      margin-right: 10px;
     }
     
     .logo h1 {
       font-size: 18px;
       margin: 0;
+      background: linear-gradient(90deg, #4285f4, #34a853);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 700;
     }
     
     .controls {
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
       margin-top: 16px;
     }
     
@@ -130,43 +144,110 @@
     }
     
     select {
-      padding: 8px;
-      border-radius: 4px;
+      padding: 10px 12px;
+      border-radius: 8px;
       border: 1px solid #ddd;
       background-color: white;
+      font-size: 14px;
+      color: #333;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 14px;
+      padding-right: 30px;
+    }
+    
+    .signin-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px 20px;
+      text-align: center;
+      height: 380px;
+    }
+    
+    .signin-logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 16px;
+    }
+    
+    .signin-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: linear-gradient(90deg, #4285f4, #34a853);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .signin-description {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 24px;
+      line-height: 1.5;
     }
     
     .signin-button {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 10px;
+      padding: 0;
       background-color: #fff;
       border: 1px solid #ddd;
       border-radius: 4px;
       cursor: pointer;
       margin-bottom: 16px;
+      width: 240px;
+      height: 48px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      transition: all 0.2s ease;
+      overflow: hidden;
+    }
+    
+    .signin-button:hover {
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      transform: translateY(-1px);
+    }
+    
+    .signin-button .icon-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: white;
+      width: 48px;
+      height: 48px;
+    }
+    
+    .signin-button .text-wrapper {
+      flex: 1;
+      padding: 0 16px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #444;
     }
     
     .signin-button img {
-      width: 24px;
-      height: 24px;
-      margin-right: 8px;
+      width: 20px;
+      height: 20px;
     }
     
     .card {
       background-color: white;
-      border-radius: 8px;
+      border-radius: 12px;
       padding: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
       margin-bottom: 16px;
     }
     
     .status {
       padding: 12px;
       margin-bottom: 16px;
-      border-radius: 4px;
+      border-radius: 8px;
       display: none;
+      font-size: 14px;
     }
     
     .status.success {
@@ -199,8 +280,9 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background-color: rgba(255, 255, 255, 0.7);
+      background-color: rgba(255, 255, 255, 0.8);
       z-index: 9999;
+      backdrop-filter: blur(3px);
     }
     
     .loading.show {
@@ -208,11 +290,11 @@
     }
     
     .spinner {
-      border: 4px solid rgba(0, 0, 0, 0.1);
+      border: 3px solid rgba(66, 133, 244, 0.1);
       border-radius: 50%;
-      border-top: 4px solid #4285f4;
-      width: 40px;
-      height: 40px;
+      border-top: 3px solid #4285f4;
+      width: 36px;
+      height: 36px;
       animation: spin 1s linear infinite;
     }
     
@@ -228,15 +310,19 @@
     }
     
     .user-avatar {
-      width: 40px;
-      height: 40px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
       margin-right: 12px;
+      object-fit: cover;
+      border: 2px solid white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     
     .user-details h3 {
       margin: 0;
       font-size: 16px;
+      font-weight: 600;
     }
     
     .user-details p {
@@ -247,206 +333,144 @@
     
     .usage-meter {
       margin-top: 8px;
-      background-color: #eee;
-      border-radius: 4px;
+      background-color: #f1f1f1;
+      border-radius: 10px;
       height: 8px;
       overflow: hidden;
+      position: relative;
     }
     
     .usage-fill {
       height: 100%;
       background-color: #4285f4;
-      width: 0%;
-      transition: width 0.5s;
+      width: 0;
+      transition: width 0.5s ease;
     }
     
-    .tab-buttons {
-      display: flex;
-      margin-bottom: 16px;
-      border-bottom: 1px solid #eee;
-    }
-    
-    .tab-button {
-      padding: 8px 16px;
-      background: none;
-      border: none;
-      color: #666;
-      cursor: pointer;
-      font-weight: normal;
-    }
-    
-    .tab-button.active {
-      color: #4285f4;
-      border-bottom: 2px solid #4285f4;
-      font-weight: 500;
-    }
-    
-    .error-section {
-      background-color: #f8d7da;
-      color: #721c24;
-      padding: 15px;
-      border-radius: 5px;
+    .footer-links {
       margin-top: 20px;
-      margin-bottom: 20px;
-    }
-    
-    .error-title {
-      color: #721c24;
-      margin-top: 0;
-    }
-    
-    .redirect-uri-box {
-      background-color: #fff;
-      border: 1px solid #ddd;
-      padding: 10px;
-      border-radius: 5px;
-      margin: 10px 0;
-      position: relative;
-      word-break: break-all;
-    }
-    
-    .copy-button {
-      position: absolute;
-      right: 5px;
-      top: 5px;
-      background-color: #4285f4;
-      color: white;
-      border: none;
-      border-radius: 3px;
-      padding: 5px 10px;
-      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
       font-size: 12px;
     }
     
-    .copy-button.copied {
-      background-color: #34a853;
+    .footer-links a {
+      color: #666;
+      text-decoration: none;
     }
     
-    .setup-steps {
-      margin-top: 15px;
-    }
-    
-    .setup-steps h4 {
-      margin-bottom: 10px;
-    }
-    
-    .setup-steps ol {
-      padding-left: 20px;
-    }
-    
-    .setup-steps li {
-      margin-bottom: 5px;
-    }
-    
-    .setup-steps a {
+    .footer-links a:hover {
       color: #4285f4;
-      text-decoration: none;
-    }
-    
-    .setup-steps a:hover {
       text-decoration: underline;
     }
     
-    /* 리디렉션 URI 오류 관련 스타일 */
-    #redirect-uri-error {
-      background-color: #f8d7da;
-      color: #721c24;
-      padding: 20px;
-      border-radius: 5px;
-      margin: 20px 0;
-      font-size: 14px;
-      line-height: 1.5;
+    .divider {
+      display: flex;
+      align-items: center;
+      width: 240px;
+      margin: 16px 0;
     }
     
-    #redirect-uri-error code {
-      background: #fff;
-      padding: 3px 5px;
-      border-radius: 3px;
-      font-family: monospace;
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background-color: #ddd;
+    }
+    
+    .divider-text {
+      padding: 0 16px;
+      color: #999;
       font-size: 12px;
-      word-break: break-all;
-      display: block;
-      margin: 10px 0;
-      border: 1px solid #ddd;
-      padding: 8px;
     }
     
-    #redirect-uri-error ol {
-      margin-top: 10px;
-      padding-left: 25px;
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     
-    #redirect-uri-error li {
-      margin-bottom: 8px;
+    .fade-in {
+      animation: fadeIn 0.3s ease forwards;
     }
     
-    #redirect-uri-error a {
-      color: #0056b3;
-      text-decoration: none;
+    .message-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: #ff3860;
+      color: white;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
     }
     
-    #redirect-uri-error a:hover {
-      text-decoration: underline;
-    }
-    
-    #redirect-uri-error button {
-      margin-top: 15px;
-      padding: 8px 15px;
-      border: none;
+    .premium-badge {
+      background: linear-gradient(45deg, #FFD700, #FFA500);
+      color: white;
+      padding: 2px 6px;
       border-radius: 4px;
-      cursor: pointer;
-    }
-    
-    #copy-redirect-uri {
-      background: #0056b3;
-      color: white;
-      margin-right: 10px;
-    }
-    
-    #retry-login {
-      background: #28a745;
-      color: white;
+      font-size: 10px;
+      font-weight: bold;
+      margin-left: 8px;
     }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="logo">
-      <img src="icons/icon48.png" alt="Whatsub 로고">
-      <h1>Whatsub - 자막 서비스</h1>
+      <img src="icons/icon48.png" alt="WhatsUB 로고">
+      <h1>WhatsUB</h1>
+    </div>
+    <div class="tabs">
+      <button class="tab-button" data-tab="main">메인</button>
+      <button class="tab-button" data-tab="settings">설정</button>
+      <button class="tab-button" data-tab="help">도움말</button>
     </div>
   </div>
+  
+  <div id="statusContainer" class="status"></div>
   
   <div class="loading" id="loading">
     <div class="spinner"></div>
   </div>
   
-  <div id="statusContainer" class="status"></div>
-  
-  <div class="tab-buttons">
-    <button class="tab-button active" data-tab="main">메인</button>
-    <button class="tab-button" data-tab="settings">설정</button>
-    <button class="tab-button" data-tab="help">도움말</button>
-  </div>
-  
   <div id="signin-tab" class="tab-content">
-    <h2>Whatsub에 로그인</h2>
-    <p>Whatsub 자막 서비스를 이용하려면 로그인이 필요합니다.</p>
-    
-    <div id="login-container">
+    <div class="signin-container fade-in">
+      <img src="icons/icon128.png" alt="WhatsUB 로고" class="signin-logo">
+      <h1 class="signin-title">WhatsUB</h1>
+      <p class="signin-description">유튜브 영상의 자동 자막 및 <br>번역 서비스에 로그인하세요.</p>
+      
       <button id="google-signin" class="signin-button">
-        <img src="icons/google-logo.png" alt="Google 로고">
-        Google로 로그인
+        <div class="icon-wrapper">
+          <img src="assets/google-icon.svg" alt="Google 로고">
+        </div>
+        <div class="text-wrapper">
+          Google로 로그인
+        </div>
       </button>
+      
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">또는</div>
+        <div class="divider-line"></div>
+      </div>
+      
+      <p style="font-size: 13px; color: #666; margin-bottom: 20px;">
+        WhatsUB는 새로운 자막 번역 경험을 제공합니다.<br>
+        로그인하여 모든 기능을 이용해보세요.
+      </p>
+      
+      <div class="footer-links">
+        <a href="https://whatsub.io/policy" target="_blank">개인정보 처리방침</a>
+        <a href="https://whatsub.io/terms" target="_blank">이용약관</a>
+        <a href="mailto:support@whatsub.io">고객지원</a>
+      </div>
     </div>
-    
-    <p>로그인하시면 다음 기능을 이용하실 수 있습니다:</p>
-    <ul>
-      <li>실시간 자막 제공</li>
-      <li>다양한 언어로 자막 번역</li>
-      <li>자막 설정 저장</li>
-      <li>고급 사용자 기능</li>
-    </ul>
   </div>
   
   <div id="main-tab" class="tab-content">

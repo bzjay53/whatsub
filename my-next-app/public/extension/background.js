@@ -581,6 +581,46 @@ async function handleSignOut(message, sender, sendResponse) {
             console.warn("[Whatsub] 토큰 제거 프로세스 중 오류:", tokenError);
         }
         
+        // 새로 추가: Chrome ID 관리자 세션 제거를 위한 웹 인증 흐름 시작
+        try {
+            // Google 계정에서 명시적 로그아웃을 위한 URL
+            const googleLogoutUrl = 'https://accounts.google.com/logout';
+            
+            // 웹 인증 흐름을 통해 로그아웃 URL로 리디렉션
+            await new Promise((resolve) => {
+                chrome.identity.launchWebAuthFlow({
+                    url: googleLogoutUrl,
+                    interactive: true
+                }, (responseUrl) => {
+                    if (chrome.runtime.lastError) {
+                        console.warn("[Whatsub] 웹 인증 흐름 로그아웃 중 경고:", chrome.runtime.lastError.message);
+                    } else {
+                        console.log("[Whatsub] 웹 인증 흐름 로그아웃 완료:", responseUrl);
+                    }
+                    resolve();
+                });
+            });
+            
+            // Google API 토큰 목록 지우기
+            if (chrome.identity.removeCachedAuthToken) {
+                await new Promise((resolve) => {
+                    chrome.identity.getAuthToken({ interactive: false }, async (token) => {
+                        if (token) {
+                            console.log("[Whatsub] 남아있는 토큰 제거:", token.substring(0, 10) + "...");
+                            chrome.identity.removeCachedAuthToken({ token }, () => {
+                                console.log("[Whatsub] 토큰 제거 완료");
+                                resolve();
+                            });
+                        } else {
+                            resolve();
+                        }
+                    });
+                });
+            }
+        } catch (webAuthError) {
+            console.warn("[Whatsub] 웹 인증 흐름 로그아웃 중 오류:", webAuthError);
+        }
+        
         // 3. 모든 캐시된 토큰 제거 (가능한 경우)
         if (chrome.identity.clearAllCachedAuthTokens) {
             try {
