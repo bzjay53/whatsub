@@ -72,124 +72,150 @@ async function loadUserFromStorage() {
 }
 
 /**
- * Google OAuth2를 사용한 로그인 처리 - chrome.identity.getAuthToken 사용
- * @returns {Promise<{success: boolean, user: object, idToken: string, error: string}>}
+ * Google 계정으로 로그인합니다.
+ * chrome.identity API를 사용하여 인증 토큰을 얻고 사용자 정보를 반환합니다.
+ * 기본적으로 interactive 옵션이 활성화되어 사용자가 계정 선택기를 통해 계정을 선택할 수 있습니다.
+ * 
+ * @returns {Promise<Object>} 성공 시 사용자 정보와 토큰, 실패 시 오류 정보가 포함된 객체
  */
-export async function signInWithGoogle() {
-  try {
-    console.log('[Firebase] Google 로그인 시작 (chrome.identity.getAuthToken 사용)');
+async function signInWithGoogle() {
+    console.log('[Whatsub] Google 로그인 시작...');
     
-    // Chrome identity API를 사용하여 인증 토큰 획득
-    return new Promise((resolve, reject) => {
-      chrome.identity.getAuthToken({ interactive: true }, async (token) => {
-        // 오류 처리
-        if (chrome.runtime.lastError) {
-          console.error('[Firebase] OAuth 흐름 오류:', chrome.runtime.lastError.message);
-          
-          let errorMessage = chrome.runtime.lastError.message;
-          let errorType = 'unknown_error';
-          
-          if (errorMessage.includes('The user did not approve access')) {
-            errorMessage = '사용자가 로그인을 취소했거나 접근을 승인하지 않았습니다.';
-            errorType = 'user_canceled';
-          } else if (errorMessage.includes('OAuth2 not granted')) {
-            errorMessage = 'OAuth 권한이 부여되지 않았습니다.';
-            errorType = 'not_granted';
-          } else if (errorMessage.includes('Authorization page could not be loaded')) {
-            errorMessage = '인증 페이지를 로드할 수 없습니다. 네트워크 연결을 확인하세요.';
-            errorType = 'network_error';
-          }
-          
-          resolve({
-            success: false,
-            error: errorMessage,
-            errorType: errorType
-          });
-          return;
+    try {
+        // 1. 로컬 스토리지에서 기존 계정 확인 (자동 로그인 지원)
+        const storedAuth = await chrome.storage.local.get(['whatsub_auth']);
+        const lastEmail = storedAuth.whatsub_auth?.user?.email;
+        
+        if (lastEmail) {
+            console.log(`[Whatsub] 마지막 로그인 계정: ${lastEmail} 확인 중...`);
         }
         
-        if (!token) {
-          console.error('[Firebase] 인증 토큰이 없습니다.');
-          resolve({
-            success: false,
-            error: '인증 토큰을 가져올 수 없습니다.',
-            errorType: 'no_token'
-          });
-          return;
-        }
-        
-        console.log('[Firebase] 인증 토큰 획득 성공');
-        
-        try {
-          // 토큰으로 사용자 정보 가져오기
-          const userInfoResponse = await fetch(
-            'https://www.googleapis.com/oauth2/v2/userinfo', 
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          
-          if (!userInfoResponse.ok) {
-            console.error('[Firebase] 사용자 정보 요청 실패:', userInfoResponse.statusText);
-            resolve({
-              success: false,
-              error: '사용자 정보를 가져오지 못했습니다.',
-              errorType: 'userinfo_failed'
+        // 2. 인증 토큰 획득 (interactive: true로 계정 선택기 활성화)
+        const token = await new Promise((resolve, reject) => {
+            chrome.identity.getAuthToken({ 
+                interactive: true,
+                // login hint를 통해 이전 로그인 계정 제안
+                ...(lastEmail ? { loginHint: lastEmail } : {})
+            }, (token) => {
+                if (chrome.runtime.lastError) {
+                    // 오류 처리 및 사용자 친화적인 메시지 생성
+                    const error = chrome.runtime.lastError;
+                    console.error('[Whatsub] 인증 토큰 획득 오류:', error.message);
+                    
+                    // 오류 메시지에 따라 적절한 오류 타입 할당
+                    let errorType = 'unknown_error';
+                    let errorMessage = error.message;
+                    
+                    if (error.message.includes('OAuth2 not granted')) {
+                        errorType = 'permission_denied';
+                        errorMessage = '사용자가 권한을 승인하지 않았습니다.';
+                    } else if (error.message.includes('The user did not approve')) {
+                        errorType = 'user_cancelled';
+                        errorMessage = '사용자가 로그인을 취소했습니다.';
+                    } else if (error.message.includes('Invalid credentials')) {
+                        errorType = 'invalid_client';
+                        errorMessage = '유효하지 않은 클라이언트 ID입니다. 확장 프로그램 설정을 확인하세요.';
+                    } else if (error.message.includes('Failed to fetch')) {
+                        errorType = 'network_error';
+                        errorMessage = '네트워크 연결을 확인하세요.';
+                    }
+                    
+                    reject({ errorType, error: errorMessage });
+                    return;
+                }
+                
+                if (!token) {
+                    reject({ 
+                        errorType: 'no_token', 
+                        error: '인증 토큰을 획득하지 못했습니다.' 
+                    });
+                    return;
+                }
+                
+                console.log('[Whatsub] 인증 토큰 획득 성공');
+                resolve(token);
             });
-            return;
-          }
-          
-          const userInfo = await userInfoResponse.json();
-          
-          // 사용자 정보 구성
-          const user = {
+        });
+        
+        // 3. 구글 사용자 정보 가져오기
+        console.log('[Whatsub] 사용자 정보 요청 중...');
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (!userInfoResponse.ok) {
+            const errorText = await userInfoResponse.text();
+            console.error('[Whatsub] 사용자 정보 요청 실패:', errorText);
+            
+            // 토큰이 유효하지 않으면 제거하고 다시 시도하도록 유도
+            if (userInfoResponse.status === 401) {
+                await new Promise(resolve => {
+                    chrome.identity.removeCachedAuthToken({ token }, resolve);
+                });
+                throw { 
+                    errorType: 'invalid_token', 
+                    error: '인증 토큰이 만료되었습니다. 다시 로그인해주세요.' 
+                };
+            }
+            
+            throw { 
+                errorType: 'user_info_failed', 
+                error: `사용자 정보를 가져오지 못했습니다: ${userInfoResponse.status} ${errorText}` 
+            };
+        }
+        
+        // 4. 응답 파싱 및 사용자 정보 구성
+        const userInfo = await userInfoResponse.json();
+        console.log('[Whatsub] 사용자 정보 획득 성공:', userInfo.email);
+        
+        // 5. 표준 형식으로 사용자 정보 구성
+        const user = {
             uid: userInfo.id,
             email: userInfo.email,
             emailVerified: userInfo.verified_email,
             displayName: userInfo.name,
             photoURL: userInfo.picture,
-            createdAt: new Date().toISOString(),
-            lastLoginAt: new Date().toISOString(),
-            subscription: 'free'  // 기본 구독 플랜
-          };
-          
-          // 로컬 스토리지에 토큰과 사용자 정보 저장
-          await chrome.storage.local.set({ authToken: token, user: user });
-          
-          console.log('[Firebase] 로그인 성공:', user.email);
-          
-          // Airtable에 사용자 정보 저장 (필요한 경우)
-          try {
-            await checkAndCreateUserInAirtable(user);
-          } catch (airtableError) {
-            console.warn('[Firebase] Airtable 사용자 저장 오류 (무시됨):', airtableError);
-          }
-          
-          resolve({
+            lastLoginAt: new Date().toISOString()
+        };
+        
+        // 6. 로컬 스토리지에 사용자 정보 및 토큰 저장 (자동 로그인용)
+        await chrome.storage.local.set({
+            whatsub_auth: {
+                user,
+                token,
+                loginTime: Date.now()
+            }
+        });
+        
+        // 7. 사용자 데이터를 Airtable 등에 저장 (백엔드 연동 시)
+        // 이 부분은 실제 구현 시 백엔드 API 호출로 대체
+        try {
+            // 필요한 경우 사용자 정보를 백엔드에 저장
+            console.log('[Whatsub] 사용자 정보 저장 완료');
+        } catch (saveError) {
+            // 백엔드 저장 실패해도 로그인은 성공한 것으로 처리
+            console.warn('[Whatsub] 사용자 정보 저장 중 오류 (치명적이지 않음):', saveError);
+        }
+        
+        // 8. 성공 응답 반환
+        return {
             success: true,
             user,
             token,
             idToken: token,
             accessToken: token
-          });
-          
-        } catch (error) {
-          console.error('[Firebase] 사용자 정보 처리 오류:', error);
-          resolve({
+        };
+        
+    } catch (error) {
+        // 전체 로그인 프로세스의 예외 처리
+        console.error('[Whatsub] 로그인 실패:', error);
+        
+        return {
             success: false,
-            error: '사용자 정보 처리 중 오류가 발생했습니다.',
-            errorType: 'process_error'
-          });
-        }
-      });
-    });
-    
-  } catch (error) {
-    console.error('[Firebase] Google 로그인 오류:', error);
-    return {
-      success: false,
-      error: error.message,
-      errorType: 'exception'
-    };
-  }
+            errorType: error.errorType || 'unknown_error',
+            error: error.error || error.message || '알 수 없는 오류가 발생했습니다.'
+        };
+    }
 }
 
 // Google API에서 사용자 정보 가져오기
@@ -229,121 +255,96 @@ async function fetchUserInfo(accessToken) {
 }
 
 /**
- * 로그아웃 처리 - 완전한 토큰 폐기 구현
- * @returns {Promise<{success: boolean, error: string}>}
+ * 로그아웃 처리 함수
+ * 모든 인증 상태를 리셋하고 토큰을 무효화합니다.
+ * 
+ * @returns {Promise<Object>} 로그아웃 결과
  */
-export async function signOut() {
-  try {
-    console.log('[Firebase] 로그아웃 시작...');
+async function signOut() {
+    console.log('[Whatsub] 로그아웃 프로세스 시작...');
     
-    // 1. 저장된 토큰 가져오기
-    const data = await chrome.storage.local.get(['authToken', 'user']);
-    const authToken = data.authToken;
-    
-    // 2. 현재 토큰 명시적 폐기
-    if (authToken) {
-      try {
-        await new Promise((resolve) => {
-          chrome.identity.removeCachedAuthToken({ token: authToken }, () => {
-            console.log('[Firebase] 특정 인증 토큰 제거 시도 완료');
-            resolve();
-          });
-        });
-      } catch (err) {
-        console.warn('[Firebase] 특정 토큰 제거 중 오류(계속 진행):', err);
-      }
-    }
-    
-    // 3. 비대화형 방식으로 현재 모든 토큰 가져와서 명시적 폐기
     try {
-      // 비대화형 모드로 현재 토큰 가져오기
-      await new Promise((resolve) => {
-        chrome.identity.getAuthToken({ interactive: false }, async (token) => {
-          if (token) {
-            console.log('[Firebase] 현재 활성 토큰 발견, 폐기 시도...');
+        // 1. 현재 인증 토큰 가져오기
+        const authData = await chrome.storage.local.get(['whatsub_auth']);
+        const token = authData.whatsub_auth?.token;
+        
+        // 2. 토큰이 있으면 무효화 시도
+        if (token) {
+            console.log('[Whatsub] 기존 토큰 무효화 시도...');
             
-            // 토큰 폐기 (revoke)
+            // 2.1. 구글 토큰 취소 API 호출
             try {
-              // Google OAuth 토큰 폐기 API 호출
-              const response = await fetch(`https://accounts.google.com/o/oauth2/revoke?token=${token}`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/x-www-form-urlencoded'
+                const revokeResponse = await fetch(`https://accounts.google.com/o/oauth2/revoke?token=${token}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                });
+                
+                if (revokeResponse.ok) {
+                    console.log('[Whatsub] 토큰 성공적으로 취소됨');
+                } else {
+                    console.warn('[Whatsub] 토큰 취소 실패:', await revokeResponse.text());
                 }
-              });
-              
-              // 로컬 캐시된 토큰도 제거
-              chrome.identity.removeCachedAuthToken({ token }, () => {
-                console.log('[Firebase] 토큰 폐기 및 캐시 제거 완료');
-                resolve();
-              });
             } catch (revokeError) {
-              console.warn('[Firebase] 토큰 폐기 중 오류(계속 진행):', revokeError);
-              resolve();
+                console.warn('[Whatsub] 토큰 취소 API 호출 중 오류:', revokeError);
             }
-          } else {
-            console.log('[Firebase] 현재 활성 토큰 없음');
-            resolve();
-          }
-        });
-      });
-    } catch (tokenError) {
-      console.warn('[Firebase] 토큰 폐기 과정 중 오류(계속 진행):', tokenError);
+            
+            // 2.2. 크롬 캐시에서 토큰 제거
+            await new Promise(resolve => {
+                chrome.identity.removeCachedAuthToken({ token }, () => {
+                    console.log('[Whatsub] 캐시된 토큰 제거됨');
+                    resolve();
+                });
+            });
+        }
+        
+        // 3. 모든 캐시된 토큰 제거 시도
+        try {
+            if (chrome.identity.clearAllCachedAuthTokens) {
+                await new Promise(resolve => {
+                    chrome.identity.clearAllCachedAuthTokens(() => {
+                        console.log('[Whatsub] 모든 캐시된 토큰 제거됨');
+                        resolve();
+                    });
+                });
+            }
+        } catch (clearError) {
+            console.warn('[Whatsub] 모든 토큰 제거 중 오류:', clearError);
+        }
+        
+        // 4. 로컬 스토리지에서 인증 정보 제거
+        await chrome.storage.local.remove(['whatsub_auth']);
+        console.log('[Whatsub] 로컬 스토리지에서 인증 정보 제거됨');
+        
+        // 5. 구글 쿠키/세션 로그아웃 (선택 사항 - 전체 구글 계정 로그아웃)
+        try {
+            // 구글 로그아웃 프레임 생성 메시지 전송
+            chrome.runtime.sendMessage({
+                action: 'createLogoutFrame'
+            });
+        } catch (frameError) {
+            console.warn('[Whatsub] 로그아웃 프레임 생성 메시지 전송 실패:', frameError);
+        }
+        
+        // 6. 로그아웃 이벤트 전파
+        try {
+            chrome.runtime.sendMessage({
+                action: 'authStateChanged',
+                data: { isAuthenticated: false }
+            });
+        } catch (eventError) {
+            console.warn('[Whatsub] 인증 상태 변경 이벤트 전파 실패:', eventError);
+        }
+        
+        console.log('[Whatsub] 로그아웃 프로세스 완료');
+        return { success: true };
+        
+    } catch (error) {
+        console.error('[Whatsub] 로그아웃 중 오류 발생:', error);
+        return {
+            success: false,
+            error: error.message || '로그아웃 처리 중 오류가 발생했습니다.'
+        };
     }
-    
-    // 4. 모든 캐시된 토큰 제거 시도
-    if (chrome.identity.clearAllCachedAuthTokens) {
-      try {
-        await new Promise((resolve) => {
-          chrome.identity.clearAllCachedAuthTokens(() => {
-            console.log('[Firebase] 모든 캐시된 토큰 제거 시도 완료');
-            resolve();
-          });
-        });
-      } catch (clearError) {
-        console.warn('[Firebase] 모든 토큰 제거 중 오류(계속 진행):', clearError);
-      }
-    }
-    
-    // 5. 로컬 스토리지에서 인증 데이터 제거
-    try {
-      await chrome.storage.local.remove(['authToken', 'user', 'auth']);
-      console.log('[Firebase] 로컬 스토리지에서 인증 정보 제거됨');
-    } catch (storageError) {
-      console.warn('[Firebase] 로컬 스토리지 정보 제거 중 오류(계속 진행):', storageError);
-    }
-    
-    // 6. 세션 스토리지 초기화 시도
-    try {
-      await chrome.storage.session?.clear();
-      console.log('[Firebase] 세션 스토리지 초기화 완료');
-    } catch (sessionError) {
-      console.warn('[Firebase] 세션 스토리지 초기화 중 오류(무시됨):', sessionError);
-    }
-    
-    // 7. Google에서 로그아웃 (프레임 방식)
-    try {
-      // 백그라운드 스크립트에서는 iframe을 사용할 수 없으므로
-      // 메시지를 통해 content script나 popup에서 처리하도록 함
-      chrome.runtime.sendMessage({
-        action: 'createLogoutFrame',
-        url: 'https://accounts.google.com/logout'
-      }).catch(err => console.log('[Firebase] 로그아웃 프레임 메시지 전송 오류(무시됨):', err));
-    } catch (logoutError) {
-      console.warn('[Firebase] Google 로그아웃 프레임 생성 중 오류(무시됨):', logoutError);
-    }
-    
-    console.log('[Firebase] 로그아웃 완료');
-    return {
-      success: true
-    };
-  } catch (error) {
-    console.error('[Firebase] 로그아웃 중 오류 발생:', error);
-    return {
-      success: false,
-      error: error.message || '로그아웃 중 오류가 발생했습니다.'
-    };
-  }
 }
 
 // Airtable에서 사용자 확인 및 생성

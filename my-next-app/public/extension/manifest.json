@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "WhatsUB",
-  "version": "0.2.1",
+  "name": "Whatsub",
+  "version": "0.2.2",
   "description": "YouTube 동영상을 위한 자막 관리 도구",
   "author": "contact@whatsub.io",
   "icons": {
