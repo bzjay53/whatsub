@@ -1,0 +1,316 @@
+/* Whatsub 콘텐츠 스타일 */
+
+/* 자막 컨테이너 스타일 */
+#whatsub-container {
+    position: absolute;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+    padding: 10px 15px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    font-family: 'Arial', sans-serif;
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    z-index: 9999;
+    transition: all 0.3s ease;
+    max-width: 80%;
+    min-width: 250px;
+}
+
+/* 자막 컨테이너 드래그 시 스타일 */
+#whatsub-container.dragging {
+    opacity: 0.8;
+    cursor: move;
+}
+
+/* 원본 자막 스타일 */
+.original-subtitle {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+/* 번역된 자막 스타일 */
+.translated-subtitle {
+    font-size: 16px;
+    color: #cccccc;
+    font-style: italic;
+}
+
+/* 컨트롤 패널 스타일 */
+.whatsub-controls {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+    opacity: 0.3;
+    transition: opacity 0.3s ease;
+}
+
+#whatsub-container:hover .whatsub-controls {
+    opacity: 1;
+}
+
+/* 컨트롤 버튼 스타일 */
+.whatsub-control {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 14px;
+    padding: 3px 6px;
+    margin: 0 5px;
+    cursor: pointer;
+    position: relative;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.whatsub-control:hover {
+    opacity: 1;
+}
+
+.whatsub-control.active {
+    color: #4CAF50;
+}
+
+/* 툴팁 스타일 */
+.whatsub-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    font-size: 12px;
+    border-radius: 4px;
+    white-space: nowrap;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.whatsub-control:hover .whatsub-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* 상호작용 버튼 스타일 */
+.whatsub-interaction {
+    display: flex;
+    justify-content: center;
+    margin-left: 10px;
+}
+
+.whatsub-interaction-button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 14px;
+    padding: 2px 4px;
+    margin: 0 3px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: all 0.2s;
+}
+
+.whatsub-interaction-button:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.whatsub-interaction-button.active {
+    color: #42a5f5;
+    opacity: 1;
+}
+
+/* 설정 패널 스타일 */
+.whatsub-settings-panel {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    width: 250px;
+    background-color: rgba(0, 0, 0, 0.8);
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: none;
+    z-index: 10000;
+}
+
+.whatsub-settings-panel.visible {
+    display: block;
+}
+
+.whatsub-settings-item {
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.whatsub-settings-item label {
+    color: white;
+    font-size: 14px;
+}
+
+.whatsub-settings-item select,
+.whatsub-settings-item input {
+    background-color: #333;
+    color: white;
+    border: 1px solid #666;
+    padding: 3px 5px;
+    border-radius: 3px;
+}
+
+/* 자막 애니메이션 효과 */
+.subtitle-animated {
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px) translateX(-50%); }
+    to { opacity: 1; transform: translateY(0) translateX(-50%); }
+}
+
+/* 듀얼 자막 모드 */
+#whatsub-container.dual-subtitle .original-subtitle {
+    margin-bottom: 5px;
+}
+
+/* 모바일 기기를 위한 반응형 스타일 */
+@media (max-width: 768px) {
+    #whatsub-container {
+        width: 90%;
+        padding: 8px 10px;
+    }
+    
+    .original-subtitle {
+        font-size: 16px;
+    }
+    
+    .translated-subtitle {
+        font-size: 14px;
+    }
+}
+
+/* 상태 표시기 스타일 */
+#whatsub-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 10px 15px;
+    border-radius: 4px;
+    color: white;
+    font-family: 'Arial', sans-serif;
+    z-index: 999999;
+    animation: statusFadeIn 0.3s;
+}
+
+#whatsub-status.info {
+    background-color: rgba(33, 150, 243, 0.8);
+}
+
+#whatsub-status.success {
+    background-color: rgba(76, 175, 80, 0.8);
+}
+
+#whatsub-status.warning {
+    background-color: rgba(255, 152, 0, 0.8);
+}
+
+#whatsub-status.error {
+    background-color: rgba(244, 67, 54, 0.8);
+}
+
+@keyframes statusFadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 디버그 로거 스타일 */
+#whatsub-debug-container {
+    font-family: 'Consolas', 'Monaco', monospace;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border: 1px solid #444;
+}
+
+#whatsub-log-content {
+    scrollbar-width: thin;
+    scrollbar-color: #555 #222;
+}
+
+#whatsub-log-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+#whatsub-log-content::-webkit-scrollbar-track {
+    background: #222;
+}
+
+#whatsub-log-content::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 10px;
+}
+
+.log-entry {
+    line-height: 1.4;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.log-debug { border-left-color: #888 !important; }
+.log-info { border-left-color: #42a5f5 !important; }
+.log-warn { border-left-color: #ffb74d !important; }
+.log-error { border-left-color: #ef5350 !important; }
+
+/* 폰트 크기 변형 */
+.subtitle-size-small {
+    font-size: 14px;
+}
+
+.subtitle-size-medium {
+    font-size: 16px;
+}
+
+.subtitle-size-large {
+    font-size: 18px;
+}
+
+/* 자막 색상 변형 */
+.subtitle-color-white {
+    color: #ffffff;
+}
+
+.subtitle-color-yellow {
+    color: #ffff00;
+}
+
+.subtitle-color-cyan {
+    color: #00ffff;
+}
+
+/* 배경 스타일 변형 */
+.subtitle-bg-transparent {
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.subtitle-bg-semi {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.subtitle-bg-solid {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* 드래그 가능한 영역 스타일 */
+#whatsub-container.draggable {
+    cursor: move;
+}
+
+/* 자막 컨테이너 호버 효과 */
+#whatsub-container:hover {
+    background-color: rgba(0, 0, 0, 0.85);
+} 

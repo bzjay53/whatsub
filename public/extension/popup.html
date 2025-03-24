@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whatsub</title>
+  <link rel="stylesheet" href="popup.css">
+  <!-- 필요한 스크립트 로드 -->
+  <script src="popup.js"></script>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">
+      <img src="icons/icon-48.png" alt="WhaSub Logo">
+      <h1>WhatSub</h1>
+    </div>
+    <div>
+      <button id="tab-main" class="tab-button">메인</button>
+      <button id="tab-settings" class="tab-button">설정</button>
+      <button id="tab-help" class="tab-button">도움말</button>
+    </div>
+  </div>
+
+  <!-- 로딩 인디케이터 -->
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- 로그인 탭 (처음 시작 화면) -->
+  <div id="signin-tab" class="tab-content">
+    <div class="signin-container">
+      <img src="icons/icon-128.png" alt="WhaSub Logo" class="signin-logo">
+      <h2 class="signin-title">WhatSub</h2>
+      <p class="signin-description">유튜브 영상에 자막을 손쉽게<br>번역하고 필터링하세요</p>
+      
+      <button id="google-signin" class="signin-button">
+        <div class="icon-wrapper">
+          <img src="icons/google-icon.svg" alt="Google">
+        </div>
+        <div class="text-wrapper">
+          Google로 계속하기
+        </div>
+      </button>
+      
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">또는</div>
+        <div class="divider-line"></div>
+      </div>
+      
+      <div class="auth-buttons">
+        <button id="login-btn" class="login-btn">로그인</button>
+        <button id="signup-btn" class="signup-btn">회원가입</button>
+      </div>
+      
+      <div class="footer-links">
+        <a href="#" id="privacy-link">개인정보처리방침</a>
+        <a href="#" id="terms-link">이용약관</a>
+        <a href="#" id="feedback-link">피드백</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 메인 탭 -->
+  <div id="main-tab" class="tab-content">
+    <div id="user-info-container">
+      <div id="user-info" class="card">
+        <div class="user-info">
+          <img id="user-avatar" src="icons/default-avatar.png" alt="사용자 프로필" class="user-avatar">
+          <div class="user-details">
+            <h3 id="user-name">사용자 이름</h3>
+            <p id="user-email">example@email.com</p>
+          </div>
+        </div>
+        <div>
+          <p id="usage-display">사용량: 0/100</p>
+          <div class="usage-meter">
+            <div id="usage-fill" class="usage-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="login-required-message" style="display: none;" class="card">
+      <h3>로그인이 필요합니다</h3>
+      <p>WhaSub의 모든 기능을 사용하기 위해 로그인해주세요.</p>
+      <button id="goto-login">로그인 페이지로 이동</button>
+    </div>
+
+    <div id="controls-container" class="card">
+      <div id="filter-container">
+        <h3>자막 필터링</h3>
+        <p>유튜브 영상의 자막을 필터링하고 번역하세요.</p>
+        <div class="setting-row">
+          <span>자막 필터링 활성화</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="filter-toggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <span>필터 언어</span>
+          <select id="filter-language">
+            <option value="ko">한국어</option>
+            <option value="en">영어</option>
+            <option value="ja">일본어</option>
+            <option value="zh">중국어</option>
+          </select>
+        </div>
+      </div>
+      <div class="controls">
+        <button id="logout-btn">로그아웃</button>
+        <button id="save-settings">설정 저장</button>
+      </div>
+    </div>
+
+    <div id="status-container"></div>
+  </div>
+
+  <!-- 설정 탭 -->
+  <div id="settings-tab" class="tab-content">
+    <div class="card">
+      <h3>확장 프로그램 설정</h3>
+      <div class="setting-row">
+        <span>자동 시작</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="auto-start">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <span>개발자 모드</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="dev-mode">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <span>자막 표시 위치</span>
+        <select id="caption-position">
+          <option value="bottom">하단</option>
+          <option value="top">상단</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <span>자막 폰트 크기</span>
+        <select id="font-size">
+          <option value="small">작게</option>
+          <option value="medium">보통</option>
+          <option value="large">크게</option>
+        </select>
+      </div>
+      <div class="controls">
+        <button id="reset-settings">설정 초기화</button>
+        <button id="save-settings-2">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 도움말 탭 -->
+  <div id="help-tab" class="tab-content">
+    <div class="card">
+      <h3>WhaSub 사용 방법</h3>
+      <p>WhaSub는 유튜브 영상의 자막을 번역하고 필터링하는 확장 프로그램입니다.</p>
+      <ol>
+        <li>유튜브 영상 페이지에서 확장 프로그램 아이콘을 클릭합니다.</li>
+        <li>자막 필터링 기능을 활성화합니다.</li>
+        <li>원하는 필터 언어를 선택합니다.</li>
+        <li>유튜브 영상의 자막이 자동으로 번역됩니다.</li>
+      </ol>
+      <p>더 많은 도움말은 <a href="#" id="help-center-link">도움말 센터</a>를 참조하세요.</p>
+    </div>
+    <div class="card">
+      <h3>자주 묻는 질문</h3>
+      <p><strong>Q: 자막이 표시되지 않아요.</strong></p>
+      <p>A: 유튜브 영상에 자막이 있는지 확인하세요. 영상에 자막이 없으면 기능이 작동하지 않습니다.</p>
+      <p><strong>Q: 사용량은 어떻게 결정되나요?</strong></p>
+      <p>A: 자막 번역 및 필터링을 사용할 때마다 사용량이 증가합니다. 구독 플랜에 따라 월간 사용량이 결정됩니다.</p>
+    </div>
+  </div>
+
+  <!-- 디버그 정보 (기본적으로 숨김) -->
+  <div id="debug-info" style="display: none; margin-top: 16px; padding: 10px; background-color: #f0f0f0; font-size: 12px; border-top: 1px solid #ddd;">
+    <h4 style="margin-top: 0; margin-bottom: 8px;">개발자 정보</h4>
+    <div id="auth-state-display">인증 상태: 확인 중...</div>
+    <div class="controls" style="margin-top: 8px;">
+      <button id="check-auth-btn" style="font-size: 11px; padding: 4px 8px;">인증 확인</button>
+      <button id="reload-btn" style="font-size: 11px; padding: 4px 8px;">새로고침</button>
+      <button id="test-login-btn" style="font-size: 11px; padding: 4px 8px; display: none;">테스트 로그인</button>
+    </div>
+  </div>
+
+  <!-- 테스트 스크립트 (개발 중에만 사용) -->
+  <!-- <script src="test-login.js"></script> -->
+</body>
+</html> 

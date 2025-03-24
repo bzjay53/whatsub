@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsUb - 자막 확장 프로그램</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <img src="../assets/icon48.png" alt="WhatsUb 로고">
+            <h1>WhatsUb</h1>
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- 인증 섹션 -->
+        <div id="auth-section" class="auth-section">
+            <!-- 로그인 전 화면 -->
+            <div id="auth-status" class="auth-status">
+                <p>로그인하여 자막 서비스를 이용하세요</p>
+                <button id="login-button" class="login-button">
+                    <img src="../assets/google-logo.svg" alt="Google">
+                    Google로 로그인
+                </button>
+            </div>
+            
+            <!-- 로그인 후 화면 -->
+            <div id="user-info" class="user-info" style="display: none;">
+                <img id="user-avatar" class="user-avatar" src="../assets/default-avatar.svg" alt="사용자 프로필">
+                <div class="user-details">
+                    <h3 id="user-name" class="user-name">사용자 이름</h3>
+                    <div class="user-plan">
+                        <span>구독:</span>
+                        <span id="current-plan" class="plan-badge">무료</span>
+                    </div>
+                </div>
+                <button id="logout-button" class="logout-button">로그아웃</button>
+            </div>
+        </div>
+        
+        <!-- 구독 정보 섹션 -->
+        <div id="subscription-info" class="subscription-info" style="display: none;">
+            <h3>사용량</h3>
+            
+            <!-- Whisper AI 사용량 -->
+            <div class="usage-item">
+                <div class="usage-label">
+                    <strong>Whisper AI</strong>
+                    <span id="whisper-usage" class="usage-value">0/60분</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="whisper-progress" class="progress" style="width: 0%;"></div>
+                </div>
+            </div>
+            
+            <!-- 번역 사용량 -->
+            <div class="usage-item">
+                <div class="usage-label">
+                    <strong>번역</strong>
+                    <span id="translation-usage" class="usage-value">0/5000자</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="translation-progress" class="progress" style="width: 0%;"></div>
+                </div>
+            </div>
+            
+            <button id="upgrade-button" class="upgrade-button">프리미엄으로 업그레이드</button>
+        </div>
+        
+        <!-- 자막 제어 -->
+        <div class="controls">
+            <h3>자막 제어</h3>
+            <button id="toggleButton" class="toggle-button">자막 시작</button>
+        </div>
+        
+        <!-- 상태 메시지 -->
+        <div id="status" class="status-message info">준비 완료</div>
+    </div>
+    
+    <div class="footer">
+        <p>© 2023 WhatsUb | <a href="https://whatsub.io" target="_blank">웹사이트</a> | <a href="https://whatsub.io/privacy" target="_blank">개인정보 처리방침</a></p>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+</body>
+</html> 
