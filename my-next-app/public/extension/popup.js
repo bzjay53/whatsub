@@ -240,41 +240,54 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // 리디렉션 URI 오류 처리 함수
-    function handleRedirectUriError(redirectUri) {
-        // 기존 탭 콘텐츠 숨기기
-        tabContents.forEach(content => {
-            content.classList.remove('active');
-        });
+    // 로그인 오류 처리 개선
+    function handleLoginError(error) {
+        console.error('로그인 오류:', error);
         
-        // 리디렉션 URI 오류 섹션 생성
-        const errorSection = document.createElement('div');
-        errorSection.id = 'redirect-uri-error';
-        errorSection.innerHTML = `
-            <h3>OAuth 리디렉션 URI 설정 필요</h3>
-            <p>Google 로그인 설정이 올바르지 않습니다. 다음 단계를 통해 수정할 수 있습니다:</p>
-            <ol>
-                <li><a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a>에서 클라이언트 ID를 만들거나 수정하세요.</li>
-                <li>다음 리디렉션 URI를 OAuth 클라이언트 허용 목록에 추가하세요:</li>
-            </ol>
-            <code>${redirectUri || chrome.identity.getRedirectURL()}</code>
-            <button id="copy-uri" class="btn">복사</button>
-            <p>URI를 복사하여 Google Cloud Console에 붙여넣으세요.</p>
-        `;
+        // 상태 메시지 표시
+        const statusContainer = document.getElementById('statusContainer');
+        statusContainer.className = 'status error';
         
-        // 메인 컨테이너에 추가
-        document.querySelector('.container').appendChild(errorSection);
+        if (error && error.errorType === 'redirect_uri_mismatch') {
+            // 리디렉션 URI 불일치 오류 처리
+            statusContainer.innerHTML = `
+                <h3>리디렉션 URI 불일치 오류</h3>
+                <p>Google 로그인을 위해서는 올바른 리디렉션 URI를 Google Cloud Console에 등록해야 합니다.</p>
+                <p>다음 리디렉션 URI를 복사하여 Google Cloud Console에 등록하세요:</p>
+                <code id="redirect-uri-display">${error.redirectUri || chrome.identity.getRedirectURL('oauth2')}</code>
+                <button id="copy-redirect-uri" class="copy-button">복사</button>
+                <ol>
+                    <li><a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a>에 접속하세요.</li>
+                    <li>해당 OAuth 클라이언트 ID를 클릭하세요.</li>
+                    <li>승인된 리디렉션 URI 항목에 위 URI를 추가하세요.</li>
+                    <li>저장 후 다시 로그인을 시도하세요.</li>
+                </ol>
+            `;
+            
+            // 복사 버튼 기능 추가
+            const copyButton = document.getElementById('copy-redirect-uri');
+            if (copyButton) {
+                copyButton.addEventListener('click', function() {
+                    const redirectUri = document.getElementById('redirect-uri-display').textContent;
+                    navigator.clipboard.writeText(redirectUri).then(function() {
+                        copyButton.textContent = '복사됨!';
+                        copyButton.classList.add('copied');
+                        setTimeout(function() {
+                            copyButton.textContent = '복사';
+                            copyButton.classList.remove('copied');
+                        }, 2000);
+                    });
+                });
+            }
+        } else {
+            // 기타 오류 메시지 처리
+            statusContainer.textContent = error && error.message ? 
+                `로그인 오류: ${error.message}` : 
+                '로그인 중 오류가 발생했습니다. 다시 시도해주세요.';
+        }
         
-        // 복사 버튼 이벤트 설정
-        document.getElementById('copy-uri').addEventListener('click', () => {
-            const uri = redirectUri || chrome.identity.getRedirectURL();
-            navigator.clipboard.writeText(uri).then(() => {
-                showStatus('리디렉션 URI가 클립보드에 복사되었습니다.', 'success');
-            }).catch(err => {
-                console.error('복사 실패:', err);
-                showStatus('복사 실패. 직접 URI를 선택하여 복사하세요.', 'error');
-            });
-        });
+        // 로딩 상태 해제
+        hideLoading();
     }
     
     // Google 로그인 함수
@@ -324,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         showStatus('유효한 OAuth 클라이언트 ID가 설정되지 않았습니다. manifest.json 파일을 수정하여 OAuth 클라이언트 ID를 설정해주세요.', 'error');
                     } else if (response.errorType === 'redirect_uri_mismatch') {
                         showStatus('OAuth 리디렉션 URI가 Google 콘솔에 등록되지 않았습니다.', 'error');
-                        handleRedirectUriError(response.redirectUri);
+                        handleLoginError(response.error);
                     } else if (response.error === 'access_denied') {
                         showStatus('Google 로그인이 취소되었습니다.', 'warning');
                     } else {
@@ -343,20 +356,69 @@ document.addEventListener('DOMContentLoaded', () => {
     // 로그아웃 함수
     function signOut() {
         showLoading(true);
+        console.log('로그아웃 시작...');
+        
+        // 로그아웃 타임아웃 설정 - 10초 후 강제 완료
+        const timeoutId = setTimeout(() => {
+            showLoading(false);
+            console.warn('로그아웃 시간 초과');
+            
+            // 타임아웃 발생 시 UI는 로그아웃된 상태로 강제 전환
+            state.isLoggedIn = false;
+            state.user = null;
+            switchTab('signin');
+            
+            showStatus('로그아웃 시간이 초과되었습니다. 하지만 UI를 로그아웃 상태로 전환했습니다.', 'warning');
+        }, 10000);
         
         chrome.runtime.sendMessage({ action: 'signOut' }, (response) => {
+            clearTimeout(timeoutId);
             showLoading(false);
             
-            if (response.success) {
+            if (response && response.success) {
+                console.log('로그아웃 성공');
+                
+                // 상태 완전 초기화
                 state.isLoggedIn = false;
                 state.user = null;
+                state.usage = {
+                    minutes: 0,
+                    totalMinutes: 60,
+                    percentage: 0
+                };
+                
+                // UI 업데이트
+                updateUsage(state.usage);
+                
+                // 사용자 정보 UI 초기화
+                if (userNameElement) userNameElement.textContent = '';
+                if (userEmailElement) userEmailElement.textContent = '';
+                if (userAvatarElement) userAvatarElement.src = '';
                 
                 // 로그인 탭으로 전환
                 switchTab('signin');
                 
-                showStatus('로그아웃되었습니다.', 'success');
+                // 캐시 초기화를 위해 약간의 지연 후 상태 확인
+                setTimeout(() => {
+                    // 상태가 실제로 변경되었는지 한 번 더 확인
+                    chrome.runtime.sendMessage({ action: 'checkAuth' }, (checkResponse) => {
+                        if (checkResponse && checkResponse.isLoggedIn) {
+                            console.warn('로그아웃 처리 후에도 여전히 로그인 상태로 나타납니다.');
+                            showStatus('완전한 로그아웃이 되지 않았을 수 있습니다. 브라우저를 다시 시작해보세요.', 'warning');
+                        } else {
+                            console.log('로그아웃 확인 완료');
+                            showStatus('성공적으로 로그아웃되었습니다.', 'success');
+                        }
+                    });
+                }, 1000);
             } else {
-                showStatus('로그아웃 오류: ' + response.error, 'error');
+                console.error('로그아웃 실패:', response ? response.error : '응답 없음');
+                showStatus('로그아웃 중 오류가 발생했습니다: ' + (response ? response.error : '응답 없음'), 'error');
+                
+                // 로그아웃에 실패하더라도 UI는 로그아웃 상태로 전환
+                state.isLoggedIn = false;
+                state.user = null;
+                switchTab('signin');
             }
         });
     }

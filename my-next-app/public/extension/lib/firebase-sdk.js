@@ -72,130 +72,122 @@ async function loadUserFromStorage() {
 }
 
 /**
- * Google OAuth2를 사용한 로그인 처리
- * @param {string} clientId - Google OAuth 클라이언트 ID
+ * Google OAuth2를 사용한 로그인 처리 - chrome.identity.getAuthToken 사용
  * @returns {Promise<{success: boolean, user: object, idToken: string, error: string}>}
  */
-export async function signInWithGoogle(clientId) {
+export async function signInWithGoogle() {
   try {
-    console.log('[Firebase] Google 로그인 시작');
+    console.log('[Firebase] Google 로그인 시작 (chrome.identity.getAuthToken 사용)');
     
-    // 클라이언트 ID 유효성 검사
-    if (!clientId || clientId === 'YOUR_OAUTH_CLIENT_ID_HERE') {
-      throw new Error('유효한 OAuth 클라이언트 ID가 필요합니다.');
-    }
-    
-    // OAuth URL 구성
-    const url = new URL('https://accounts.google.com/o/oauth2/auth');
-    url.searchParams.append('client_id', clientId);
-    url.searchParams.append('response_type', 'token id_token');
-    url.searchParams.append('redirect_uri', chrome.identity.getRedirectURL());
-    url.searchParams.append('scope', 'openid profile email');
-    url.searchParams.append('prompt', 'select_account');
-    url.searchParams.append('nonce', Math.random().toString(36).substring(2, 15));
-    
-    console.log('[Firebase] 인증 페이지 이동:', url.toString());
-    
-    // Chrome Identity API를 사용하여 인증
-    const responseUrl = await chrome.identity.launchWebAuthFlow({
-      url: url.toString(),
-      interactive: true
+    // Chrome identity API를 사용하여 인증 토큰 획득
+    return new Promise((resolve, reject) => {
+      chrome.identity.getAuthToken({ interactive: true }, async (token) => {
+        // 오류 처리
+        if (chrome.runtime.lastError) {
+          console.error('[Firebase] OAuth 흐름 오류:', chrome.runtime.lastError.message);
+          
+          let errorMessage = chrome.runtime.lastError.message;
+          let errorType = 'unknown_error';
+          
+          if (errorMessage.includes('The user did not approve access')) {
+            errorMessage = '사용자가 로그인을 취소했거나 접근을 승인하지 않았습니다.';
+            errorType = 'user_canceled';
+          } else if (errorMessage.includes('OAuth2 not granted')) {
+            errorMessage = 'OAuth 권한이 부여되지 않았습니다.';
+            errorType = 'not_granted';
+          } else if (errorMessage.includes('Authorization page could not be loaded')) {
+            errorMessage = '인증 페이지를 로드할 수 없습니다. 네트워크 연결을 확인하세요.';
+            errorType = 'network_error';
+          }
+          
+          resolve({
+            success: false,
+            error: errorMessage,
+            errorType: errorType
+          });
+          return;
+        }
+        
+        if (!token) {
+          console.error('[Firebase] 인증 토큰이 없습니다.');
+          resolve({
+            success: false,
+            error: '인증 토큰을 가져올 수 없습니다.',
+            errorType: 'no_token'
+          });
+          return;
+        }
+        
+        console.log('[Firebase] 인증 토큰 획득 성공');
+        
+        try {
+          // 토큰으로 사용자 정보 가져오기
+          const userInfoResponse = await fetch(
+            'https://www.googleapis.com/oauth2/v2/userinfo', 
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          
+          if (!userInfoResponse.ok) {
+            console.error('[Firebase] 사용자 정보 요청 실패:', userInfoResponse.statusText);
+            resolve({
+              success: false,
+              error: '사용자 정보를 가져오지 못했습니다.',
+              errorType: 'userinfo_failed'
+            });
+            return;
+          }
+          
+          const userInfo = await userInfoResponse.json();
+          
+          // 사용자 정보 구성
+          const user = {
+            uid: userInfo.id,
+            email: userInfo.email,
+            emailVerified: userInfo.verified_email,
+            displayName: userInfo.name,
+            photoURL: userInfo.picture,
+            createdAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString(),
+            subscription: 'free'  // 기본 구독 플랜
+          };
+          
+          // 로컬 스토리지에 토큰과 사용자 정보 저장
+          await chrome.storage.local.set({ authToken: token, user: user });
+          
+          console.log('[Firebase] 로그인 성공:', user.email);
+          
+          // Airtable에 사용자 정보 저장 (필요한 경우)
+          try {
+            await checkAndCreateUserInAirtable(user);
+          } catch (airtableError) {
+            console.warn('[Firebase] Airtable 사용자 저장 오류 (무시됨):', airtableError);
+          }
+          
+          resolve({
+            success: true,
+            user,
+            token,
+            idToken: token,
+            accessToken: token
+          });
+          
+        } catch (error) {
+          console.error('[Firebase] 사용자 정보 처리 오류:', error);
+          resolve({
+            success: false,
+            error: '사용자 정보 처리 중 오류가 발생했습니다.',
+            errorType: 'process_error'
+          });
+        }
+      });
     });
     
-    // 응답이 없으면 사용자가 인증을 취소한 것
-    if (!responseUrl) {
-      console.warn('[Firebase] 사용자가 인증을 취소했습니다.');
-      return {
-        success: false,
-        error: '로그인이 취소되었습니다.'
-      };
-    }
-    
-    console.log('[Firebase] 인증 응답 수신');
-    
-    // 응답 URL 파싱
-    const urlParams = new URLSearchParams(
-      responseUrl.split('#')[1] // URL 해시 부분 추출
-    );
-    
-    // 에러 확인
-    const error = urlParams.get('error');
-    if (error) {
-      let errorMessage = `인증 오류: ${error}`;
-      
-      // 일반적인 OAuth 에러 설명 추가
-      if (error === 'access_denied') {
-        errorMessage = '사용자가 계정 접근을 거부했습니다.';
-      } else if (error === 'invalid_client') {
-        errorMessage = '클라이언트 ID가 유효하지 않습니다. manifest.json에서 올바른 OAuth 클라이언트 ID를 설정했는지 확인하세요.';
-      } else if (error === 'unauthorized_client') {
-        errorMessage = '승인되지 않은 클라이언트입니다. OAuth 클라이언트 ID의 리디렉션 URI 설정을 확인하세요.';
-      }
-      
-      console.error('[Firebase] 인증 실패:', errorMessage);
-      return {
-        success: false,
-        error: errorMessage
-      };
-    }
-    
-    // 토큰 추출
-    const idToken = urlParams.get('id_token');
-    const accessToken = urlParams.get('access_token');
-    
-    if (!idToken || !accessToken) {
-      console.error('[Firebase] 토큰이 누락되었습니다.');
-      return {
-        success: false,
-        error: '인증 토큰을 받지 못했습니다.'
-      };
-    }
-    
-    // Google API에서 사용자 정보 가져오기
-    const userInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
-    
-    if (!userInfoResponse.ok) {
-      console.error('[Firebase] 사용자 정보 요청 실패:', userInfoResponse.statusText);
-      return {
-        success: false,
-        error: '사용자 정보를 가져오지 못했습니다.'
-      };
-    }
-    
-    const userInfo = await userInfoResponse.json();
-    
-    // 사용자 정보 구성
-    const user = {
-      uid: userInfo.sub,
-      email: userInfo.email,
-      emailVerified: userInfo.email_verified,
-      displayName: userInfo.name,
-      photoURL: userInfo.picture,
-      createdAt: new Date().toISOString(),
-      lastLoginAt: new Date().toISOString(),
-      subscription: 'free'  // 기본 구독 플랜
-    };
-    
-    console.log('[Firebase] 로그인 성공:', user.email);
-    
-    return {
-      success: true,
-      user,
-      idToken,
-      accessToken
-    };
   } catch (error) {
-    console.error('[Firebase] 로그인 실패:', error);
-    
-    let errorMessage = error.message;
-    // 일반적인 에러 메시지를 더 사용자 친화적으로 변환
-    if (errorMessage.includes('OAuth2')) {
-      errorMessage = 'OAuth 인증 중 오류가 발생했습니다. 네트워크 연결과 클라이언트 ID 설정을 확인하세요.';
-    }
-    
+    console.error('[Firebase] Google 로그인 오류:', error);
     return {
       success: false,
-      error: errorMessage
+      error: error.message,
+      errorType: 'exception'
     };
   }
 }
@@ -236,14 +228,70 @@ async function fetchUserInfo(accessToken) {
   }
 }
 
-// 로그아웃 함수
+/**
+ * 로그아웃 처리
+ * @returns {Promise<{success: boolean, error: string}>}
+ */
 export async function signOut() {
   try {
-    await chrome.storage.local.remove('authToken');
-    return { success: true };
+    console.log('[Firebase] 로그아웃 시작...');
+    
+    // 1. 로컬 스토리지에서 인증 데이터 제거
+    try {
+      await chrome.storage.local.remove(['authToken', 'user']);
+      console.log('[Firebase] 로컬 스토리지에서 인증 정보 제거됨');
+    } catch (storageError) {
+      console.warn('[Firebase] 로컬 스토리지에서 인증 정보 제거 중 오류:', storageError);
+    }
+    
+    // 2. 인증 토큰 제거
+    if (chrome.identity && chrome.identity.getAuthToken) {
+      try {
+        await new Promise((resolve) => {
+          chrome.identity.getAuthToken({ interactive: false }, (token) => {
+            if (token) {
+              chrome.identity.removeCachedAuthToken({ token }, () => {
+                console.log('[Firebase] 캐시된 인증 토큰 제거됨');
+                resolve();
+              });
+            } else {
+              console.log('[Firebase] 제거할 캐시된 토큰 없음');
+              resolve();
+            }
+          });
+        });
+      } catch (tokenError) {
+        console.warn('[Firebase] 토큰 제거 중 오류:', tokenError);
+      }
+    }
+    
+    // 3. Google에서 로그아웃 (선택적)
+    try {
+      const iframe = document.createElement('iframe');
+      iframe.src = 'https://accounts.google.com/logout';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      
+      // 3초 후 iframe 제거
+      setTimeout(() => {
+        if (iframe && iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+      }, 3000);
+    } catch (logoutError) {
+      console.warn('[Firebase] Google 로그아웃 iframe 생성 중 오류:', logoutError);
+    }
+    
+    console.log('[Firebase] 로그아웃 완료');
+    return {
+      success: true
+    };
   } catch (error) {
-    console.error('로그아웃 오류:', error);
-    throw error;
+    console.error('[Firebase] 로그아웃 중 오류 발생:', error);
+    return {
+      success: false,
+      error: error.message || '로그아웃 중 오류가 발생했습니다.'
+    };
   }
 }
 
