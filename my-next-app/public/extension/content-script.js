@@ -1,14 +1,16 @@
-// YouTube 페이지에 삽입될 콘텐츠 스크립트
+// WhatsUb 콘텐츠 스크립트 (기본 버전)
 console.log('WhatsUb 콘텐츠 스크립트가 로드되었습니다.');
 
 // 확장 프로그램 상태 초기화
 let isInitialized = false;
 let isSubtitleEnabled = false;
-let currentSubtitles = null;
 let selectedLanguage = 'ko';
+let subtitleContainer = null;
 
 // 메시지 리스너 설정
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('콘텐츠 스크립트 메시지 수신:', message.action);
+  
   if (message.action === 'toggleSubtitles') {
     isSubtitleEnabled = message.enabled;
     if (isSubtitleEnabled) {
@@ -21,10 +23,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   if (message.action === 'changeLanguage') {
     selectedLanguage = message.language;
-    if (isSubtitleEnabled && currentSubtitles) {
-      translateSubtitles(currentSubtitles, selectedLanguage);
-    }
     sendResponse({ success: true });
+  }
+  
+  if (message.action === 'checkStatus') {
+    sendResponse({ 
+      isInitialized,
+      isSubtitleEnabled,
+      selectedLanguage
+    });
   }
   
   return true;
@@ -34,97 +41,143 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 function initializeExtension() {
   if (isInitialized) return;
   
-  // YouTube 비디오 페이지인지 확인
-  if (window.location.hostname.includes('youtube.com') && window.location.pathname.includes('/watch')) {
-    console.log('YouTube 비디오 페이지가 감지되었습니다.');
-    
-    // 자막 컨테이너 생성
-    createSubtitleContainer();
-    
-    // 사용자 인터페이스 초기화
-    initializeUI();
-    
-    isInitialized = true;
-  }
-}
-
-// 자막 컨테이너 생성
-function createSubtitleContainer() {
-  const subtitleContainer = document.createElement('div');
-  subtitleContainer.id = 'whatsub-container';
-  subtitleContainer.style.display = 'none';
-  
-  document.body.appendChild(subtitleContainer);
-}
-
-// 사용자 인터페이스 초기화
-function initializeUI() {
-  // 자막 활성화 버튼 추가
-  // 실제 구현에서는 YouTube 플레이어 컨트롤에 버튼 추가
-  console.log('WhatsUb UI가 초기화되었습니다.');
+  // 자막 컨테이너 생성
+  createSubtitleContainer();
   
   // 백그라운드 스크립트에 페이지 로드 알림
   chrome.runtime.sendMessage({
     action: 'pageLoaded',
     url: window.location.href
   });
+  
+  isInitialized = true;
+  console.log('WhatsUb 확장 프로그램이 초기화되었습니다.');
+}
+
+// 자막 컨테이너 생성
+function createSubtitleContainer() {
+  // 기존 컨테이너 제거
+  if (subtitleContainer) {
+    subtitleContainer.remove();
+  }
+  
+  // 새 컨테이너 생성
+  subtitleContainer = document.createElement('div');
+  subtitleContainer.id = 'whatsub-container';
+  subtitleContainer.style.cssText = `
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-size: 18px;
+    z-index: 9999;
+    text-align: center;
+    max-width: 80%;
+    display: none;
+    user-select: none;
+    pointer-events: auto;
+    font-family: 'Arial', sans-serif;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  `;
+  
+  // 드래그 가능하게 설정
+  makeDraggable(subtitleContainer);
+  
+  // 문서에 추가
+  document.body.appendChild(subtitleContainer);
+  console.log('자막 컨테이너가 생성되었습니다.');
+}
+
+// 드래그 기능 구현
+function makeDraggable(element) {
+  let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+  
+  element.onmousedown = dragMouseDown;
+  
+  function dragMouseDown(e) {
+    e.preventDefault();
+    // 마우스 위치 가져오기
+    pos3 = e.clientX;
+    pos4 = e.clientY;
+    document.onmouseup = closeDragElement;
+    document.onmousemove = elementDrag;
+  }
+  
+  function elementDrag(e) {
+    e.preventDefault();
+    // 새 위치 계산
+    pos1 = pos3 - e.clientX;
+    pos2 = pos4 - e.clientY;
+    pos3 = e.clientX;
+    pos4 = e.clientY;
+    // 요소 위치 설정
+    element.style.top = (element.offsetTop - pos2) + "px";
+    element.style.left = (element.offsetLeft - pos1) + "px";
+    // 요소가 가운데 정렬에서 벗어날 때 transform 수정
+    element.style.transform = 'none';
+  }
+  
+  function closeDragElement() {
+    // 움직임 중지
+    document.onmouseup = null;
+    document.onmousemove = null;
+  }
 }
 
 // 자막 표시 함수
 function showSubtitles() {
-  const subtitleContainer = document.getElementById('whatsub-container');
-  if (subtitleContainer) {
-    subtitleContainer.style.display = 'block';
-    console.log('자막이 활성화되었습니다.');
+  if (!subtitleContainer) {
+    createSubtitleContainer();
   }
+  
+  subtitleContainer.style.display = 'block';
+  console.log('자막이 활성화되었습니다.');
+}
+
+// 자막 텍스트 업데이트
+function updateSubtitles(text, translatedText = '') {
+  if (!subtitleContainer) {
+    createSubtitleContainer();
+  }
+  
+  // 원본 텍스트 표시
+  let htmlContent = `<div style="margin-bottom: 5px;">${text}</div>`;
+  
+  // 번역 텍스트가 있는 경우 추가
+  if (translatedText) {
+    htmlContent += `<div style="color: #4fc3f7;">${translatedText}</div>`;
+  }
+  
+  subtitleContainer.innerHTML = htmlContent;
 }
 
 // 자막 숨김 함수
 function hideSubtitles() {
-  const subtitleContainer = document.getElementById('whatsub-container');
   if (subtitleContainer) {
     subtitleContainer.style.display = 'none';
     console.log('자막이 비활성화되었습니다.');
   }
 }
 
-// 자막 번역 함수 (실제 구현에서는 백그라운드에서 처리)
-function translateSubtitles(subtitles, targetLanguage) {
-  console.log(`자막을 ${targetLanguage}로 번역합니다.`);
-  // 실제 구현에서는 백그라운드로 번역 요청
-  chrome.runtime.sendMessage({
-    action: 'translateSubtitles',
-    subtitles: subtitles,
-    targetLanguage: targetLanguage
-  }, (response) => {
-    if (response && response.success) {
-      updateSubtitles(response.translatedSubtitles);
-    }
-  });
-}
-
-// 자막 업데이트 함수
-function updateSubtitles(subtitles) {
-  const subtitleContainer = document.getElementById('whatsub-container');
-  if (subtitleContainer) {
-    // 실제 구현에서는 자막 텍스트 업데이트
-    console.log('자막이 업데이트되었습니다.');
-  }
-}
-
 // 페이지 로드 시 초기화
 window.addEventListener('load', initializeExtension);
 
-// URL 변경 감지 (YouTube SPA 지원)
-let lastUrl = location.href;
-new MutationObserver(() => {
-  const url = location.href;
-  if (url !== lastUrl) {
-    lastUrl = url;
-    console.log('페이지 URL이 변경되었습니다:', url);
-    initializeExtension();
-  }
-}).observe(document, { subtree: true, childList: true });
+// 초기화 실행 (load 이벤트 전에도 실행)
+initializeExtension();
 
-// 초기화 실행
-initializeExtension(); 
+// 테스트용 자막 표시 (실제로는 백그라운드에서 전달받음)
+setTimeout(() => {
+  if (isInitialized) {
+    updateSubtitles('WhatsUb 확장 프로그램이 정상적으로 로드되었습니다.', 'WhatsUb extension loaded successfully.');
+    showSubtitles();
+    
+    // 3초 후 숨김
+    setTimeout(() => {
+      hideSubtitles();
+    }, 3000);
+  }
+}, 1000); 

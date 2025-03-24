@@ -241,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // 리디렉션 URI 오류 처리 함수
-    function handleRedirectUriError(clientId) {
+    function handleRedirectUriError(redirectUri) {
         // 기존 탭 콘텐츠 숨기기
         tabContents.forEach(content => {
             content.classList.remove('active');
@@ -251,41 +251,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const errorSection = document.createElement('div');
         errorSection.id = 'redirect-uri-error';
         errorSection.innerHTML = `
-            <h3>OAuth 클라이언트 ID 설정 필요</h3>
+            <h3>OAuth 리디렉션 URI 설정 필요</h3>
             <p>Google 로그인 설정이 올바르지 않습니다. 다음 단계를 통해 수정할 수 있습니다:</p>
             <ol>
                 <li><a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a>에서 클라이언트 ID를 만들거나 수정하세요.</li>
                 <li>다음 리디렉션 URI를 OAuth 클라이언트 허용 목록에 추가하세요:</li>
             </ol>
-            <code>${chrome.identity.getRedirectURL()}</code>
-            <div>
-                <button id="copy-redirect-uri">URI 복사</button>
-                <button id="retry-login">다시 시도</button>
-            </div>
+            <code>${redirectUri || chrome.identity.getRedirectURL()}</code>
+            <button id="copy-uri" class="btn">복사</button>
+            <p>URI를 복사하여 Google Cloud Console에 붙여넣으세요.</p>
         `;
         
-        document.body.appendChild(errorSection);
+        // 메인 컨테이너에 추가
+        document.querySelector('.container').appendChild(errorSection);
         
-        // 복사 버튼 이벤트 리스너
-        document.getElementById('copy-redirect-uri').addEventListener('click', () => {
-            navigator.clipboard.writeText(chrome.identity.getRedirectURL())
-                .then(() => {
-                    showStatus('리디렉션 URI가 클립보드에 복사되었습니다.', 'success');
-                })
-                .catch(err => {
-                    showStatus('복사에 실패했습니다.', 'error');
-                });
-        });
-        
-        // 다시 시도 버튼 이벤트 리스너
-        document.getElementById('retry-login').addEventListener('click', () => {
-            document.body.removeChild(errorSection);
-            tabContents.forEach(content => {
-                if (content.id === 'signin-tab') {
-                    content.classList.add('active');
-                }
+        // 복사 버튼 이벤트 설정
+        document.getElementById('copy-uri').addEventListener('click', () => {
+            const uri = redirectUri || chrome.identity.getRedirectURL();
+            navigator.clipboard.writeText(uri).then(() => {
+                showStatus('리디렉션 URI가 클립보드에 복사되었습니다.', 'success');
+            }).catch(err => {
+                console.error('복사 실패:', err);
+                showStatus('복사 실패. 직접 URI를 선택하여 복사하세요.', 'error');
             });
-            signInWithGoogle();
         });
     }
     
@@ -293,39 +281,63 @@ document.addEventListener('DOMContentLoaded', () => {
     function signInWithGoogle() {
         showLoading(true);
         
-        chrome.runtime.sendMessage({ action: 'signInWithGoogle' }, (response) => {
+        // 오류 처리를 위한 타임아웃 설정
+        const timeoutId = setTimeout(() => {
             showLoading(false);
-            
-            if (response.success) {
-                state.isLoggedIn = true;
-                state.user = response.user;
+            showStatus('요청 시간 초과. 브라우저를 다시 시작하고 다시 시도하세요.', 'error');
+        }, 15000); // 15초 제한
+        
+        try {
+            chrome.runtime.sendMessage({ action: 'signInWithGoogle' }, (response) => {
+                clearTimeout(timeoutId); // 타임아웃 취소
+                showLoading(false);
                 
-                updateUserInfo(state.user);
-                
-                // 사용량 정보 가져오기
-                chrome.runtime.sendMessage({ action: 'getUsage' }, (usageResponse) => {
-                    if (usageResponse.success) {
-                        state.usage = usageResponse.usage;
-                        updateUsage(state.usage);
-                    }
-                });
-                
-                // 메인 탭으로 전환
-                switchTab('main');
-                
-                showStatus('로그인되었습니다.', 'success');
-            } else {
-                console.error('로그인 오류:', response.error);
-                
-                if (response.error === 'invalid_client') {
-                    handleRedirectUriError();
-                } else if (response.error === 'access_denied') {
-                    showStatus('Google 로그인이 취소되었습니다.', 'warning');
-                } else {
-                    showStatus('로그인 오류: ' + response.error, 'error');
+                // 응답이 없는 경우 오류 처리
+                if (!response) {
+                    console.error('응답이 없습니다. 브라우저 확장 오류일 수 있습니다.');
+                    showStatus('응답이 없습니다. 브라우저를 다시 시작하고 다시 시도하세요.', 'error');
+                    return;
                 }
-            }
-        });
+                
+                if (response.success) {
+                    state.isLoggedIn = true;
+                    state.user = response.user;
+                    
+                    updateUserInfo(state.user);
+                    
+                    // 사용량 정보 가져오기
+                    chrome.runtime.sendMessage({ action: 'getUsage' }, (usageResponse) => {
+                        if (usageResponse && usageResponse.success) {
+                            state.usage = usageResponse.usage;
+                            updateUsage(state.usage);
+                        }
+                    });
+                    
+                    // 메인 탭으로 전환
+                    switchTab('main');
+                    
+                    showStatus('로그인되었습니다.', 'success');
+                } else {
+                    console.error('로그인 오류:', response.error);
+                    
+                    if (response.invalidClientId) {
+                        showStatus('유효한 OAuth 클라이언트 ID가 설정되지 않았습니다. manifest.json 파일을 수정하여 OAuth 클라이언트 ID를 설정해주세요.', 'error');
+                    } else if (response.errorType === 'redirect_uri_mismatch') {
+                        showStatus('OAuth 리디렉션 URI가 Google 콘솔에 등록되지 않았습니다.', 'error');
+                        handleRedirectUriError(response.redirectUri);
+                    } else if (response.error === 'access_denied') {
+                        showStatus('Google 로그인이 취소되었습니다.', 'warning');
+                    } else {
+                        showStatus('로그인 오류: ' + (response.error || '알 수 없는 오류'), 'error');
+                    }
+                }
+            });
+        } catch (e) {
+            clearTimeout(timeoutId);
+            showLoading(false);
+            console.error('메시지 전송 중 예외 발생:', e);
+            showStatus('오류: ' + e.message, 'error');
+        }
     }
     
     // 로그아웃 함수

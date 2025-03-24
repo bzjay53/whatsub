@@ -19,7 +19,7 @@
     "clipboardWrite"
   ],
   "oauth2": {
-    "client_id": "YOUR_OAUTH_CLIENT_ID",
+    "client_id": "728246104827-bt0fu7f10ft3e1v29ue1d9o9qeo8r42t.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile"
@@ -44,7 +44,7 @@
   "content_scripts": [
     {
       "matches": ["https://*/*", "http://*/*"],
-      "js": ["content.js"],
+      "js": ["content-script.js"],
       "css": ["styles/content.css"],
       "run_at": "document_end"
     }
@@ -54,12 +54,15 @@
       "resources": [
         "popup.html",
         "content.js",
-        "styles/content.css",
+        "content-script.js",
+        "styles/*.css",
         "icons/*",
         "images/*",
         "processors/*.js",
         "firebase-sdk.js",
-        "lib/*",
+        "firebase-config.js",
+        "audio-worklet/*.js",
+        "lib/*.js",
         "readme.md"
       ],
       "matches": ["https://*/*", "http://*/*"]
