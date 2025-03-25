@@ -1,0 +1,16 @@
+// 실제 Firebase 구성 (비공개)
+// 이 파일의 이름을 "firebase-config.private.js"로 변경하고 
+// 실제 Firebase 프로젝트 키로 업데이트한 다음 배포 빌드시 사용하세요.
+// !!! 이 파일을 GitHub에 커밋하지 마세요 !!!
+
+const firebaseConfig = {
+  apiKey: "actual-api-key-here",
+  authDomain: "your-project-id.firebaseapp.com",
+  projectId: "your-project-id",
+  storageBucket: "your-project-id.appspot.com",
+  messagingSenderId: "your-sender-id",
+  appId: "your-app-id",
+  measurementId: "your-measurement-id"
+};
+
+export default firebaseConfig; 

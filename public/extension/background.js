@@ -1,3 +1,19 @@
+/**
+ * Whatsub 확장 프로그램 백그라운드 스크립트
+ * 
+ * 주요 기능:
+ * 1. 인증 관리 (로그인/로그아웃)
+ * 2. 오디오 캡처 및 처리
+ * 3. 자막 처리 및 번역
+ * 4. 사용량 추적
+ */
+
+// 디버그: 확장 프로그램 ID와 리디렉션 URI 로깅
+console.log('[Whatsub] 확장 프로그램 ID:', chrome.runtime.id);
+console.log('[Whatsub] OAuth 리디렉션 URI:', chrome.identity.getRedirectURL());
+console.log('[Whatsub] OAuth 리디렉션 URI (oauth2 접미사 포함):', chrome.identity.getRedirectURL('oauth2'));
+console.log('[Whatsub] OAuth 클라이언트 ID:', chrome.runtime.getManifest().oauth2.client_id);
+
 // 확장 프로그램이 설치되거나 업데이트될 때 실행
 chrome.runtime.onInstalled.addListener((details) => {
     if (details.reason === 'install') {

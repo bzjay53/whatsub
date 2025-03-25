@@ -1,0 +1,24 @@
+# Netlify 배포 설정
+[build]
+  publish = "public"  # 정적 콘텐츠가 위치한 디렉토리
+  command = "npm run build"  # 빌드 명령어 (필요시 수정)
+
+# 리다이렉트 및 별칭
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# 헤더 설정
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer-when-downgrade"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://apis.google.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com; img-src 'self' data: https://*.googleapis.com; style-src 'self' 'unsafe-inline';"
+
+# 환경 변수 (민감한 정보는 Netlify 대시보드에서 설정)
+[build.environment]
+  NODE_VERSION = "18.18.0" 

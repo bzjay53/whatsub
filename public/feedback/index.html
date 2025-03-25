@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>피드백 - WhatSub</title>
+  <meta name="description" content="WhatSub 서비스 이용 중 발견한 문제점이나 개선 제안을 알려주세요.">
+  <link rel="stylesheet" href="/styles/main.css">
+  <link rel="stylesheet" href="/styles/pages.css">
+  <link rel="icon" type="image/png" href="/extension/icons/icon-16.png" sizes="16x16">
+  <link rel="icon" type="image/png" href="/extension/icons/icon-32.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="/extension/icons/icon-48.png" sizes="48x48">
+  <link rel="icon" type="image/png" href="/extension/icons/icon-128.png" sizes="128x128">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <div class="logo">
+        <a href="/">
+          <img src="/extension/assets/logo.svg" alt="WhatSub 로고">
+          <h1>WhatSub</h1>
+        </a>
+      </div>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="/#features">기능</a></li>
+          <li><a href="/#pricing">요금제</a></li>
+          <li><a href="/help">도움말</a></li>
+          <li><a href="/terms">이용약관</a></li>
+          <li><a href="/signup" class="btn-signup">회원가입</a></li>
+          <li><a href="/login" class="btn-login">로그인</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-content">
+    <div class="container">
+      <div class="page-header">
+        <h1>피드백</h1>
+        <p>WhatSub 서비스 개선을 위한 의견을 보내주세요.</p>
+      </div>
+      
+      <div class="feedback-container">
+        <div class="feedback-content">
+          <div class="feedback-intro">
+            <p>WhatSub 팀은 사용자 피드백을 소중히 생각합니다. 서비스 이용 중 불편한 점이나 개선 제안, 새로운 기능 요청 등 어떤 의견이든 자유롭게 보내주세요.</p>
+            <p>여러분의 소중한 의견은 더 나은 서비스를 만드는 데 큰 도움이 됩니다.</p>
+          </div>
+          
+          <form id="feedbackForm" class="feedback-form">
+            <div class="form-group">
+              <label for="name">이름 (선택사항)</label>
+              <input type="text" id="name" name="name" placeholder="이름을 입력하세요">
+            </div>
+            
+            <div class="form-group">
+              <label for="email">이메일 <span class="required">*</span></label>
+              <input type="email" id="email" name="email" placeholder="이메일 주소를 입력하세요" required>
+              <small>답변을 받을 이메일 주소를 입력해주세요.</small>
+            </div>
+            
+            <div class="form-group">
+              <label for="feedbackType">피드백 유형 <span class="required">*</span></label>
+              <select id="feedbackType" name="feedbackType" required>
+                <option value="">유형을 선택하세요</option>
+                <option value="bug">버그 신고</option>
+                <option value="feature">기능 제안</option>
+                <option value="improvement">개선 제안</option>
+                <option value="question">일반 문의</option>
+                <option value="other">기타</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="subject">제목 <span class="required">*</span></label>
+              <input type="text" id="subject" name="subject" placeholder="피드백의 제목을 입력하세요" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="message">내용 <span class="required">*</span></label>
+              <textarea id="message" name="message" rows="6" placeholder="피드백 내용을 자세히 적어주세요. 문제가 발생한 경우, 어떤 상황에서 발생했는지 구체적으로 알려주시면 해결에 도움이 됩니다." required></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label for="attachment">스크린샷 첨부 (선택사항)</label>
+              <input type="file" id="attachment" name="attachment" accept="image/*">
+              <small>JPG, PNG, GIF 형식의 파일만 가능합니다. 최대 파일 크기: 5MB</small>
+            </div>
+            
+            <div class="form-group">
+              <label for="browser">브라우저 정보 <span class="required">*</span></label>
+              <select id="browser" name="browser" required>
+                <option value="">브라우저를 선택하세요</option>
+                <option value="chrome">Chrome</option>
+                <option value="firefox">Firefox</option>
+                <option value="edge">Edge</option>
+                <option value="safari">Safari</option>
+                <option value="opera">Opera</option>
+                <option value="other">기타</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="os">운영체제 <span class="required">*</span></label>
+              <select id="os" name="os" required>
+                <option value="">운영체제를 선택하세요</option>
+                <option value="windows">Windows</option>
+                <option value="macos">macOS</option>
+                <option value="linux">Linux</option>
+                <option value="ios">iOS</option>
+                <option value="android">Android</option>
+                <option value="other">기타</option>
+              </select>
+            </div>
+            
+            <div class="form-check">
+              <input type="checkbox" id="contactMe" name="contactMe" checked>
+              <label for="contactMe">답변 받기를 원합니다.</label>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">피드백 보내기</button>
+          </form>
+        </div>
+        
+        <div class="feedback-sidebar">
+          <div class="contact-info">
+            <h2>다른 문의 방법</h2>
+            <div class="contact-method">
+              <h3>이메일</h3>
+              <p><a href="mailto:support@whatsub.netlify.app">support@whatsub.netlify.app</a></p>
+            </div>
+            <div class="contact-method">
+              <h3>지원 시간</h3>
+              <p>평일 9:00 AM - 6:00 PM (KST)</p>
+              <p>주말 및 공휴일 휴무</p>
+            </div>
+          </div>
+          
+          <div class="faq-preview">
+            <h2>자주 묻는 질문</h2>
+            <ul>
+              <li><a href="/help#installation">확장 프로그램 설치하기</a></li>
+              <li><a href="/help#account-setup">계정 설정하기</a></li>
+              <li><a href="/help#login-issues">로그인 문제</a></li>
+              <li><a href="/help#subtitle-download">자막 다운로드하기</a></li>
+              <li><a href="/help#extension-not-working">확장 프로그램이 작동하지 않을 때</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <img src="/extension/assets/logo.svg" alt="WhatSub 로고" class="footer-logo">
+          <p>© 2024 WhatSub. All rights reserved.</p>
+        </div>
+        <div class="footer-links">
+          <div class="footer-column">
+            <h4>제품</h4>
+            <ul>
+              <li><a href="/#features">기능</a></li>
+              <li><a href="/#pricing">요금제</a></li>
+              <li><a href="/download">다운로드</a></li>
+            </ul>
+          </div>
+          <div class="footer-column">
+            <h4>지원</h4>
+            <ul>
+              <li><a href="/help">도움말</a></li>
+              <li><a href="/feedback">피드백</a></li>
+              <li><a href="/contact">문의하기</a></li>
+            </ul>
+          </div>
+          <div class="footer-column">
+            <h4>회사</h4>
+            <ul>
+              <li><a href="/about">소개</a></li>
+              <li><a href="/terms">이용약관</a></li>
+              <li><a href="/privacy">개인정보처리방침</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/scripts/main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const feedbackForm = document.getElementById('feedbackForm');
+      const fileInput = document.getElementById('attachment');
+      
+      // 파일 크기 제한
+      fileInput.addEventListener('change', function() {
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        
+        if (this.files[0] && this.files[0].size > maxSize) {
+          alert('파일 크기가 5MB를 초과합니다. 더 작은 파일을 선택해주세요.');
+          this.value = '';
+        }
+      });
+      
+      // 폼 제출 처리
+      feedbackForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // 실제 서비스에서는 서버로 데이터 전송
+        // 여기서는 예시로 성공 메시지 표시
+        const submitBtn = feedbackForm.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '전송 중...';
+        
+        setTimeout(() => {
+          // 알림 표시
+          alert('피드백이 성공적으로 제출되었습니다. 소중한 의견에 감사드립니다!');
+          
+          // 폼 초기화
+          feedbackForm.reset();
+          submitBtn.disabled = false;
+          submitBtn.textContent = '피드백 보내기';
+        }, 1000);
+      });
+      
+      // 브라우저 정보 자동 채우기
+      const browserSelect = document.getElementById('browser');
+      const userAgent = navigator.userAgent.toLowerCase();
+      
+      if (userAgent.indexOf('chrome') > -1) {
+        browserSelect.value = 'chrome';
+      } else if (userAgent.indexOf('firefox') > -1) {
+        browserSelect.value = 'firefox';
+      } else if (userAgent.indexOf('edge') > -1) {
+        browserSelect.value = 'edge';
+      } else if (userAgent.indexOf('safari') > -1 && userAgent.indexOf('chrome') === -1) {
+        browserSelect.value = 'safari';
+      } else if (userAgent.indexOf('opera') > -1 || userAgent.indexOf('opr') > -1) {
+        browserSelect.value = 'opera';
+      }
+      
+      // 운영체제 정보 자동 채우기
+      const osSelect = document.getElementById('os');
+      
+      if (userAgent.indexOf('win') > -1) {
+        osSelect.value = 'windows';
+      } else if (userAgent.indexOf('mac') > -1) {
+        osSelect.value = 'macos';
+      } else if (userAgent.indexOf('linux') > -1) {
+        osSelect.value = 'linux';
+      } else if (userAgent.indexOf('android') > -1) {
+        osSelect.value = 'android';
+      } else if (userAgent.indexOf('iphone') > -1 || userAgent.indexOf('ipad') > -1) {
+        osSelect.value = 'ios';
+      }
+    });
+  </script>
+</body>
+</html> 

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatSub - 유튜브 자막 번역 도우미</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f7f7f7;
+      margin: 0;
+      padding: 0;
+      color: #333;
+      line-height: 1.6;
+    }
+    
+    .header {
+      background-color: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 15px 0;
+      position: fixed;
+      width: 100%;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .header-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+    }
+    
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      color: #4285f4;
+    }
+    
+    .nav-links {
+      display: flex;
+      gap: 20px;
+    }
+    
+    .nav-links a {
+      text-decoration: none;
+      color: #555;
+      font-weight: 500;
+      transition: color 0.3s;
+    }
+    
+    .nav-links a:hover {
+      color: #4285f4;
+    }
+    
+    .hero {
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      background-color: #f7f7f7;
+      padding-top: 60px;
+    }
+    
+    .hero-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+    }
+    
+    .hero-content {
+      max-width: 600px;
+    }
+    
+    .hero-content h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    
+    .hero-content p {
+      font-size: 18px;
+      color: #666;
+      margin-bottom: 30px;
+    }
+    
+    .hero-image {
+      max-width: 500px;
+    }
+    
+    .hero-image img {
+      width: 100%;
+      border-radius: 8px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .button {
+      display: inline-block;
+      background-color: #4285f4;
+      color: white;
+      padding: 12px 24px;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: 500;
+      transition: background-color 0.3s;
+    }
+    
+    .button:hover {
+      background-color: #3367d6;
+    }
+    
+    .button-secondary {
+      background-color: white;
+      color: #4285f4;
+      border: 1px solid #4285f4;
+      margin-left: 15px;
+    }
+    
+    .button-secondary:hover {
+      background-color: #f8f9fa;
+    }
+    
+    .features {
+      padding: 80px 0;
+      background-color: white;
+    }
+    
+    .features-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    
+    .section-title {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+    
+    .section-title h2 {
+      font-size: 36px;
+      color: #333;
+      margin-bottom: 15px;
+    }
+    
+    .section-title p {
+      font-size: 18px;
+      color: #666;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 30px;
+    }
+    
+    .feature-item {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 30px;
+      text-align: center;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .feature-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .feature-icon {
+      font-size: 40px;
+      color: #4285f4;
+      margin-bottom: 20px;
+    }
+    
+    .feature-item h3 {
+      font-size: 20px;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    
+    .feature-item p {
+      color: #666;
+    }
+    
+    .cta {
+      padding: 80px 0;
+      background-color: #f7f7f7;
+      text-align: center;
+    }
+    
+    .cta-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    
+    .cta h2 {
+      font-size: 36px;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    
+    .cta p {
+      font-size: 18px;
+      color: #666;
+      margin-bottom: 30px;
+    }
+    
+    .footer {
+      background-color: #333;
+      color: white;
+      padding: 50px 0 20px;
+    }
+    
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 40px;
+    }
+    
+    .footer-about h3 {
+      font-size: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .footer-about p {
+      color: #aaa;
+    }
+    
+    .footer-links h3 {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+    
+    .footer-links ul {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .footer-links li {
+      margin-bottom: 10px;
+    }
+    
+    .footer-links a {
+      color: #aaa;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+    
+    .footer-links a:hover {
+      color: white;
+    }
+    
+    .footer-bottom {
+      max-width: 1200px;
+      margin: 40px auto 0;
+      padding: 20px 20px 0;
+      border-top: 1px solid #444;
+      text-align: center;
+      color: #aaa;
+      font-size: 14px;
+    }
+    
+    @media (max-width: 768px) {
+      .hero-container {
+        flex-direction: column;
+        text-align: center;
+      }
+      
+      .hero-content {
+        margin-bottom: 40px;
+      }
+      
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .footer-container {
+        grid-template-columns: 1fr;
+        gap: 30px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-container">
+      <div class="logo">WhatSub</div>
+      <nav class="nav-links">
+        <a href="#features">기능</a>
+        <a href="#cta">설치하기</a>
+        <a href="help/">도움말</a>
+        <a href="login/">로그인</a>
+        <a href="signup/">회원가입</a>
+      </nav>
+    </div>
+  </header>
+  
+  <section class="hero">
+    <div class="hero-container">
+      <div class="hero-content">
+        <h1>유튜브 자막 번역 도우미</h1>
+        <p>WhatSub은 모든 유튜브 동영상에 자막 서비스를 제공합니다. 원하는 언어로 자막을 번역하고, 학습에 활용해보세요.</p>
+        <div class="hero-buttons">
+          <a href="https://chrome.google.com/webstore/detail/whatsub" class="button">크롬 확장 프로그램 설치하기</a>
+          <a href="signup/" class="button button-secondary">무료로 시작하기</a>
+        </div>
+      </div>
+      <div class="hero-image">
+        <img src="images/hero-image.png" alt="WhatSub 확장 프로그램 스크린샷">
+      </div>
+    </div>
+  </section>
+  
+  <section id="features" class="features">
+    <div class="features-container">
+      <div class="section-title">
+        <h2>주요 기능</h2>
+        <p>WhatSub은 다양한 기능을 통해 영상 시청 경험을 향상시킵니다.</p>
+      </div>
+      <div class="feature-grid">
+        <div class="feature-item">
+          <div class="feature-icon">🌐</div>
+          <h3>다국어 지원</h3>
+          <p>100개 이상의 언어로 자막을 번역하고, 원하는 언어로 영상을 즐겨보세요.</p>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">⚙️</div>
+          <h3>자막 스타일 맞춤 설정</h3>
+          <p>글꼴, 크기, 색상 등 자막 스타일을 원하는대로 설정할 수 있습니다.</p>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">📚</div>
+          <h3>어학 학습 도구</h3>
+          <p>단어 사전 연동, 단어장 저장 등 언어 학습에 도움이 되는 기능을 제공합니다.</p>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">🔄</div>
+          <h3>자막 싱크 조절</h3>
+          <p>자막이 영상과 맞지 않을 때 간편하게 싱크를 조절할 수 있습니다.</p>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">💾</div>
+          <h3>자막 저장</h3>
+          <p>자막을 다운로드하거나 클라우드에 저장하여 나중에 참고할 수 있습니다.</p>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">🔍</div>
+          <h3>자막 검색</h3>
+          <p>영상 내용에서 특정 단어나 구문을 검색하여 빠르게 찾을 수 있습니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <section id="cta" class="cta">
+    <div class="cta-container">
+      <h2>지금 바로 WhatSub을 사용해보세요</h2>
+      <p>크롬 확장 프로그램을 설치하고 더 나은 영상 시청 경험을 시작하세요.</p>
+      <a href="https://chrome.google.com/webstore/detail/whatsub" class="button">크롬 확장 프로그램 설치하기</a>
+    </div>
+  </section>
+  
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-about">
+        <h3>WhatSub</h3>
+        <p>WhatSub은 모든 유튜브 동영상에 자막 서비스를 제공하는 크롬 확장 프로그램입니다. 다양한 언어로 자막을 제공하고, 맞춤형 자막 설정을 통해 더 나은 시청 경험을 제공합니다.</p>
+      </div>
+      <div class="footer-links">
+        <h3>제품</h3>
+        <ul>
+          <li><a href="#features">기능</a></li>
+          <li><a href="pricing/">요금제</a></li>
+          <li><a href="https://chrome.google.com/webstore/detail/whatsub">다운로드</a></li>
+        </ul>
+      </div>
+      <div class="footer-links">
+        <h3>지원</h3>
+        <ul>
+          <li><a href="help/">도움말</a></li>
+          <li><a href="feedback/">피드백</a></li>
+          <li><a href="mailto:contact@whatsub.io">문의하기</a></li>
+        </ul>
+      </div>
+      <div class="footer-links">
+        <h3>회사</h3>
+        <ul>
+          <li><a href="terms/">이용약관</a></li>
+          <li><a href="privacy/">개인정보처리방침</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2024 WhatSub. All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+</html> 

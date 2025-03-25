@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatSub - 회원가입</title>
+  <link rel="stylesheet" href="../styles/main.css">
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f7f7f7;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .container {
+      max-width: 500px;
+      margin: 50px auto;
+      background-color: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      color: #4285f4;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #555;
+    }
+    
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    
+    .btn-google {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 12px;
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      margin-bottom: 20px;
+    }
+    
+    .btn-google img {
+      margin-right: 10px;
+      width: 20px;
+      height: 20px;
+    }
+    
+    .btn-google:hover {
+      background-color: #f5f5f5;
+    }
+    
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 20px 0;
+    }
+    
+    .divider-line {
+      flex-grow: 1;
+      height: 1px;
+      background-color: #ddd;
+    }
+    
+    .divider-text {
+      padding: 0 10px;
+      color: #888;
+    }
+    
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    .btn-primary:hover {
+      background-color: #3367d6;
+    }
+    
+    .terms {
+      font-size: 14px;
+      color: #888;
+      text-align: center;
+      margin-top: 20px;
+    }
+    
+    .terms a {
+      color: #4285f4;
+      text-decoration: none;
+    }
+    
+    .login-link {
+      text-align: center;
+      margin-top: 20px;
+    }
+    
+    .login-link a {
+      color: #4285f4;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>WhatSub 회원가입</h1>
+    
+    <button class="btn-google">
+      <img src="../images/google-icon.svg" alt="Google 아이콘">
+      Google로 가입하기
+    </button>
+    
+    <div class="divider">
+      <div class="divider-line"></div>
+      <span class="divider-text">또는</span>
+      <div class="divider-line"></div>
+    </div>
+    
+    <form id="signup-form">
+      <div class="form-group">
+        <label for="name">이름</label>
+        <input type="text" id="name" name="name" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="email">이메일</label>
+        <input type="email" id="email" name="email" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="password">비밀번호</label>
+        <input type="password" id="password" name="password" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="confirm-password">비밀번호 확인</label>
+        <input type="password" id="confirm-password" name="confirm-password" required>
+      </div>
+      
+      <button type="submit" class="btn-primary">가입하기</button>
+    </form>
+    
+    <p class="terms">
+      가입함으로써 WhatSub의 <a href="../terms/index.html">이용약관</a>과 <a href="../privacy/index.html">개인정보처리방침</a>에 동의합니다.
+    </p>
+    
+    <p class="login-link">
+      이미 계정이 있으신가요? <a href="../login/index.html">로그인</a>
+    </p>
+  </div>
+
+  <script src="../scripts/firebase-sdk.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const signupForm = document.getElementById('signup-form');
+      const googleButton = document.querySelector('.btn-google');
+      
+      // Google 로그인 버튼 이벤트
+      googleButton.addEventListener('click', async () => {
+        try {
+          // Google Sign In 처리는 확장 프로그램에서 수행됩니다.
+          const provider = new firebase.auth.GoogleAuthProvider();
+          await firebase.auth().signInWithPopup(provider);
+          
+          // 로그인 성공 후 메인 페이지로 리디렉션
+          window.location.href = '../index.html';
+        } catch (error) {
+          console.error('Google 로그인 오류:', error);
+          alert('로그인 중 오류가 발생했습니다: ' + error.message);
+        }
+      });
+      
+      // 이메일/비밀번호 회원가입 이벤트
+      signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const name = document.getElementById('name').value;
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+        
+        if (password !== confirmPassword) {
+          alert('비밀번호가 일치하지 않습니다.');
+          return;
+        }
+        
+        try {
+          // Firebase 회원가입
+          const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+          
+          // 사용자 프로필 업데이트
+          await userCredential.user.updateProfile({
+            displayName: name
+          });
+          
+          // 사용자 정보 저장
+          // Firestore에 사용자 정보 저장 로직은 여기에 추가
+          
+          alert('회원가입이 완료되었습니다!');
+          window.location.href = '../index.html';
+        } catch (error) {
+          console.error('회원가입 오류:', error);
+          alert('회원가입 중 오류가 발생했습니다: ' + error.message);
+        }
+      });
+    });
+  </script>
+</body>
+</html> 

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>요금제 - WhatSub</title>
+  <meta name="description" content="WhatSub의 다양한 요금제와 혜택을 비교해보세요.">
+  <link rel="stylesheet" href="/styles/main.css">
+  <link rel="stylesheet" href="/styles/pages.css">
+  <link rel="icon" type="image/png" href="/extension/icons/icon-16.png" sizes="16x16">
+  <link rel="icon" type="image/png" href="/extension/icons/icon-32.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="/extension/icons/icon-48.png" sizes="48x48">
+  <link rel="icon" type="image/png" href="/extension/icons/icon-128.png" sizes="128x128">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <div class="logo">
+        <a href="/">
+          <img src="/extension/assets/logo.svg" alt="WhatSub 로고">
+          <h1>WhatSub</h1>
+        </a>
+      </div>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="/#features">기능</a></li>
+          <li><a href="/#pricing" class="active">요금제</a></li>
+          <li><a href="/help">도움말</a></li>
+          <li><a href="/terms">이용약관</a></li>
+          <li><a href="/signup" class="btn-signup">회원가입</a></li>
+          <li><a href="/login" class="btn-login">로그인</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-content">
+    <div class="container">
+      <div class="page-header">
+        <h1>요금제 및 가격</h1>
+        <p>나에게 맞는 요금제를 선택하고 WhatSub의 모든 기능을 활용하세요.</p>
+      </div>
+      
+      <div class="pricing-toggle">
+        <span class="toggle-label active">월간 요금제</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="billingToggle">
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label">연간 요금제 <span class="discount-badge">20% 할인</span></span>
+      </div>
+      
+      <div class="pricing-cards">
+        <div class="pricing-card">
+          <div class="pricing-card-header">
+            <h2>무료</h2>
+            <div class="pricing-price">
+              <span class="price">0</span>
+              <span class="currency">원</span>
+              <span class="period">/평생</span>
+            </div>
+            <p class="pricing-description">기본 자막 기능을 무료로 사용할 수 있는 요금제입니다.</p>
+          </div>
+          <div class="pricing-features">
+            <ul>
+              <li><span class="feature-check">✓</span> 인기 스트리밍 플랫폼 지원</li>
+              <li><span class="feature-check">✓</span> 기본 자막 다운로드 (일 3회)</li>
+              <li><span class="feature-check">✓</span> 기본 자막 스타일 설정</li>
+              <li><span class="feature-check">✓</span> 자막 크기 조정</li>
+              <li><span class="feature-x">✗</span> 고급 자막 스타일 설정</li>
+              <li><span class="feature-x">✗</span> 자막 동기화 및 편집</li>
+              <li><span class="feature-x">✗</span> 무제한 자막 다운로드</li>
+              <li><span class="feature-x">✗</span> 자막 번역 기능</li>
+              <li><span class="feature-x">✗</span> 단어장 생성 및 관리</li>
+              <li><span class="feature-x">✗</span> 광고 제거</li>
+            </ul>
+          </div>
+          <div class="pricing-cta">
+            <a href="/signup" class="btn btn-outline btn-full-width">무료로 시작하기</a>
+          </div>
+        </div>
+        
+        <div class="pricing-card featured">
+          <div class="pricing-card-badge">인기</div>
+          <div class="pricing-card-header">
+            <h2>프로</h2>
+            <div class="pricing-price monthly">
+              <span class="price">9,900</span>
+              <span class="currency">원</span>
+              <span class="period">/월</span>
+            </div>
+            <div class="pricing-price yearly" style="display: none;">
+              <span class="price">94,800</span>
+              <span class="currency">원</span>
+              <span class="period">/년</span>
+              <div class="price-original">118,800원</div>
+            </div>
+            <p class="pricing-description">개인 학습자와 자막 사용자에게 가장 인기있는 요금제입니다.</p>
+          </div>
+          <div class="pricing-features">
+            <ul>
+              <li><span class="feature-check">✓</span> <strong>무료 요금제의 모든 기능</strong></li>
+              <li><span class="feature-check">✓</span> 무제한 자막 다운로드</li>
+              <li><span class="feature-check">✓</span> 고급 자막 스타일 설정</li>
+              <li><span class="feature-check">✓</span> 자막 동기화 및 편집</li>
+              <li><span class="feature-check">✓</span> AI 기반 자막 교정</li>
+              <li><span class="feature-check">✓</span> 학습용 단어장 생성</li>
+              <li><span class="feature-check">✓</span> 5개 언어 자막 번역</li>
+              <li><span class="feature-check">✓</span> 광고 제거</li>
+              <li><span class="feature-x">✗</span> 오프라인 다운로드</li>
+              <li><span class="feature-x">✗</span> 음성 인식 자막 생성</li>
+            </ul>
+          </div>
+          <div class="pricing-cta">
+            <a href="/signup?plan=pro" class="btn btn-primary btn-full-width">프로 시작하기</a>
+          </div>
+        </div>
+        
+        <div class="pricing-card">
+          <div class="pricing-card-header">
+            <h2>프리미엄</h2>
+            <div class="pricing-price monthly">
+              <span class="price">19,900</span>
+              <span class="currency">원</span>
+              <span class="period">/월</span>
+            </div>
+            <div class="pricing-price yearly" style="display: none;">
+              <span class="price">190,800</span>
+              <span class="currency">원</span>
+              <span class="period">/년</span>
+              <div class="price-original">238,800원</div>
+            </div>
+            <p class="pricing-description">모든 기능을 사용할 수 있는 최고급 요금제입니다.</p>
+          </div>
+          <div class="pricing-features">
+            <ul>
+              <li><span class="feature-check">✓</span> <strong>프로 요금제의 모든 기능</strong></li>
+              <li><span class="feature-check">✓</span> 모든 언어 자막 번역</li>
+              <li><span class="feature-check">✓</span> 오프라인 자막 다운로드</li>
+              <li><span class="feature-check">✓</span> 음성 인식 자막 생성</li>
+              <li><span class="feature-check">✓</span> 학습 진도 분석 및 보고서</li>
+              <li><span class="feature-check">✓</span> 고급 단어장 관리</li>
+              <li><span class="feature-check">✓</span> 자막 공동 편집</li>
+              <li><span class="feature-check">✓</span> 빠른 기술 지원</li>
+              <li><span class="feature-check">✓</span> API 사용권</li>
+              <li><span class="feature-check">✓</span> 신규 기능 우선 사용</li>
+            </ul>
+          </div>
+          <div class="pricing-cta">
+            <a href="/signup?plan=premium" class="btn btn-outline btn-full-width">프리미엄 시작하기</a>
+          </div>
+        </div>
+      </div>
+      
+      <div class="pricing-compare">
+        <h2>요금제 비교</h2>
+        <div class="table-responsive">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>기능</th>
+                <th>무료</th>
+                <th>프로</th>
+                <th>프리미엄</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>자막 다운로드</td>
+                <td>일 3회</td>
+                <td>무제한</td>
+                <td>무제한</td>
+              </tr>
+              <tr>
+                <td>자막 스타일</td>
+                <td>기본</td>
+                <td>고급</td>
+                <td>고급</td>
+              </tr>
+              <tr>
+                <td>자막 동기화</td>
+                <td>✗</td>
+                <td>✓</td>
+                <td>✓</td>
+              </tr>
+              <tr>
+                <td>자막 편집</td>
+                <td>✗</td>
+                <td>✓</td>
+                <td>✓</td>
+              </tr>
+              <tr>
+                <td>자막 번역</td>
+                <td>✗</td>
+                <td>5개 언어</td>
+                <td>모든 언어</td>
+              </tr>
+              <tr>
+                <td>단어장 생성</td>
+                <td>✗</td>
+                <td>기본</td>
+                <td>고급</td>
+              </tr>
+              <tr>
+                <td>오프라인 다운로드</td>
+                <td>✗</td>
+                <td>✗</td>
+                <td>✓</td>
+              </tr>
+              <tr>
+                <td>음성 인식 자막</td>
+                <td>✗</td>
+                <td>✗</td>
+                <td>✓</td>
+              </tr>
+              <tr>
+                <td>광고 제거</td>
+                <td>✗</td>
+                <td>✓</td>
+                <td>✓</td>
+              </tr>
+              <tr>
+                <td>기술 지원</td>
+                <td>이메일</td>
+                <td>24시간 이내</td>
+                <td>우선 지원</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="pricing-faq">
+        <h2>자주 묻는 질문</h2>
+        <div class="faq-items">
+          <div class="faq-item">
+            <div class="faq-question">요금제는 언제든지 변경할 수 있나요?</div>
+            <div class="faq-answer">
+              <p>네, 언제든지 요금제를 업그레이드하거나 다운그레이드할 수 있습니다. 업그레이드 시에는 즉시 반영되며, 다운그레이드는 현재 구독 기간이 끝난 후 적용됩니다.</p>
+            </div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-question">결제는 어떻게 이루어지나요?</div>
+            <div class="faq-answer">
+              <p>신용카드, 체크카드, 페이팔, 또는 기타 주요 결제 방법을 통해 결제할 수 있습니다. 모든 결제는 안전한 암호화 방식으로 처리됩니다.</p>
+            </div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-question">구독을 취소하면 환불받을 수 있나요?</div>
+            <div class="faq-answer">
+              <p>구독 시작 후 14일 이내에 취소하시면 전액 환불해 드립니다. 그 이후에는 남은 기간에 대한 환불은 제공되지 않지만, 구독 기간이 끝날 때까지 서비스를 계속 이용하실 수 있습니다.</p>
+            </div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-question">무료 요금제에서 유료 요금제로 전환하면 어떤 이점이 있나요?</div>
+            <div class="faq-answer">
+              <p>유료 요금제로 전환하시면 무제한 자막 다운로드, 고급 자막 스타일 설정, 자막 동기화 및 편집, 자막 번역, 단어장 생성 등 다양한 고급 기능을 사용하실 수 있으며, 광고 없이 서비스를 이용하실 수 있습니다.</p>
+            </div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-question">여러 기기에서 동시에 사용할 수 있나요?</div>
+            <div class="faq-answer">
+              <p>프로 요금제는 최대 2대의 기기에서, 프리미엄 요금제는 최대 5대의 기기에서 동시에 사용할 수 있습니다. 무료 요금제는 1대의 기기에서만 사용 가능합니다.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="pricing-cta-section">
+        <h2>지금 바로 WhatSub을 경험해보세요</h2>
+        <p>14일 동안 프로 또는 프리미엄 요금제를 무료로 체험할 수 있습니다. 마음에 들지 않으면 언제든지 취소하세요.</p>
+        <div class="cta-buttons">
+          <a href="/signup" class="btn btn-primary">무료 체험 시작하기</a>
+          <a href="/contact" class="btn btn-text">문의하기</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <img src="/extension/assets/logo.svg" alt="WhatSub 로고" class="footer-logo">
+          <p>© 2024 WhatSub. All rights reserved.</p>
+        </div>
+        <div class="footer-links">
+          <div class="footer-column">
+            <h4>제품</h4>
+            <ul>
+              <li><a href="/#features">기능</a></li>
+              <li><a href="/#pricing">요금제</a></li>
+              <li><a href="/download">다운로드</a></li>
+            </ul>
+          </div>
+          <div class="footer-column">
+            <h4>지원</h4>
+            <ul>
+              <li><a href="/help">도움말</a></li>
+              <li><a href="/feedback">피드백</a></li>
+              <li><a href="/contact">문의하기</a></li>
+            </ul>
+          </div>
+          <div class="footer-column">
+            <h4>회사</h4>
+            <ul>
+              <li><a href="/about">소개</a></li>
+              <li><a href="/terms">이용약관</a></li>
+              <li><a href="/privacy">개인정보처리방침</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/scripts/main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const billingToggle = document.getElementById('billingToggle');
+      const toggleLabels = document.querySelectorAll('.toggle-label');
+      const monthlyPrices = document.querySelectorAll('.pricing-price.monthly');
+      const yearlyPrices = document.querySelectorAll('.pricing-price.yearly');
+      
+      // 요금제 토글 이벤트
+      billingToggle.addEventListener('change', function() {
+        if (this.checked) {
+          // 연간 요금제
+          monthlyPrices.forEach(price => price.style.display = 'none');
+          yearlyPrices.forEach(price => price.style.display = 'block');
+          toggleLabels[0].classList.remove('active');
+          toggleLabels[1].classList.add('active');
+        } else {
+          // 월간 요금제
+          monthlyPrices.forEach(price => price.style.display = 'block');
+          yearlyPrices.forEach(price => price.style.display = 'none');
+          toggleLabels[0].classList.add('active');
+          toggleLabels[1].classList.remove('active');
+        }
+      });
+      
+      // FAQ 토글
+      const faqQuestions = document.querySelectorAll('.faq-question');
+      
+      faqQuestions.forEach(question => {
+        question.addEventListener('click', function() {
+          const answer = this.nextElementSibling;
+          const isOpen = this.classList.contains('active');
+          
+          // 다른 열린 FAQ 닫기
+          document.querySelectorAll('.faq-question.active').forEach(openQuestion => {
+            if (openQuestion !== this) {
+              openQuestion.classList.remove('active');
+              openQuestion.nextElementSibling.style.maxHeight = '0';
+            }
+          });
+          
+          // 현재 FAQ 토글
+          if (isOpen) {
+            this.classList.remove('active');
+            answer.style.maxHeight = '0';
+          } else {
+            this.classList.add('active');
+            answer.style.maxHeight = answer.scrollHeight + 'px';
+          }
+        });
+      });
+      
+      // 페이지 로드 시 모든 답변 닫기
+      document.querySelectorAll('.faq-answer').forEach(answer => {
+        answer.style.maxHeight = '0';
+      });
+    });
+  </script>
+</body>
+</html> 
