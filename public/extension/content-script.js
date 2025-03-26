@@ -1,5 +1,5 @@
 // Whatsub 콘텐츠 스크립트 (기본 버전)
-console.log('Whatsub 콘텐츠 스크립트가 로드되었습니다.');
+console.log('[Whatsub] 콘텐츠 스크립트가 로드되었습니다. 버전: 0.2.2');
 
 // CSS 스타일 로드
 function loadStyles() {
@@ -8,394 +8,322 @@ function loadStyles() {
   link.href = chrome.runtime.getURL('styles/subtitles.css');
   link.id = 'whatsub-styles';
   document.head.appendChild(link);
-  console.log('Whatsub 스타일이 로드되었습니다');
+  
+  // Font Awesome 로드
+  const fontAwesome = document.createElement('link');
+  fontAwesome.rel = 'stylesheet';
+  fontAwesome.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+  document.head.appendChild(fontAwesome);
+  
+  console.log('[Whatsub] 자막 스타일이 로드되었습니다.');
 }
 
 // 페이지 로드 시 스타일 적용
 loadStyles();
 
-// 확장 프로그램 상태 초기화
-let isInitialized = false;
-let isSubtitleEnabled = false;
-let selectedLanguage = 'ko';
-let subtitleContainer = null;
-let originalSubtitleElement = null;
-let translatedSubtitleElement = null;
-let subtitleSettings = {
-  position: 'bottom',
-  fontSize: 'medium',
-  background: 'semi',
-  dualSubtitles: true,
-  customPosition: null
+// 스타일 주입 함수
+function injectStyles() {
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = chrome.runtime.getURL('styles/subtitles.css');
+  link.id = 'whatsub-styles';
+  document.head.appendChild(link);
+  
+  // Font Awesome 로드
+  const fontAwesome = document.createElement('link');
+  fontAwesome.rel = 'stylesheet';
+  fontAwesome.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+  document.head.appendChild(fontAwesome);
+  
+  console.log('[Whatsub] 스타일이 주입되었습니다.');
+}
+
+// 전체 상태 객체
+const state = {
+  subtitlesEnabled: false,
+  autoSubtitlesEnabled: false,
+  commentsEnabled: false,
+  dualSubtitlesEnabled: false,
+  floatingCommentsEnabled: false, // 흐르는 댓글 표시 여부
+  currentLanguage: 'ko',
+  originalLanguage: 'auto',
+  defaultSettings: {
+    fontSize: 'medium',
+    position: 'bottom',
+    background: 'semi-transparent'
+  },
+  subtitleSettings: {
+    fontSize: 'medium',
+    position: 'bottom',
+    background: 'semi-transparent',
+    targetLanguage: 'ko',
+    sourceLanguage: 'auto',
+    dualSubtitles: false
+  },
+  commentSettings: {
+    fontSize: 'small',
+    speed: 'normal',
+    opacity: 0.8,
+    maxDisplayed: 10
+  }
 };
 
-// 메시지 리스너 설정
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('콘텐츠 스크립트 메시지 수신:', message.action);
+// 사용자 상태 객체 추가
+const userState = {
+  isLoggedIn: false,
+  subscriptionType: 'free', // 'free' 또는 'premium'
+  features: {
+    autoSubtitles: false,
+    dualSubtitles: false,
+    comments: false,
+    floatingComments: false
+  }
+};
+
+// 자막 컨테이너 요소
+let subtitleContainer = null;
+let subtitleTextContainer = null;
+let originalTextElement = null;
+let translatedTextElement = null;
+let commentsContainer = null; // 댓글 컨테이너 추가
+let currentSubtitleText = null;
+let currentSubtitleId = null;
+let currentVideoId = null;
+let currentTimestamp = 0;
+
+// 자막 관련 설정
+let lastSubtitleText = '';
+let isYouTubePage = false;
+let youtubeObserver = null;
+
+// 언어 목록 정의
+const languages = [
+  { code: 'ko', name: '한국어' },
+  { code: 'en', name: '영어' },
+  { code: 'ja', name: '일본어' },
+  { code: 'zh', name: '중국어' },
+  { code: 'es', name: '스페인어' },
+  { code: 'fr', name: '프랑스어' }
+];
+
+// 유튜브 페이지 감지
+function checkIfYouTubePage() {
+  const isYT = window.location.hostname.includes('youtube.com');
   
-  if (message.action === 'toggleSubtitles') {
-    isSubtitleEnabled = message.enabled;
-    if (isSubtitleEnabled) {
-      showSubtitles();
-    } else {
-      hideSubtitles();
-    }
-    sendResponse({ success: true });
+  if (isYT) {
+    console.log('[Whatsub] 유튜브 페이지 감지됨');
+    isYouTubePage = true;
+    
+    // 유튜브 자막 요소 감시 시작
+    startYouTubeObserver();
+  } else {
+    isYouTubePage = false;
   }
   
-  if (message.action === 'changeLanguage') {
-    selectedLanguage = message.language;
-    sendResponse({ success: true });
+  return isYT;
+}
+
+// 유튜브 자막 요소 감시 설정
+function startYouTubeObserver() {
+  if (youtubeObserver) {
+    youtubeObserver.disconnect();
   }
   
-  if (message.action === 'updateSettings') {
-    if (message.settings) {
-      subtitleSettings = { ...subtitleSettings, ...message.settings };
-      applySettings();
-    }
-    sendResponse({ success: true });
-  }
-  
-  if (message.action === 'checkStatus') {
-    sendResponse({ 
-      isInitialized,
-      isSubtitleEnabled,
-      selectedLanguage,
-      settings: subtitleSettings
+  // 자막 요소 감시를 위한 MutationObserver
+  youtubeObserver = new MutationObserver(function(mutations) {
+    if (!state.subtitlesEnabled) return;
+    
+    mutations.forEach(function(mutation) {
+      if (mutation.type === 'childList' || mutation.type === 'subtree') {
+        checkForYouTubeSubtitles();
+      }
     });
+  });
+  
+  // 문서 전체 감시 설정
+  youtubeObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+  
+  console.log('[Whatsub] 유튜브 자막 감시 시작됨');
+}
+
+// 유튜브 자막 체크 함수
+function checkForYouTubeSubtitles() {
+  // 유튜브의 자막 요소 찾기 (선택자는 변경될 수 있음)
+  const subtitleElements = document.querySelectorAll('.ytp-caption-segment');
+  
+  if (subtitleElements.length === 0) {
+    // 자막이 없는 경우, 다른 선택자 시도
+    const altSubtitleElements = document.querySelectorAll('.captions-text');
+    
+    if (altSubtitleElements.length === 0) {
+      return; // 자막 요소가 없음
+    }
+    
+    // 대체 선택자에서 자막 텍스트 추출
+    currentSubtitleText = Array.from(altSubtitleElements)
+      .map(el => el.textContent.trim())
+      .filter(text => text.length > 0)
+      .join(' ');
+  } else {
+    // 기본 자막 요소에서 자막 텍스트 추출
+    currentSubtitleText = Array.from(subtitleElements)
+      .map(el => el.textContent.trim())
+      .filter(text => text.length > 0)
+      .join(' ');
   }
   
-  if (message.action === 'updateSubtitles') {
-    updateSubtitles(message.original, message.translated);
-    sendResponse({ success: true });
+  // 자막이 변경된 경우에만 처리
+  if (currentSubtitleText && currentSubtitleText !== lastSubtitleText) {
+    lastSubtitleText = currentSubtitleText;
+    
+    // 번역 실행
+    translateSubtitle(currentSubtitleText);
+  }
+}
+
+// 자막 번역 함수
+async function translateSubtitle(text) {
+  try {
+    // 번역할 텍스트가 없으면 무시
+    if (!text || text.trim() === '') {
+      updateSubtitles(text, '');
+      return;
+    }
+    
+    // 현재 설정된 언어 확인
+    const targetLanguage = state.subtitleSettings.targetLanguage || state.currentLanguage || 'ko';
+    
+    console.log(`[Whatsub] 자막 번역 시도: ${text.substring(0, 30)}... -> ${targetLanguage}`);
+    
+    // 번역 요청
+    const response = await chrome.runtime.sendMessage({
+      action: 'translateText',
+      text: text,
+      source: state.originalLanguage || 'auto',
+      target: targetLanguage
+    });
+    
+    // 응답 처리
+    if (response && response.success) {
+      console.log(`[Whatsub] 번역 완료: ${response.translatedText.substring(0, 30)}...`);
+      updateSubtitles(text, response.translatedText);
+    } else {
+      console.error('[Whatsub] 번역 응답 오류:', response?.error);
+      // 번역 실패시에도 원본은 표시
+      updateSubtitles(text, '');
+    }
+  } catch (error) {
+    console.error('[Whatsub] 자막 번역 중 오류:', error);
+    // 오류 발생시에도 원본은 표시
+    updateSubtitles(text, '');
+  }
+}
+
+// 자막 업데이트 함수
+function updateSubtitles(originalText, translatedText) {
+  // 자막 텍스트 저장
+  currentSubtitleText = originalText;
+  currentTranslatedText = translatedText;
+  
+  // 자막 요소 업데이트
+  if (originalTextElement) {
+    originalTextElement.textContent = originalText || "";
+    originalTextElement.style.display = originalText ? "block" : "none";
   }
   
-  // 로그아웃 시 세션 스토리지 정리 처리
-  if (message.action === 'clearSessionStorage') {
+  if (translatedTextElement) {
+    translatedTextElement.textContent = translatedText || "";
+    translatedTextElement.style.display = (translatedText && state.subtitleSettings.dualSubtitles) ? "block" : "none";
+  }
+  
+  // 자막 컨테이너가 숨겨져 있으면 표시
+  if (subtitleContainer && subtitleContainer.style.display === "none") {
+    subtitleContainer.style.display = "block";
+  }
+}
+
+// 메시지 리스너 설정
+function setupMessageListeners() {
+  chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     try {
-      // Whatsub 관련 세션 스토리지 항목 정리
-      const keysToRemove = [];
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key && (key.includes('whatsub') || key.includes('auth') || key.includes('token'))) {
-          keysToRemove.push(key);
-        }
+      console.log('[Whatsub] 메시지 수신:', request.action);
+      
+      switch(request.action) {
+        case 'toggleSubtitles':
+          // 자막 켜기/끄기
+          state.subtitlesEnabled = request.enabled;
+          if (state.subtitlesEnabled) {
+            setupSubtitles();
+          } else {
+            removeSubtitles();
+          }
+          sendResponse({ success: true });
+          break;
+          
+        case 'changeLanguage':
+          // 언어 변경
+          state.subtitleSettings.targetLanguage = request.language;
+          // 현재 표시 중인 자막이 있으면 다시 번역
+          if (currentSubtitleText) {
+            translateSubtitle(currentSubtitleText);
+          }
+          sendResponse({ success: true });
+          break;
+          
+        case 'showTestSubtitle':
+          // 테스트 자막 표시
+          showSubtitle(request.original, request.translated);
+          sendResponse({ success: true });
+          break;
+          
+        case 'updateSettings':
+          // 설정 업데이트
+          if (request.settings) {
+            Object.assign(state.subtitleSettings, request.settings);
+            updateSubtitleStyle();
+            saveSettings();
+          }
+          sendResponse({ success: true });
+          break;
+          
+        default:
+          sendResponse({ success: false, error: '알 수 없는 명령입니다.' });
       }
       
-      // 식별된 키 제거
-      keysToRemove.forEach(key => {
-        sessionStorage.removeItem(key);
-      });
-      
-      console.log('[Whatsub] 세션 스토리지 정리됨');
-      
-      // 페이지 상태 초기화
-      isInitialized = false;
-      isSubtitleEnabled = false;
-      
-      sendResponse({ 
-        success: true, 
-        message: '세션 스토리지가 정리되었습니다.',
-        clearedItems: keysToRemove.length
-      });
+      return true; // 비동기 응답을 위해 true 반환
     } catch (error) {
-      console.error('[Whatsub] 세션 스토리지 정리 오류:', error);
-      sendResponse({ 
-        success: false, 
-        error: error.message || '세션 스토리지 정리 중 오류가 발생했습니다.' 
-      });
+      console.error('[Whatsub] 메시지 처리 중 오류:', error);
+      sendResponse({ success: false, error: error.message });
+      return true;
     }
-  }
-  
-  return true;
-});
+  });
+}
 
-// 페이지 초기화 함수
-function initializeExtension() {
-  if (isInitialized) return;
-  
-  // 자막 컨테이너 생성
-  createSubtitleContainer();
-  
-  // 설정 적용
-  applySettings();
-  
-  // 백그라운드 스크립트에 페이지 로드 알림
+// 자막 설정 저장
+function saveSettings() {
   chrome.runtime.sendMessage({
-    action: 'pageLoaded',
-    url: window.location.href
+    action: 'saveSettings',
+    settings: {
+      subtitleEnabled: state.subtitlesEnabled,
+      subtitleSettings: state.subtitleSettings,
+      commentsEnabled: state.commentsEnabled,
+      floatingCommentsEnabled: state.floatingCommentsEnabled,
+      currentLanguage: state.currentLanguage
+    }
   });
-  
-  isInitialized = true;
-  console.log('Whatsub 확장 프로그램이 초기화되었습니다.');
 }
 
-// 자막 컨테이너 생성
-function createSubtitleContainer() {
-  // 기존 컨테이너 제거
-  if (subtitleContainer) {
-    subtitleContainer.remove();
-  }
-  
-  // 새 컨테이너 생성
-  subtitleContainer = document.createElement('div');
-  subtitleContainer.id = 'whatsub-container';
-  subtitleContainer.classList.add('subtitle-animated', 'draggable');
-  
-  // 자막 요소 생성
-  originalSubtitleElement = document.createElement('div');
-  originalSubtitleElement.className = 'original-subtitle';
-  
-  translatedSubtitleElement = document.createElement('div');
-  translatedSubtitleElement.className = 'translated-subtitle';
-  
-  // 컨트롤 패널 생성
-  const controlsContainer = document.createElement('div');
-  controlsContainer.className = 'subtitle-controls';
-  
-  // 설정 버튼
-  const settingsButton = document.createElement('div');
-  settingsButton.className = 'subtitle-control-button';
-  settingsButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
-  settingsButton.title = '자막 설정';
-  settingsButton.addEventListener('click', toggleSettingsPanel);
-  
-  // 재설정 버튼
-  const resetButton = document.createElement('div');
-  resetButton.className = 'subtitle-control-button';
-  resetButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0z"/><path d="M12 8v4l3 3"/></svg>';
-  resetButton.title = '위치 초기화';
-  resetButton.addEventListener('click', resetPosition);
-  
-  // 닫기 버튼
-  const closeButton = document.createElement('div');
-  closeButton.className = 'subtitle-control-button';
-  closeButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
-  closeButton.title = '자막 닫기';
-  closeButton.addEventListener('click', () => {
-    hideSubtitles();
-    // 백그라운드에 자막 비활성화 알림
-    chrome.runtime.sendMessage({ action: 'disableSubtitles' });
-  });
-  
-  // 컨트롤 패널에 버튼 추가
-  controlsContainer.appendChild(settingsButton);
-  controlsContainer.appendChild(resetButton);
-  controlsContainer.appendChild(closeButton);
-  
-  // 설정 패널 생성
-  createSettingsPanel();
-  
-  // 컨테이너에 요소 추가
-  subtitleContainer.appendChild(originalSubtitleElement);
-  subtitleContainer.appendChild(translatedSubtitleElement);
-  subtitleContainer.appendChild(controlsContainer);
-  
-  // 드래그 가능하게 설정
-  makeDraggable(subtitleContainer);
-  
-  // 문서에 추가
-  document.body.appendChild(subtitleContainer);
-  subtitleContainer.style.display = 'none';
-  
-  console.log('자막 컨테이너가 생성되었습니다.');
-}
-
-// 설정 패널 생성
-function createSettingsPanel() {
-  // 기존 패널 제거
-  const existingPanel = document.getElementById('whatsub-settings-panel');
-  if (existingPanel) existingPanel.remove();
-  
-  // 새 패널 생성
-  const settingsPanel = document.createElement('div');
-  settingsPanel.id = 'whatsub-settings-panel';
-  settingsPanel.className = 'subtitle-settings-panel';
-  
-  // 패널 헤더
-  const header = document.createElement('div');
-  header.className = 'settings-header';
-  header.innerHTML = '<h3>자막 설정</h3><div class="close-button">✕</div>';
-  header.querySelector('.close-button').addEventListener('click', () => {
-    settingsPanel.classList.remove('visible');
-  });
+// 자막 스타일 업데이트
+function updateSubtitleStyle() {
+  if (!subtitleContainer || !subtitleTextContainer) return;
   
   // 위치 설정
-  const positionSection = document.createElement('div');
-  positionSection.className = 'settings-option';
-  positionSection.innerHTML = `
-    <label class="settings-option-label">자막 위치</label>
-    <div class="settings-option-choices">
-      <button class="option-button" data-position="top">상단</button>
-      <button class="option-button" data-position="middle">중앙</button>
-      <button class="option-button" data-position="bottom">하단</button>
-    </div>
-  `;
-  
-  // 배경 설정
-  const backgroundSection = document.createElement('div');
-  backgroundSection.className = 'settings-option';
-  backgroundSection.innerHTML = `
-    <label class="settings-option-label">배경 투명도</label>
-    <div class="settings-option-choices">
-      <button class="option-button" data-background="transparent">투명</button>
-      <button class="option-button" data-background="semi">중간</button>
-      <button class="option-button" data-background="solid">진하게</button>
-    </div>
-  `;
-  
-  // 폰트 크기 설정
-  const fontSizeSection = document.createElement('div');
-  fontSizeSection.className = 'settings-option';
-  fontSizeSection.innerHTML = `
-    <label class="settings-option-label">폰트 크기</label>
-    <div class="settings-option-choices">
-      <button class="option-button" data-font-size="small">작게</button>
-      <button class="option-button" data-font-size="medium">중간</button>
-      <button class="option-button" data-font-size="large">크게</button>
-    </div>
-  `;
-  
-  // 이중 자막 설정
-  const dualSubtitleSection = document.createElement('div');
-  dualSubtitleSection.className = 'settings-checkbox';
-  dualSubtitleSection.innerHTML = `
-    <input type="checkbox" id="dual-subtitle-option" ${subtitleSettings.dualSubtitles ? 'checked' : ''}>
-    <label for="dual-subtitle-option">번역 자막 표시</label>
-  `;
-  
-  // 설정 적용 버튼
-  const actionsSection = document.createElement('div');
-  actionsSection.className = 'settings-action';
-  actionsSection.innerHTML = `
-    <button class="settings-button">설정 적용</button>
-  `;
-  
-  // 패널에 섹션 추가
-  settingsPanel.appendChild(header);
-  settingsPanel.appendChild(positionSection);
-  settingsPanel.appendChild(backgroundSection);
-  settingsPanel.appendChild(fontSizeSection);
-  settingsPanel.appendChild(dualSubtitleSection);
-  settingsPanel.appendChild(actionsSection);
-  
-  // 이벤트 리스너 설정
-  const positionButtons = positionSection.querySelectorAll('.option-button');
-  positionButtons.forEach(button => {
-    if (button.dataset.position === subtitleSettings.position) {
-      button.classList.add('active');
-    }
-    button.addEventListener('click', () => {
-      positionButtons.forEach(b => b.classList.remove('active'));
-      button.classList.add('active');
-      subtitleSettings.position = button.dataset.position;
-    });
-  });
-  
-  const backgroundButtons = backgroundSection.querySelectorAll('.option-button');
-  backgroundButtons.forEach(button => {
-    if (button.dataset.background === subtitleSettings.background) {
-      button.classList.add('active');
-    }
-    button.addEventListener('click', () => {
-      backgroundButtons.forEach(b => b.classList.remove('active'));
-      button.classList.add('active');
-      subtitleSettings.background = button.dataset.background;
-    });
-  });
-  
-  const fontSizeButtons = fontSizeSection.querySelectorAll('.option-button');
-  fontSizeButtons.forEach(button => {
-    if (button.dataset.fontSize === subtitleSettings.fontSize) {
-      button.classList.add('active');
-    }
-    button.addEventListener('click', () => {
-      fontSizeButtons.forEach(b => b.classList.remove('active'));
-      button.classList.add('active');
-      subtitleSettings.fontSize = button.dataset.fontSize;
-    });
-  });
-  
-  const dualSubtitleCheckbox = dualSubtitleSection.querySelector('#dual-subtitle-option');
-  dualSubtitleCheckbox.addEventListener('change', () => {
-    subtitleSettings.dualSubtitles = dualSubtitleCheckbox.checked;
-  });
-  
-  // 설정 적용 버튼 이벤트
-  actionsSection.querySelector('.settings-button').addEventListener('click', () => {
-    applySettings();
-    saveSettings();
-    settingsPanel.classList.remove('visible');
-  });
-  
-  // 문서에 추가
-  subtitleContainer.appendChild(settingsPanel);
-}
-
-// 설정 패널 토글
-function toggleSettingsPanel() {
-  const settingsPanel = document.getElementById('whatsub-settings-panel');
-  if (settingsPanel) {
-    settingsPanel.classList.toggle('visible');
-  }
-}
-
-// 설정 적용
-function applySettings() {
-  if (!subtitleContainer) return;
-  
-  // 위치 클래스 설정
-  subtitleContainer.classList.remove('bg-transparent', 'bg-semi', 'bg-solid');
-  subtitleContainer.classList.add(`bg-${subtitleSettings.background}`);
-  
-  // 폰트 크기 클래스 설정
-  subtitleContainer.classList.remove('font-small', 'font-medium', 'font-large');
-  subtitleContainer.classList.add(`font-${subtitleSettings.fontSize}`);
-  
-  // 번역 자막 표시 여부
-  if (translatedSubtitleElement) {
-    translatedSubtitleElement.style.display = subtitleSettings.dualSubtitles ? 'block' : 'none';
-  }
-  
-  // 위치 조정
-  if (subtitleSettings.position === 'custom' && subtitleSettings.customPosition) {
-    subtitleContainer.style.transform = 'none';
-    subtitleContainer.style.left = `${subtitleSettings.customPosition.x}px`;
-    subtitleContainer.style.top = `${subtitleSettings.customPosition.y}px`;
-  } else {
-    resetPosition();
-  }
-  
-  console.log('자막 설정이 적용되었습니다:', subtitleSettings);
-}
-
-// 설정 저장
-function saveSettings() {
-  chrome.storage.local.set({ subtitleSettings });
-  
-  // 백그라운드에 설정 업데이트 알림
-  chrome.runtime.sendMessage({ 
-    action: 'saveSettings', 
-    settings: subtitleSettings 
-  });
-}
-
-// 자막 위치 초기화
-function resetPosition() {
-  if (!subtitleContainer) return;
-  
-  // 커스텀 위치 설정 제거
-  subtitleSettings.position = 'bottom';
-  subtitleSettings.customPosition = null;
-  
-  // 스타일 초기화
-  subtitleContainer.style.left = '50%';
-  subtitleContainer.style.transform = 'translateX(-50%)';
-  
-  // 위치에 따른 top 값 설정
-  switch (subtitleSettings.position) {
+  switch(state.subtitleSettings.position) {
     case 'top':
-      subtitleContainer.style.top = '60px';
+      subtitleContainer.style.top = '10%';
       subtitleContainer.style.bottom = 'auto';
       break;
     case 'middle':
@@ -406,138 +334,2871 @@ function resetPosition() {
     case 'bottom':
     default:
       subtitleContainer.style.top = 'auto';
-      subtitleContainer.style.bottom = '60px';
+      subtitleContainer.style.bottom = '10%';
+      subtitleContainer.style.transform = 'translateX(-50%)';
       break;
   }
   
+  // 폰트 사이즈 설정
+  const fontSizeMap = {
+    'small': '16px',
+    'medium': '20px',
+    'large': '24px'
+  };
+  
+  // 배경 투명도 설정
+  const backgroundMap = {
+    'transparent': 'rgba(0, 0, 0, 0.4)',
+    'semi': 'rgba(0, 0, 0, 0.7)',
+    'solid': 'rgba(0, 0, 0, 0.9)'
+  };
+  
+  // 스타일 적용
+  if (originalTextElement) {
+    originalTextElement.style.fontSize = fontSizeMap[state.subtitleSettings.fontSize];
+    originalTextElement.style.color = '#ffffff';
+    originalTextElement.style.textShadow = '1px 1px 2px rgba(0, 0, 0, 0.8)';
+    originalTextElement.style.marginBottom = '4px';
+  }
+  
+  if (translatedTextElement) {
+    translatedTextElement.style.fontSize = fontSizeMap[state.subtitleSettings.fontSize];
+    translatedTextElement.style.color = '#ffffff';
+    translatedTextElement.style.textShadow = '1px 1px 2px rgba(0, 0, 0, 0.8)';
+    translatedTextElement.style.display = state.subtitleSettings.dualSubtitles ? 'block' : 'none';
+  }
+  
+  if (subtitleTextContainer) {
+    subtitleTextContainer.style.backgroundColor = backgroundMap[state.subtitleSettings.background];
+    subtitleTextContainer.style.padding = '8px 16px';
+    subtitleTextContainer.style.borderRadius = '4px';
+    subtitleTextContainer.style.maxWidth = '80vw';
+    subtitleTextContainer.style.textAlign = 'center';
+  }
+  
+  if (subtitleContainer) {
+    subtitleContainer.style.transition = 'all 0.3s ease';
+  }
+}
+
+// 자막 표시 설정
+function setupSubtitles() {
+  console.log('[Whatsub] 자막 설정 시작...');
+  
+  try {
+    if (!subtitleContainer) {
+      createSubtitleContainer();
+    }
+    
+    // 자막 컨테이너 추가
+    injectSubtitleContainer();
+    
+    // 컨트롤 패널 추가
+    injectControlPanel();
+    
+    // 댓글 컨테이너 추가
+    injectCommentsContainer();
+    
+    // 흐름 댓글 컨테이너 추가
+    injectFloatingCommentsContainer();
+    
+    // 현재 URL이 YouTube인지 확인하고 처리
+    if (isYouTube()) {
+      // YouTube 특화 로직
+      setupYouTubeSubtitles();
+    }
+    
+    // 자막 상태 업데이트
+    state.subtitlesEnabled = true;
+    
+    // 자막 컨테이너 표시
+    if (subtitleContainer) {
+      subtitleContainer.style.display = 'block';
+      // 초기 자막이 없는 경우를 위한 처리
+      if (!currentSubtitleText) {
+        showSubtitle("자막이 준비되었습니다. 미디어가 재생되면 자막이 표시됩니다.", 
+                    "Subtitles are ready. When media plays, subtitles will be displayed.");
+      }
+    }
+    
+    // 설정 저장
+    saveSettings();
+    
+    console.log('[Whatsub] 자막 설정 완료');
+  } catch (error) {
+    console.error('[Whatsub] 자막 설정 중 오류:', error);
+  }
+}
+
+// 자막 컨테이너 주입
+function injectSubtitleContainer() {
+  // 이미 존재하는지 확인
+  if (!document.getElementById('whatsub-subtitle-container') && subtitleContainer) {
+    document.body.appendChild(subtitleContainer);
+  }
+}
+
+// 컨트롤 패널 주입
+function injectControlPanel() {
+  // 컨트롤 패널 추가 - 이미 createSubtitleContainer에서 처리됨
+  setupControlPanelEvents();
+}
+
+// 댓글 컨테이너 주입
+function injectCommentsContainer() {
+  // 이미 createSubtitleContainer에서 처리됨
+  setupCommentsFeature();
+}
+
+// YouTube 자막 설정
+function setupYouTubeSubtitles() {
+  // YouTube 자막 요소 감시 시작
+  startYouTubeObserver();
+  
+  // 초기 자막 상태 확인
+  checkForYouTubeSubtitles();
+}
+
+// 자막 제거
+function removeSubtitles() {
+  console.log('[Whatsub] 자막 제거');
+  if (subtitleContainer) {
+    subtitleContainer.style.display = 'none';
+  }
+  // 자막 상태 업데이트
+  state.subtitlesEnabled = false;
   saveSettings();
 }
 
-// 드래그 기능 구현
-function makeDraggable(element) {
-  let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-  let isDragging = false;
-  
-  element.onmousedown = dragMouseDown;
-  
-  function dragMouseDown(e) {
-    // 설정 패널이나 버튼 클릭 시 드래그 방지
-    if (e.target.closest('.subtitle-controls') || 
-        e.target.closest('.subtitle-settings-panel') || 
-        e.target.nodeName === 'BUTTON' || 
-        e.target.nodeName === 'INPUT') {
-      return;
+// 자막 표시
+function showSubtitle(originalText, translatedText) {
+  try {
+    if (!subtitleContainer) {
+      createSubtitleContainer();
+      document.body.appendChild(subtitleContainer);
     }
     
-    e.preventDefault();
-    isDragging = true;
-    element.classList.add('dragging');
+    if (!originalTextElement || !translatedTextElement) {
+      console.error('[Whatsub] 자막 요소가 초기화되지 않았습니다.');
+      return false;
+    }
     
-    // 마우스 위치 가져오기
-    pos3 = e.clientX;
-    pos4 = e.clientY;
-    document.onmouseup = closeDragElement;
-    document.onmousemove = elementDrag;
+    // 원본 자막 설정
+    if (originalText) {
+      originalTextElement.textContent = originalText;
+      originalTextElement.style.display = 'block';
+    } else {
+      originalTextElement.style.display = 'none';
+    }
+    
+    // 번역 자막 설정
+    if (translatedText) {
+      translatedTextElement.textContent = translatedText;
+      translatedTextElement.style.display = state.subtitleSettings.dualSubtitles ? 'block' : 'none';
+    } else {
+      translatedTextElement.style.display = 'none';
+    }
+    
+    // 자막 컨테이너 표시
+    if (subtitleContainer) {
+      subtitleContainer.style.display = 'block';
+      
+      // 현재 자막 텍스트 저장
+      currentSubtitleText = originalText;
+      
+      // 자막 ID 생성
+      currentSubtitleId = hashSubtitle(originalText);
+      
+      // 현재 동영상 ID 저장
+      currentVideoId = getVideoId();
+      
+      // 현재 시간 저장
+      currentTimestamp = getCurrentTime();
+      
+      // 댓글 업데이트
+      if (state.commentsEnabled) {
+        loadComments(currentVideoId, currentSubtitleId);
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('[Whatsub] 자막 표시 중 오류:', error);
+    return false;
   }
+}
+
+// 자막 드래그 가능하게 만들기
+function makeSubtitleDraggable() {
+  if (!subtitleContainer) return;
   
-  function elementDrag(e) {
+  let offsetX, offsetY, isDragging = false;
+  
+  // 드래그 시작
+  subtitleContainer.addEventListener('mousedown', function(e) {
+    isDragging = true;
+    
+    // 변환을 제거하고 현재 위치로 설정
+    const rect = subtitleContainer.getBoundingClientRect();
+    subtitleContainer.style.transform = 'none';
+    subtitleContainer.style.left = rect.left + 'px';
+    subtitleContainer.style.top = rect.top + 'px';
+    
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+    
+    // 커서 변경
+    subtitleContainer.style.cursor = 'grabbing';
+  });
+  
+  // 드래그 중
+  document.addEventListener('mousemove', function(e) {
     if (!isDragging) return;
     
-    e.preventDefault();
     // 새 위치 계산
-    pos1 = pos3 - e.clientX;
-    pos2 = pos4 - e.clientY;
-    pos3 = e.clientX;
-    pos4 = e.clientY;
-    // 요소 위치 설정
-    element.style.top = (element.offsetTop - pos2) + "px";
-    element.style.left = (element.offsetLeft - pos1) + "px";
-    element.style.bottom = 'auto';
-    // 요소가 가운데 정렬에서 벗어날 때 transform 수정
-    element.style.transform = 'none';
+    const newLeft = e.clientX - offsetX;
+    const newTop = e.clientY - offsetY;
     
-    // 커스텀 위치 설정
-    subtitleSettings.position = 'custom';
-    subtitleSettings.customPosition = {
-      x: element.offsetLeft,
-      y: element.offsetTop
-    };
+    // 위치 업데이트
+    subtitleContainer.style.left = newLeft + 'px';
+    subtitleContainer.style.top = newTop + 'px';
+    subtitleContainer.style.bottom = 'auto';
+  });
+  
+  // 드래그 종료
+  document.addEventListener('mouseup', function() {
+    if (isDragging) {
+      isDragging = false;
+      subtitleContainer.style.cursor = 'grab';
+    }
+  });
+  
+  // 마우스 진입 시 커서 변경
+  subtitleContainer.addEventListener('mouseenter', function() {
+    subtitleContainer.style.cursor = 'grab';
+  });
+  
+  // 마우스 이탈 시 커서 원복
+  subtitleContainer.addEventListener('mouseleave', function() {
+    if (!isDragging) {
+      subtitleContainer.style.cursor = 'default';
+    }
+  });
+  
+  // 더블 클릭으로 위치 초기화
+  subtitleContainer.addEventListener('dblclick', function() {
+    // 원래 위치로 돌아가기
+    subtitleContainer.style.left = '50%';
+    
+    switch (state.subtitleSettings.position) {
+      case 'top':
+        subtitleContainer.style.top = '10%';
+        subtitleContainer.style.bottom = 'auto';
+        subtitleContainer.style.transform = 'translateX(-50%)';
+        break;
+      case 'middle':
+        subtitleContainer.style.top = '50%';
+        subtitleContainer.style.bottom = 'auto';
+        subtitleContainer.style.transform = 'translate(-50%, -50%)';
+        break;
+      case 'bottom':
+      default:
+        subtitleContainer.style.top = 'auto';
+        subtitleContainer.style.bottom = '10%';
+        subtitleContainer.style.transform = 'translateX(-50%)';
+        break;
+    }
+  });
+}
+
+// YouTube 확인 함수
+function isYouTube() {
+  return window.location.hostname.includes('youtube.com');
+}
+
+// 컨트롤 패널 이벤트 핸들러
+function setupControlPanelEvents() {
+  try {
+    console.log('[Whatsub] 컨트롤 패널 이벤트 설정 중...');
+    
+    // 자막 켜기/끄기 토글
+    const subtitleToggle = document.getElementById('whatsub-toggle-subtitles');
+    if (subtitleToggle) {
+      subtitleToggle.checked = state.subtitlesEnabled;
+      subtitleToggle.addEventListener('change', function() {
+        state.subtitlesEnabled = this.checked;
+        if (state.subtitlesEnabled) {
+          setupSubtitles();
+        } else {
+          removeSubtitles();
+        }
+        // 상태 저장
+        chrome.runtime.sendMessage({
+          action: 'saveSettings',
+          settings: { subtitleEnabled: state.subtitlesEnabled }
+        });
+      });
+    }
+    
+    // 자동 자막 토글 이벤트
+    const autoSubtitleToggle = document.getElementById('whatsub-auto-subtitles');
+    if (autoSubtitleToggle) {
+      autoSubtitleToggle.checked = state.autoSubtitlesEnabled;
+      autoSubtitleToggle.disabled = !userState.features.autoSubtitles;
+      
+      autoSubtitleToggle.addEventListener('change', function() {
+        if (!userState.features.autoSubtitles) {
+          this.checked = false;
+          alert('자동 자막 기능은 프리미엄 회원만 사용할 수 있습니다.');
+          return;
+        }
+        
+        state.autoSubtitlesEnabled = this.checked;
+        
+        // 자동 자막 기능 토글
+        if (state.autoSubtitlesEnabled) {
+          console.log('[Whatsub] 자동 자막 활성화 시도');
+          whisperAI.start();
+        } else {
+          console.log('[Whatsub] 자동 자막 비활성화');
+          whisperAI.stop();
+        }
+        
+        // 상태 저장
+        saveSettings();
+      });
+    }
+    
+    // 듀얼 자막 토글 이벤트
+    const dualSubtitleToggle = document.getElementById('whatsub-dual-subtitles');
+    const singleLanguageSelector = document.querySelector('.whatsub-single-language');
+    const dualLanguageSelector = document.querySelector('.whatsub-dual-language');
+    
+    if (dualSubtitleToggle) {
+      dualSubtitleToggle.checked = state.subtitleSettings.dualSubtitles;
+      
+      // 초기 상태에 따라 표시할 언어 선택기 결정
+      if (singleLanguageSelector && dualLanguageSelector) {
+        if (state.subtitleSettings.dualSubtitles) {
+          singleLanguageSelector.style.display = 'none';
+          dualLanguageSelector.style.display = 'block';
+        } else {
+          singleLanguageSelector.style.display = 'flex';
+          dualLanguageSelector.style.display = 'none';
+        }
+      }
+      
+      dualSubtitleToggle.addEventListener('change', function() {
+        state.subtitleSettings.dualSubtitles = this.checked;
+        
+        // 언어 선택기 전환
+        if (singleLanguageSelector && dualLanguageSelector) {
+          if (state.subtitleSettings.dualSubtitles) {
+            singleLanguageSelector.style.display = 'none';
+            dualLanguageSelector.style.display = 'block';
+          } else {
+            singleLanguageSelector.style.display = 'flex';
+            dualLanguageSelector.style.display = 'none';
+          }
+        }
+        
+        // 설정 저장
+        chrome.runtime.sendMessage({
+          action: 'updateSettings',
+          settings: { dualSubtitles: state.subtitleSettings.dualSubtitles }
+        });
+        
+        // 자막 업데이트
+        updateSubtitleStyle();
+        if (originalTextElement && translatedTextElement) {
+          translatedTextElement.style.display = state.subtitleSettings.dualSubtitles ? 'block' : 'none';
+        }
+      });
+    }
+    
+    // 단일 언어 선택 이벤트
+    const languageSelect = document.getElementById('whatsub-language-select');
+    if (languageSelect) {
+      // 현재 언어 선택
+      Array.from(languageSelect.options).forEach(option => {
+        if (option.value === state.currentLanguage) {
+          option.selected = true;
+        }
+      });
+      
+      languageSelect.addEventListener('change', function() {
+        state.currentLanguage = this.value;
+        // 언어 변경 메시지 전송
+        chrome.runtime.sendMessage({
+          action: 'changeLanguage',
+          language: state.currentLanguage
+        });
+        // 현재 자막 다시 번역
+        if (currentSubtitleText) {
+          translateSubtitle(currentSubtitleText);
+        }
+      });
+    }
+    
+    // 듀얼 모드 원본 언어 선택 이벤트
+    const originalLanguageSelect = document.getElementById('whatsub-original-language-select');
+    if (originalLanguageSelect) {
+      // 현재 원본 언어 선택
+      Array.from(originalLanguageSelect.options).forEach(option => {
+        if (option.value === state.originalLanguage) {
+          option.selected = true;
+        }
+      });
+      
+      originalLanguageSelect.addEventListener('change', function() {
+        state.originalLanguage = this.value;
+        
+        // 원본 언어와 번역 언어가 동일한 경우, 번역 언어 자동 변경
+        const translatedLanguageSelect = document.getElementById('whatsub-translated-language-select');
+        if (translatedLanguageSelect && state.originalLanguage === state.currentLanguage) {
+          // 기본 대체 언어 설정 (영어가 아니면 영어로, 영어면 한국어로)
+          const fallbackLanguage = state.originalLanguage === 'en' ? 'ko' : 'en';
+          state.currentLanguage = fallbackLanguage;
+          
+          // 번역 언어 드롭다운 업데이트
+          Array.from(translatedLanguageSelect.options).forEach(option => {
+            option.selected = option.value === fallbackLanguage;
+          });
+        }
+        
+        // 언어 변경 메시지 전송
+        chrome.runtime.sendMessage({
+          action: 'changeOriginalLanguage',
+          language: state.originalLanguage
+        });
+        
+        // 현재 자막 다시 번역
+        if (currentSubtitleText) {
+          translateSubtitle(currentSubtitleText);
+        }
+      });
+    }
+    
+    // 듀얼 모드 번역 언어 선택 이벤트
+    const translatedLanguageSelect = document.getElementById('whatsub-translated-language-select');
+    if (translatedLanguageSelect) {
+      // 현재 번역 언어 선택
+      Array.from(translatedLanguageSelect.options).forEach(option => {
+        if (option.value === state.currentLanguage) {
+          option.selected = true;
+        }
+      });
+      
+      translatedLanguageSelect.addEventListener('change', function() {
+        // 원본 언어와 동일한 언어로 설정하지 못하도록 방지
+        if (this.value === state.originalLanguage) {
+          alert('원본 언어와 동일한 언어로 설정할 수 없습니다.');
+          
+          // 이전 선택으로 되돌림
+          Array.from(this.options).forEach(option => {
+            option.selected = option.value === state.currentLanguage;
+          });
+          return;
+        }
+        
+        state.currentLanguage = this.value;
+        
+        // 언어 변경 메시지 전송
+        chrome.runtime.sendMessage({
+          action: 'changeLanguage',
+          language: state.currentLanguage
+        });
+        
+        // 현재 자막 다시 번역
+        if (currentSubtitleText) {
+          translateSubtitle(currentSubtitleText);
+        }
+      });
+    }
+    
+    // 언어 전환 버튼 이벤트
+    const swapButton = document.getElementById('whatsub-language-swap');
+    if (swapButton) {
+      swapButton.addEventListener('click', function() {
+        // 현재 선택된 언어 가져오기
+        const originalSelect = document.getElementById('whatsub-original-language-select');
+        const translatedSelect = document.getElementById('whatsub-translated-language-select');
+        
+        if (originalSelect && translatedSelect) {
+          // 현재 값 저장
+          const originalValue = originalSelect.value;
+          const translatedValue = translatedSelect.value;
+          
+          // 값 교환
+          state.originalLanguage = translatedValue;
+          state.currentLanguage = originalValue;
+          
+          // 드롭다운 업데이트
+          Array.from(originalSelect.options).forEach(option => {
+            option.selected = option.value === translatedValue;
+          });
+          
+          Array.from(translatedSelect.options).forEach(option => {
+            option.selected = option.value === originalValue;
+          });
+          
+          // 언어 변경 메시지 전송
+          chrome.runtime.sendMessage({
+            action: 'changeOriginalLanguage',
+            language: state.originalLanguage
+          });
+          
+          chrome.runtime.sendMessage({
+            action: 'changeLanguage',
+            language: state.currentLanguage
+          });
+          
+          // 자막 업데이트
+          if (currentSubtitleText) {
+            translateSubtitle(currentSubtitleText);
+          }
+        }
+      });
+    }
+    
+    // 댓글 토글 이벤트
+    const commentsToggle = document.getElementById('whatsub-comments-toggle');
+    if (commentsToggle) {
+      commentsToggle.checked = state.commentsEnabled;
+      commentsToggle.addEventListener('change', function() {
+        state.commentsEnabled = this.checked;
+        
+        if (state.commentsEnabled) {
+          showComments();
+          // 현재 자막에 댓글 로드
+          loadComments(currentVideoId || getVideoId(), currentSubtitleId);
+        } else {
+          hideComments();
+        }
+        
+        // 설정 저장
+        saveSettings();
+      });
+    }
+    
+    // 피드백 버튼 이벤트
+    const likeBtn = document.getElementById('whatsub-like-btn');
+    const dislikeBtn = document.getElementById('whatsub-dislike-btn');
+    const recommendBtn = document.getElementById('whatsub-recommend-btn');
+    
+    if (likeBtn) {
+      likeBtn.addEventListener('click', function() {
+        this.classList.toggle('active');
+        if (this.classList.contains('active') && dislikeBtn) {
+          dislikeBtn.classList.remove('active');
+        }
+        // 피드백 전송
+        if (this.classList.contains('active') && currentSubtitleText) {
+          chrome.runtime.sendMessage({
+            action: 'sendFeedback',
+            type: 'like',
+            subtitleText: currentSubtitleText
+          });
+        }
+      });
+    }
+    
+    if (dislikeBtn) {
+      dislikeBtn.addEventListener('click', function() {
+        this.classList.toggle('active');
+        if (this.classList.contains('active') && likeBtn) {
+          likeBtn.classList.remove('active');
+        }
+        // 피드백 전송
+        if (this.classList.contains('active') && currentSubtitleText) {
+          chrome.runtime.sendMessage({
+            action: 'sendFeedback',
+            type: 'dislike',
+            subtitleText: currentSubtitleText
+          });
+        }
+      });
+    }
+    
+    if (recommendBtn) {
+      recommendBtn.addEventListener('click', function() {
+        this.classList.toggle('active');
+        // 추천 전송
+        if (this.classList.contains('active') && currentSubtitleText) {
+          chrome.runtime.sendMessage({
+            action: 'sendFeedback',
+            type: 'recommend',
+            subtitleText: currentSubtitleText
+          });
+        }
+      });
+    }
+    
+    // 설정 버튼 및 패널 이벤트
+    const settingsBtn = document.getElementById('whatsub-settings-btn');
+    const settingsPanel = document.getElementById('whatsub-settings-panel');
+    const closeSettingsBtn = document.getElementById('whatsub-close-settings');
+    
+    if (settingsBtn && settingsPanel) {
+      settingsBtn.addEventListener('click', function() {
+        settingsPanel.classList.toggle('visible');
+      });
+    }
+    
+    if (closeSettingsBtn && settingsPanel) {
+      closeSettingsBtn.addEventListener('click', function() {
+        settingsPanel.classList.remove('visible');
+      });
+    }
+    
+    // 위치 버튼 이벤트
+    const positionButtons = document.querySelectorAll('.whatsub-settings-choices [data-position]');
+    positionButtons.forEach(button => {
+      if (button.getAttribute('data-position') === state.subtitleSettings.position) {
+        button.classList.add('active');
+      }
+      
+      button.addEventListener('click', function() {
+        positionButtons.forEach(btn => btn.classList.remove('active'));
+        this.classList.add('active');
+        
+        state.subtitleSettings.position = this.getAttribute('data-position');
+        updateSubtitleStyle();
+        saveSettings();
+      });
+    });
+    
+    // 글꼴 크기 버튼 이벤트
+    const fontSizeButtons = document.querySelectorAll('.whatsub-settings-choices [data-font-size]');
+    fontSizeButtons.forEach(button => {
+      if (button.getAttribute('data-font-size') === state.subtitleSettings.fontSize) {
+        button.classList.add('active');
+      }
+      
+      button.addEventListener('click', function() {
+        fontSizeButtons.forEach(btn => btn.classList.remove('active'));
+        this.classList.add('active');
+        
+        state.subtitleSettings.fontSize = this.getAttribute('data-font-size');
+        updateSubtitleStyle();
+        saveSettings();
+      });
+    });
+    
+    // 투명도 버튼 이벤트
+    const opacityButtons = document.querySelectorAll('.whatsub-settings-choices [data-opacity]');
+    opacityButtons.forEach(button => {
+      // opacity와 background 설정을 매핑
+      const opacityToBackground = {
+        'low': 'transparent',
+        'medium': 'semi',
+        'high': 'solid'
+      };
+      
+      const backgroundToOpacity = {
+        'transparent': 'low',
+        'semi': 'medium',
+        'solid': 'high'
+      };
+      
+      if (backgroundToOpacity[state.subtitleSettings.background] === button.getAttribute('data-opacity')) {
+        button.classList.add('active');
+      }
+      
+      button.addEventListener('click', function() {
+        opacityButtons.forEach(btn => btn.classList.remove('active'));
+        this.classList.add('active');
+        
+        state.subtitleSettings.background = opacityToBackground[this.getAttribute('data-opacity')];
+        updateSubtitleStyle();
+        saveSettings();
+      });
+    });
+    
+    // 자막 토글과 자동 자막 토글 연동
+    setupSubtitleToggleSync();
+    
+    console.log('[Whatsub] 컨트롤 패널 이벤트 설정 완료');
+  } catch (error) {
+    console.error('[Whatsub] 컨트롤 패널 이벤트 설정 오류:', error);
+  }
+}
+
+// 설정 로드
+function loadSettings() {
+  console.log('[Whatsub] 설정 로드 시작...');
+  chrome.runtime.sendMessage({ action: 'getSettings' }, function(response) {
+    if (response && response.settings) {
+      console.log('[Whatsub] 설정 로드됨:', response.settings);
+      
+      // 기본 설정
+      if (response.settings.subtitleEnabled !== undefined) {
+        state.subtitlesEnabled = response.settings.subtitleEnabled;
+      }
+      
+      if (response.settings.language) {
+        state.currentLanguage = response.settings.language;
+      }
+      
+      if (response.settings.originalLanguage) {
+        state.originalLanguage = response.settings.originalLanguage;
+      }
+      
+      if (response.settings.autoSubtitlesEnabled !== undefined) {
+        state.autoSubtitlesEnabled = response.settings.autoSubtitlesEnabled;
+      }
+      
+      if (response.settings.commentsEnabled !== undefined) {
+        state.commentsEnabled = response.settings.commentsEnabled;
+      }
+      
+      // 자막 설정
+      if (response.settings.subtitleSettings) {
+        const settings = response.settings.subtitleSettings;
+        
+        if (settings.position) {
+          state.subtitleSettings.position = settings.position;
+        }
+        
+        if (settings.fontSize) {
+          state.subtitleSettings.fontSize = settings.fontSize;
+        }
+        
+        if (settings.background) {
+          state.subtitleSettings.background = settings.background;
+        }
+        
+        if (settings.dualSubtitles !== undefined) {
+          state.subtitleSettings.dualSubtitles = settings.dualSubtitles;
+        }
+      }
+      
+      // 설정에 따라 자막 표시 상태 업데이트
+      if (state.subtitlesEnabled) {
+        setupSubtitles();
+      } else {
+        removeSubtitles();
+      }
+      
+      // 자동 자막 상태 업데이트
+      if (state.autoSubtitlesEnabled) {
+        chrome.runtime.sendMessage({
+          action: 'startSpeechRecognition',
+          tabId: chrome.runtime.id
+        });
+      }
+      
+      // 댓글 기능 상태 업데이트
+      if (state.commentsEnabled && commentsContainer) {
+        commentsContainer.style.display = 'flex';
+      } else if (commentsContainer) {
+        commentsContainer.style.display = 'none';
+      }
+      
+      // 컨트롤 패널 이벤트 다시 설정
+      setupControlPanelEvents();
+    }
+  });
+}
+
+// 초기화 함수
+function init() {
+  console.log('[Whatsub] 초기화 시작...');
+  
+  // 스타일 주입
+  injectStyles();
+  
+  // 사용자 인증 상태 확인
+  checkUserAuth();
+  
+  // 설정 로드
+  loadSettings();
+  
+  // 자막 컨테이너 생성 및 추가
+  subtitleContainer = createSubtitleContainer();
+  if (subtitleContainer) {
+    document.body.appendChild(subtitleContainer);
   }
   
-  function closeDragElement() {
-    // 움직임 중지
-    isDragging = false;
-    element.classList.remove('dragging');
-    document.onmouseup = null;
-    document.onmousemove = null;
+  // 메시지 리스너 설정
+  setupMessageListeners();
+  
+  // 댓글 기능 초기화
+  setupCommentsFeature();
+  
+  // 백그라운드 연결 설정
+  setupBackgroundConnection();
+  
+  // YouTube 페이지인 경우 특별 처리
+  if (isYouTube()) {
+    console.log('[Whatsub] YouTube 페이지 감지됨');
+    setupYouTubeSubtitles();
+  } else {
+    console.log('[Whatsub] 일반 웹 페이지 감지됨');
+  }
+  
+  console.log('[Whatsub] 초기화 완료');
+}
+
+// 자막 컨테이너 생성 함수 수정
+function createSubtitleContainer() {
+  // 기존 자막 컨테이너가 있으면 제거
+  const existingContainer = document.getElementById('whatsub-subtitle-container');
+  if (existingContainer) {
+    existingContainer.remove();
+  }
+  
+  // 새로운 자막 컨테이너 생성
+  subtitleContainer = document.createElement('div');
+  subtitleContainer.id = 'whatsub-subtitle-container';
+  subtitleContainer.className = 'whatsub-subtitle-container';
+  
+  // 기본 스타일 설정
+  subtitleContainer.style.position = 'fixed';
+  subtitleContainer.style.left = '50%';
+  subtitleContainer.style.transform = 'translateX(-50%)';
+  subtitleContainer.style.zIndex = '999999';
+  
+  // 자막 텍스트 컨테이너
+  subtitleTextContainer = document.createElement('div');
+  subtitleTextContainer.className = 'whatsub-subtitle-text-container';
+  subtitleTextContainer.style.pointerEvents = 'none'; // 자막 텍스트는 클릭 불가
+  
+  // 원본 텍스트 요소
+  originalTextElement = document.createElement('div');
+  originalTextElement.className = 'whatsub-subtitle-text whatsub-original-text';
+  originalTextElement.style.display = 'none';
+  originalTextElement.style.pointerEvents = 'none';
+  
+  // 번역 텍스트 요소
+  translatedTextElement = document.createElement('div');
+  translatedTextElement.className = 'whatsub-subtitle-text whatsub-translated-text';
+  translatedTextElement.style.display = 'none';
+  translatedTextElement.style.pointerEvents = 'none';
+  
+  // 요소 추가
+  subtitleTextContainer.appendChild(originalTextElement);
+  subtitleTextContainer.appendChild(translatedTextElement);
+  subtitleContainer.appendChild(subtitleTextContainer);
+  
+  // 컨트롤 패널 추가
+  const controlPanel = createControlPanel();
+  controlPanel.style.pointerEvents = 'auto'; // 컨트롤 패널은 클릭 가능
+  controlPanel.style.opacity = '1';
+  controlPanel.style.transition = 'opacity 0.5s ease-in-out';
+  subtitleContainer.appendChild(controlPanel);
+  
+  // 드래그 기능 추가
+  makeSubtitleDraggable();
+  
+  // 자막 스타일 업데이트
+  updateSubtitleStyle();
+  
+  // 초기에는 숨김
+  subtitleContainer.style.display = 'none';
+  
+  // 마우스 움직임 감지 설정
+  setupMouseMovementDetection(subtitleContainer, controlPanel);
+  
+  return subtitleContainer;
+}
+
+// 마우스가 특정 요소 위에 있는지 확인
+function isMouseOverElement(element) {
+  const rect = element.getBoundingClientRect();
+  // event 객체를 직접 사용하는 대신 마우스 이벤트에서 받아오도록 수정
+  
+  return function(e) {
+    const mouseX = e.clientX;
+    const mouseY = e.clientY;
     
-    // 이동 후 설정 저장
-    if (subtitleSettings.position === 'custom') {
+    return (
+      mouseX >= rect.left &&
+      mouseX <= rect.right &&
+      mouseY >= rect.top &&
+      mouseY <= rect.bottom
+    );
+  };
+}
+
+// 마우스 움직임 감지 설정 수정
+function setupMouseMovementDetection(container, controlPanel) {
+  let hideTimeout;
+  const hideDelay = 3000; // 3초 후 숨김
+  let lastMouseEvent = null;
+  
+  function showControlPanel(e) {
+    lastMouseEvent = e;
+    
+    if (controlPanel) {
+      controlPanel.style.opacity = '1';
+    }
+    
+    // 이전 타이머 취소
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+    }
+    
+    // 새 타이머 설정
+    hideTimeout = setTimeout(() => {
+      if (controlPanel && lastMouseEvent && !isMouseOverElement(controlPanel)(lastMouseEvent)) {
+        controlPanel.style.opacity = '0';
+      }
+    }, hideDelay);
+  }
+  
+  // 마우스 움직임 이벤트
+  container.addEventListener('mousemove', showControlPanel);
+  
+  // 마우스 진입/이탈 이벤트
+  container.addEventListener('mouseenter', showControlPanel);
+  
+  controlPanel.addEventListener('mouseenter', (e) => {
+    lastMouseEvent = e;
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+    }
+    controlPanel.style.opacity = '1';
+  });
+  
+  controlPanel.addEventListener('mouseleave', (e) => {
+    lastMouseEvent = e;
+    hideTimeout = setTimeout(() => {
+      controlPanel.style.opacity = '0';
+    }, hideDelay);
+  });
+  
+  // 초기 실행 (3초 후 자동으로 숨김)
+  hideTimeout = setTimeout(() => {
+    if (controlPanel) {
+      controlPanel.style.opacity = '0';
+    }
+  }, hideDelay);
+}
+
+// 댓글 컨테이너 생성
+function createCommentsContainer() {
+  const container = document.createElement('div');
+  container.id = 'whatsub-comments-container';
+  container.className = 'whatsub-comments-container';
+  container.style.display = 'none'; // 초기에는 숨겨진 상태
+  
+  // 댓글 헤더
+  const commentsHeader = document.createElement('div');
+  commentsHeader.className = 'whatsub-comments-header';
+  commentsHeader.innerHTML = `
+    <span class="whatsub-comments-title">댓글 <span class="whatsub-comments-count">0</span></span>
+    <div class="whatsub-comments-buttons">
+      <button id="whatsub-load-test-comments" class="whatsub-test-btn" title="테스트 댓글 로드">
+        테스트 댓글
+      </button>
+      <button id="whatsub-close-comments" class="whatsub-close-btn" title="댓글창 닫기">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  `;
+  
+  // 댓글 목록
+  const commentsList = document.createElement('div');
+  commentsList.id = 'whatsub-comments-list';
+  commentsList.className = 'whatsub-comments-list';
+  
+  // 댓글 입력
+  const commentInput = document.createElement('div');
+  commentInput.className = 'whatsub-comment-input-container';
+  commentInput.innerHTML = `
+    <textarea id="whatsub-comment-input" placeholder="댓글을 입력하세요..."></textarea>
+    <div class="whatsub-comment-options">
+      <input type="number" id="whatsub-comment-time" min="0" step="1" placeholder="시간(초)" title="이 댓글이 표시될 영상 시간(초)" value="${getCurrentTime() || 0}">
+      <select id="whatsub-comment-type">
+        <option value="normal">일반 댓글</option>
+        <option value="floating">흐름 댓글</option>
+      </select>
+      <button id="whatsub-comment-submit" class="whatsub-comment-submit-btn" title="댓글 제출">
+        <i class="fas fa-paper-plane"></i> 전송
+      </button>
+    </div>
+  `;
+  
+  // 컨테이너에 추가
+  container.appendChild(commentsHeader);
+  container.appendChild(commentsList);
+  container.appendChild(commentInput);
+  
+  return container;
+}
+
+// 댓글 기능 초기화 수정
+function setupCommentsFeature() {
+  // 댓글 토글 이벤트
+  const commentsToggle = document.getElementById('whatsub-comments-toggle');
+  if (commentsToggle) {
+    commentsToggle.checked = state.commentsEnabled;
+    commentsToggle.addEventListener('change', function() {
+      state.commentsEnabled = this.checked;
+      
+      if (state.commentsEnabled) {
+        showComments();
+      } else {
+        hideComments();
+      }
+      
+      // 설정 저장
       saveSettings();
+    });
+  }
+  
+  // 댓글 닫기 버튼 이벤트
+  const closeCommentsBtn = document.getElementById('whatsub-close-comments');
+  if (closeCommentsBtn) {
+    closeCommentsBtn.addEventListener('click', function() {
+      hideComments();
+      
+      // 댓글 창만 닫고 흐름 댓글은 유지
+    });
+  }
+  
+  // 테스트 댓글 버튼 이벤트
+  const loadTestCommentsBtn = document.getElementById('whatsub-load-test-comments');
+  if (loadTestCommentsBtn) {
+    loadTestCommentsBtn.addEventListener('click', function() {
+      loadTestComments();
+      
+      // 테스트 모드 활성화 메시지
+      const commentsList = document.getElementById('whatsub-comments-list');
+      if (commentsList) {
+        const testModeMsg = document.createElement('div');
+        testModeMsg.className = 'whatsub-test-mode-message';
+        testModeMsg.textContent = '테스트 모드: 5초 간격으로 자동 댓글이 표시됩니다';
+        commentsList.insertBefore(testModeMsg, commentsList.firstChild);
+      }
+    });
+  }
+  
+  // 댓글 제출 버튼 이벤트
+  const commentSubmitBtn = document.getElementById('whatsub-comment-submit');
+  const commentInput = document.getElementById('whatsub-comment-input');
+  
+  if (commentSubmitBtn && commentInput) {
+    commentSubmitBtn.addEventListener('click', function() {
+      submitComment(commentInput.value);
+    });
+    
+    // 엔터 키로 제출
+    commentInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitComment(this.value);
+      }
+    });
+  }
+  
+  // 댓글 작성 버튼 이벤트
+  const commentBtn = document.getElementById('whatsub-comment-btn');
+  if (commentBtn) {
+    commentBtn.addEventListener('click', function() {
+      // 댓글 폼 표시
+      showComments();
+      
+      // 입력 필드에 포커스
+      const commentInput = document.getElementById('whatsub-comment-input');
+      if (commentInput) {
+        commentInput.focus();
+      }
+    });
+  }
+  
+  // 초기화 시 비디오 타임스탬프에 맞는 댓글 로드
+  loadCommentsForCurrentTime();
+  
+  // 비디오 시간 변경 감지를 위한 타이머 설정
+  setInterval(checkVideoTimeForComments, 1000);
+}
+
+// 댓글 제출 함수
+function submitComment(text) {
+  if (!text || text.trim() === '') return;
+  
+  const commentInput = document.getElementById('whatsub-comment-input');
+  if (!commentInput) return;
+  
+  // 시간 및 유형 데이터 가져오기
+  const timeInput = document.getElementById('whatsub-comment-time');
+  const typeSelect = document.getElementById('whatsub-comment-type');
+  
+  // 값 확인 후 기본값 설정
+  const timestamp = timeInput ? parseFloat(timeInput.value) || getCurrentTime() || 0 : getCurrentTime() || 0;
+  const commentType = typeSelect ? typeSelect.value : 'normal';
+  
+  // 입력 필드 초기화
+  commentInput.value = '';
+  
+  // 현재 비디오 정보와 시간 가져오기
+  const videoInfo = {
+    videoId: currentVideoId || getVideoId() || 'test_video',
+    subtitleId: currentSubtitleId || 'test_subtitle',
+    subtitleText: currentSubtitleText || 'Test subtitle',
+    timestamp: timestamp,
+    text: text.trim(),
+    type: commentType
+  };
+  
+  console.log('[Whatsub] 댓글 제출:', videoInfo);
+  
+  // 테스트 모드: 서버 전송 없이 즉시 표시
+  const commentId = `test_${Date.now()}`;
+  const newComment = {
+    id: commentId,
+    user: {
+      name: '테스트 사용자',
+      avatar: 'https://via.placeholder.com/24'
+    },
+    text: text.trim(),
+    timestamp: new Date().toISOString(),
+    likes: 0,
+    videoTime: timestamp
+  };
+  
+  // 댓글 목록에 추가 (일반 댓글인 경우)
+  if (commentType === 'normal' || commentType === 'both') {
+    addCommentToList(newComment);
+    updateCommentsCount();
+  }
+  
+  // 흐름 댓글로 표시 (흐름 댓글인 경우)
+  if (commentType === 'floating' || commentType === 'both') {
+    displayFloatingComment(newComment);
+  }
+  
+  showMessage('댓글이 추가되었습니다.');
+}
+
+// 댓글 창 표시 및 초기화
+function showComments() {
+  const commentsContainer = document.getElementById('whatsub-comments-container');
+  if (!commentsContainer) return;
+  
+  commentsContainer.style.display = 'flex';
+  state.commentsShown = true;
+  
+  // 댓글 입력창에 포커스
+  setTimeout(() => {
+    const commentInput = document.getElementById('whatsub-comment-input');
+    if (commentInput) {
+      commentInput.focus();
+    }
+  }, 100);
+  
+  // 상태 저장
+  saveSettings();
+}
+
+// 댓글 창 숨기기
+function hideComments() {
+  const commentsContainer = document.getElementById('whatsub-comments-container');
+  if (!commentsContainer) return;
+  
+  commentsContainer.style.display = 'none';
+  state.commentsShown = false;
+  
+  // 상태 저장
+  saveSettings();
+}
+
+// 댓글 컨테이너 생성
+function createCommentsContainer() {
+  const container = document.createElement('div');
+  container.id = 'whatsub-comments-container';
+  container.className = 'whatsub-comments-container';
+  container.style.display = 'none'; // 초기에는 숨겨진 상태
+  
+  // 댓글 헤더
+  const commentsHeader = document.createElement('div');
+  commentsHeader.className = 'whatsub-comments-header';
+  commentsHeader.innerHTML = `
+    <span class="whatsub-comments-title">댓글 <span class="whatsub-comments-count">0</span></span>
+    <div class="whatsub-comments-buttons">
+      <button id="whatsub-load-test-comments" class="whatsub-test-btn" title="테스트 댓글 로드">
+        테스트 댓글
+      </button>
+      <button id="whatsub-close-comments" class="whatsub-close-btn" title="댓글창 닫기">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  `;
+  
+  // 댓글 목록
+  const commentsList = document.createElement('div');
+  commentsList.id = 'whatsub-comments-list';
+  commentsList.className = 'whatsub-comments-list';
+  
+  // 댓글 입력
+  const commentInput = document.createElement('div');
+  commentInput.className = 'whatsub-comment-input-container';
+  commentInput.innerHTML = `
+    <textarea id="whatsub-comment-input" placeholder="댓글을 입력하세요..."></textarea>
+    <div class="whatsub-comment-options">
+      <input type="number" id="whatsub-comment-time" min="0" step="1" placeholder="시간(초)" title="이 댓글이 표시될 영상 시간(초)" value="${getCurrentTime() || 0}">
+      <select id="whatsub-comment-type">
+        <option value="normal">일반 댓글</option>
+        <option value="floating">흐름 댓글</option>
+      </select>
+      <button id="whatsub-comment-submit" class="whatsub-comment-submit-btn" title="댓글 제출">
+        <i class="fas fa-paper-plane"></i> 전송
+      </button>
+    </div>
+  `;
+  
+  // 컨테이너에 추가
+  container.appendChild(commentsHeader);
+  container.appendChild(commentsList);
+  container.appendChild(commentInput);
+  
+  return container;
+}
+
+// 댓글 제출 함수
+function submitComment(text) {
+  if (!text || text.trim() === '') return;
+  
+  const commentInput = document.getElementById('whatsub-comment-input');
+  if (!commentInput) return;
+  
+  // 시간 및 유형 데이터 가져오기
+  const timeInput = document.getElementById('whatsub-comment-time');
+  const typeSelect = document.getElementById('whatsub-comment-type');
+  
+  // 값 확인 후 기본값 설정
+  const timestamp = timeInput ? parseFloat(timeInput.value) || getCurrentTime() || 0 : getCurrentTime() || 0;
+  const commentType = typeSelect ? typeSelect.value : 'normal';
+  
+  // 입력 필드 초기화
+  commentInput.value = '';
+  
+  // 현재 비디오 정보와 시간 가져오기
+  const videoInfo = {
+    videoId: currentVideoId || getVideoId() || 'test_video',
+    subtitleId: currentSubtitleId || 'test_subtitle',
+    subtitleText: currentSubtitleText || 'Test subtitle',
+    timestamp: timestamp,
+    text: text.trim(),
+    type: commentType
+  };
+  
+  console.log('[Whatsub] 댓글 제출:', videoInfo);
+  
+  // 테스트 모드: 서버 전송 없이 즉시 표시
+  const commentId = `test_${Date.now()}`;
+  const newComment = {
+    id: commentId,
+    user: {
+      name: '테스트 사용자',
+      avatar: 'https://via.placeholder.com/24'
+    },
+    text: text.trim(),
+    timestamp: new Date().toISOString(),
+    likes: 0,
+    videoTime: timestamp
+  };
+  
+  // 댓글 목록에 추가 (일반 댓글인 경우)
+  if (commentType === 'normal' || commentType === 'both') {
+    addCommentToList(newComment);
+    updateCommentsCount();
+  }
+  
+  // 흐름 댓글로 표시 (흐름 댓글인 경우)
+  if (commentType === 'floating' || commentType === 'both') {
+    displayFloatingComment(newComment);
+  }
+  
+  showMessage('댓글이 추가되었습니다.');
+}
+
+// 댓글 이벤트 설정
+function setupCommentEvents() {
+  try {
+    console.log('[Whatsub] 댓글 이벤트 설정 중...');
+    
+    // 댓글 닫기 버튼
+    const closeCommentsBtn = document.getElementById('whatsub-close-comments');
+    if (closeCommentsBtn) {
+      closeCommentsBtn.addEventListener('click', function() {
+        hideComments();
+      });
+    }
+    
+    // 댓글 제출 버튼
+    const commentSubmitBtn = document.getElementById('whatsub-comment-submit');
+    if (commentSubmitBtn) {
+      commentSubmitBtn.addEventListener('click', function() {
+        const commentInput = document.getElementById('whatsub-comment-input');
+        if (commentInput && commentInput.value.trim()) {
+          submitComment(commentInput.value);
+        }
+      });
+    }
+    
+    // 댓글 입력창 엔터키 이벤트
+    const commentInput = document.getElementById('whatsub-comment-input');
+    if (commentInput) {
+      commentInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          if (this.value.trim()) {
+            submitComment(this.value);
+          }
+        }
+      });
+    }
+    
+    // 테스트 댓글 로드 버튼
+    const testCommentsBtn = document.getElementById('whatsub-load-test-comments');
+    if (testCommentsBtn) {
+      testCommentsBtn.addEventListener('click', function() {
+        loadTestComments();
+      });
+    }
+    
+    console.log('[Whatsub] 댓글 이벤트 설정 완료');
+  } catch (error) {
+    console.error('[Whatsub] 댓글 이벤트 설정 오류:', error);
+  }
+}
+
+// 흐름 댓글 표시
+function displayFloatingComment(comment) {
+  // 흐름 댓글 컨테이너가 없으면 생성
+  let floatingContainer = document.getElementById('whatsub-floating-comments');
+  if (!floatingContainer) {
+    floatingContainer = document.createElement('div');
+    floatingContainer.id = 'whatsub-floating-comments';
+    floatingContainer.style.position = 'absolute';
+    floatingContainer.style.width = '100%';
+    floatingContainer.style.height = '100%';
+    floatingContainer.style.top = '0';
+    floatingContainer.style.left = '0';
+    floatingContainer.style.pointerEvents = 'none'; // 마우스 이벤트를 통과시킴
+    floatingContainer.style.zIndex = '9999';
+    floatingContainer.style.overflow = 'hidden';
+    
+    // 비디오 컨테이너에 추가
+    const videoContainer = document.querySelector('.video-container') || 
+                           document.querySelector('.html5-video-container') ||
+                           document.querySelector('video').parentElement;
+    if (videoContainer) {
+      videoContainer.style.position = 'relative';
+      videoContainer.appendChild(floatingContainer);
+    } else {
+      document.body.appendChild(floatingContainer);
     }
   }
+  
+  // 새 흐름 댓글 생성
+  const floatingComment = document.createElement('div');
+  floatingComment.className = 'whatsub-floating-comment';
+  floatingComment.setAttribute('data-id', comment.id || '');
+  
+  // 스타일 설정
+  floatingComment.style.position = 'absolute';
+  floatingComment.style.right = '0';
+  floatingComment.style.color = '#fff';
+  floatingComment.style.padding = '5px 10px';
+  floatingComment.style.borderRadius = '4px';
+  floatingComment.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+  floatingComment.style.fontSize = '16px';
+  floatingComment.style.whiteSpace = 'nowrap';
+  floatingComment.style.maxWidth = '80%';
+  floatingComment.style.textOverflow = 'ellipsis';
+  floatingComment.style.overflow = 'hidden';
+  floatingComment.style.pointerEvents = 'none';
+  floatingComment.style.transform = 'translateZ(0)'; // 하드웨어 가속
+  
+  // 애니메이션 스타일 추가
+  const styleElement = document.createElement('style');
+  styleElement.textContent = `
+    @keyframes whatsub-float-right-to-left {
+      0% {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      10% {
+        transform: translateX(80%);
+        opacity: 1;
+      }
+      90% {
+        transform: translateX(-80%);
+        opacity: 1;
+      }
+      100% {
+        transform: translateX(-100%);
+        opacity: 0;
+      }
+    }
+    
+    .whatsub-floating-comment {
+      animation: whatsub-float-right-to-left 8s linear forwards;
+    }
+  `;
+  document.head.appendChild(styleElement);
+  
+  // 랜덤 위치 설정
+  const containerHeight = floatingContainer.offsetHeight || 600;
+  const randomTop = Math.floor(Math.random() * (containerHeight - 60)) + 30;
+  floatingComment.style.top = `${randomTop}px`;
+  
+  // 닉네임과 내용 구분 (닉네임은 다른 색으로 표시)
+  const username = comment.user?.name || '익명';
+  floatingComment.innerHTML = `<span style="color: #ffcc00; margin-right: 5px;">${username}:</span> ${comment.text}`;
+  
+  // 컨테이너에 추가
+  floatingContainer.appendChild(floatingComment);
+  
+  // 댓글이 화면 밖으로 나가면 제거
+  setTimeout(() => {
+    if (floatingComment.parentNode) {
+      floatingComment.parentNode.removeChild(floatingComment);
+    }
+  }, 8500);
 }
 
-// 자막 표시 함수
-function showSubtitles() {
-  if (!subtitleContainer) {
-    createSubtitleContainer();
-    applySettings();
-  }
+// 댓글 목록에 댓글 추가
+function addCommentToList(comment) {
+  const commentsList = document.getElementById('whatsub-comments-list');
+  if (!commentsList) return;
   
-  subtitleContainer.style.display = 'block';
-  console.log('자막이 활성화되었습니다.');
+  // 새 댓글 아이템 생성
+  const commentItem = document.createElement('div');
+  commentItem.className = 'whatsub-comment-item';
+  commentItem.setAttribute('data-id', comment.id || '');
+  
+  // 포맷팅된 시간
+  const commentDate = new Date(comment.timestamp);
+  const formattedDate = `${commentDate.getFullYear()}-${String(commentDate.getMonth() + 1).padStart(2, '0')}-${String(commentDate.getDate()).padStart(2, '0')} ${String(commentDate.getHours()).padStart(2, '0')}:${String(commentDate.getMinutes()).padStart(2, '0')}`;
+  
+  // 댓글 내용 구성
+  commentItem.innerHTML = `
+    <div class="whatsub-comment-header">
+      <div class="whatsub-comment-user">
+        <img src="${comment.user?.avatar || 'https://via.placeholder.com/24'}" alt="User" class="whatsub-user-avatar">
+        <span class="whatsub-user-name">${comment.user?.name || '익명'}</span>
+      </div>
+      <div class="whatsub-comment-time">
+        <span title="영상 시간">${formatTime(comment.videoTime || 0)}</span>
+        <span class="whatsub-comment-date" title="댓글 작성 시간">${formattedDate}</span>
+      </div>
+    </div>
+    <div class="whatsub-comment-text">${comment.text}</div>
+    <div class="whatsub-comment-actions">
+      <button class="whatsub-comment-like" title="좋아요" data-id="${comment.id}">
+        <i class="fas fa-thumbs-up"></i> <span class="whatsub-like-count">${comment.likes || 0}</span>
+      </button>
+      <button class="whatsub-comment-seek" title="이 시간으로 이동" data-time="${comment.videoTime || 0}">
+        <i class="fas fa-play"></i> 이동
+      </button>
+    </div>
+  `;
+  
+  // 이벤트 리스너 추가
+  setTimeout(() => {
+    // 좋아요 버튼
+    const likeButton = commentItem.querySelector('.whatsub-comment-like');
+    if (likeButton) {
+      likeButton.addEventListener('click', function() {
+        const commentId = this.getAttribute('data-id');
+        if (!commentId) return;
+        
+        // 좋아요 수 증가 (테스트)
+        const likeCount = this.querySelector('.whatsub-like-count');
+        if (likeCount) {
+          const currentLikes = parseInt(likeCount.textContent || '0');
+          likeCount.textContent = currentLikes + 1;
+        }
+        
+        // 좋아요 정보 전송 (테스트 모드에서는 생략)
+        console.log(`[Whatsub] 댓글 좋아요: ${commentId}`);
+      });
+    }
+    
+    // 시간 이동 버튼
+    const seekButton = commentItem.querySelector('.whatsub-comment-seek');
+    if (seekButton) {
+      seekButton.addEventListener('click', function() {
+        const seekTime = parseFloat(this.getAttribute('data-time') || '0');
+        
+        // 비디오 시간 이동
+        seekToTime(seekTime);
+      });
+    }
+  }, 0);
+  
+  // 댓글 목록 상단에 추가
+  commentsList.insertBefore(commentItem, commentsList.firstChild);
 }
 
-// 자막 텍스트 업데이트
-function updateSubtitles(text, translatedText = '') {
-  if (!subtitleContainer) {
-    createSubtitleContainer();
-    applySettings();
-  }
+// 댓글 카운트 업데이트
+function updateCommentsCount() {
+  const commentCount = document.querySelector('.whatsub-comments-count');
+  if (!commentCount) return;
   
-  // 컨테이너가 숨겨져 있으면 표시
-  if (subtitleContainer.style.display === 'none') {
-    showSubtitles();
-  }
+  const commentsList = document.getElementById('whatsub-comments-list');
+  if (!commentsList) return;
   
-  // 원본 텍스트 표시
-  originalSubtitleElement.textContent = text || '';
-  
-  // 번역 텍스트가 있는 경우 추가
-  translatedSubtitleElement.textContent = translatedText || '';
-  translatedSubtitleElement.style.display = 
-    (subtitleSettings.dualSubtitles && translatedText) ? 'block' : 'none';
+  // 댓글 수 업데이트
+  const count = commentsList.querySelectorAll('.whatsub-comment-item').length;
+  commentCount.textContent = count.toString();
 }
 
-// 자막 숨김 함수
-function hideSubtitles() {
-  if (subtitleContainer) {
-    subtitleContainer.style.display = 'none';
-    console.log('자막이 비활성화되었습니다.');
+// 비디오 시간 이동
+function seekToTime(seconds) {
+  const video = document.querySelector('video');
+  if (!video) return;
+  
+  // 비디오 시간 설정
+  video.currentTime = seconds;
+  
+  // 일시정지 상태였다면 재생
+  if (video.paused) {
+    video.play().catch(error => {
+      console.error('[Whatsub] 비디오 재생 오류:', error);
+    });
+  }
+  
+  showMessage(`${formatTime(seconds)} 위치로 이동했습니다.`, 'info');
+}
+
+// 시간 포맷팅 (예: 65 => "1:05")
+function formatTime(timeInSeconds) {
+  if (isNaN(timeInSeconds)) return '0:00';
+  
+  const minutes = Math.floor(timeInSeconds / 60);
+  const seconds = Math.floor(timeInSeconds % 60);
+  
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// 현재 재생 시간을 기준으로 댓글 로드
+function loadCommentsForCurrentTime() {
+  // 실제 구현에서는 서버에서 현재 재생 시간 근처의 댓글을 로드
+  // 테스트 구현에서는 무작위 댓글 생성
+  console.log('[Whatsub] 현재 시간 댓글 로드 (테스트)');
+}
+
+// 비디오 시간 변경 감지
+function checkVideoTimeForComments() {
+  // 현재 비디오 재생 시간 근처의 댓글 표시 (실제 구현)
+  // 테스트 용도로는 생략
+}
+
+// 테스트 댓글 로드
+function loadTestComments() {
+  const testComments = [
+    {
+      id: 'test_1',
+      user: { name: '홍길동', avatar: 'https://via.placeholder.com/24' },
+      text: '이 부분에서 정말 감동받았습니다! 자막 번역이 너무 좋네요.',
+      timestamp: new Date().toISOString(),
+      likes: 5,
+      videoTime: getCurrentTime() - 10
+    },
+    {
+      id: 'test_2',
+      user: { name: '김철수', avatar: 'https://via.placeholder.com/24' },
+      text: '이 장면 번역이 이상한데요? "The weather is nice"가 "오늘 날씨가 좋습니다"가 아니라 "오늘 기분이 좋습니다"로 번역되었어요.',
+      timestamp: new Date(Date.now() - 120000).toISOString(),
+      likes: 2,
+      videoTime: getCurrentTime() + 5
+    },
+    {
+      id: 'test_3',
+      user: { name: '이영희', avatar: 'https://via.placeholder.com/24' },
+      text: '자동 자막 기능이 생각보다 정확하네요! 스피치가 빠른데도 잘 인식합니다.',
+      timestamp: new Date(Date.now() - 300000).toISOString(),
+      likes: 8,
+      videoTime: getCurrentTime() + 30
+    }
+  ];
+  
+  // 댓글 목록 초기화
+  const commentsList = document.getElementById('whatsub-comments-list');
+  if (commentsList) {
+    commentsList.innerHTML = '';
+  }
+  
+  // 테스트 댓글 추가
+  testComments.forEach(comment => {
+    addCommentToList(comment);
+  });
+  
+  // 댓글 카운트 업데이트
+  updateCommentsCount();
+  
+  // 랜덤 간격으로 흐름 댓글 표시
+  testComments.forEach((comment, index) => {
+    setTimeout(() => {
+      displayFloatingComment(comment);
+    }, index * 1500);
+  });
+  
+  showMessage('테스트 댓글이 로드되었습니다.', 'success');
+}
+
+// 비디오 시간대로 이동
+function seekToVideoTime(timeInSeconds) {
+  const video = document.querySelector('video');
+  if (video && !isNaN(timeInSeconds)) {
+    video.currentTime = timeInSeconds;
+    video.play();
   }
 }
 
-// 초기 설정 로드
-function loadSettings() {
-  chrome.storage.local.get('subtitleSettings', (data) => {
-    if (data.subtitleSettings) {
-      subtitleSettings = { ...subtitleSettings, ...data.subtitleSettings };
-      console.log('저장된 설정 로드됨:', subtitleSettings);
-      
-      if (subtitleContainer) {
-        applySettings();
+// 비디오 시간 포맷 (00:00 형식)
+function formatVideoTime(seconds) {
+  if (!seconds && seconds !== 0) return '--:--';
+  
+  const min = Math.floor(seconds / 60);
+  const sec = Math.floor(seconds % 60);
+  
+  return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+}
+
+// 댓글 시간 포맷
+function formatCommentTime(date) {
+  const now = new Date();
+  const diffMs = now - date;
+  const diffSec = Math.floor(diffMs / 1000);
+  
+  if (diffSec < 60) return '방금 전';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}분 전`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}시간 전`;
+  
+  return `${date.getFullYear()}.${date.getMonth() + 1}.${date.getDate()}`;
+}
+
+// 댓글 좋아요 기능
+function likeComment(commentId) {
+  chrome.runtime.sendMessage({
+    action: 'likeComment',
+    commentId: commentId
+  }, function(response) {
+    if (response && response.success) {
+      // 좋아요 카운트 업데이트
+      const commentItem = document.querySelector(`.whatsub-comment-item[data-id="${commentId}"]`);
+      if (commentItem) {
+        const likeCount = commentItem.querySelector('.whatsub-comment-like-count');
+        if (likeCount) {
+          likeCount.textContent = response.likes;
+        }
+        
+        // 좋아요 버튼 활성화
+        const likeButton = commentItem.querySelector('.whatsub-comment-like');
+        if (likeButton) {
+          likeButton.classList.add('active');
+        }
       }
     }
   });
 }
 
-// 페이지 로드 시 초기화
-window.addEventListener('load', () => {
-  initializeExtension();
-  loadSettings();
-});
+// 흐름 댓글 컨테이너 주입
+function injectFloatingCommentsContainer() {
+  // 이미 존재하는지 확인
+  if (!document.getElementById('whatsub-floating-comments-container')) {
+    const container = createFloatingCommentsContainer();
+    if (container) {
+      document.body.appendChild(container);
+    }
+  }
+}
 
-// 초기화 실행 (load 이벤트 전에도 실행)
-initializeExtension();
-loadSettings(); 
+// 흐름 댓글 컨테이너 생성
+function createFloatingCommentsContainer() {
+  const container = document.createElement('div');
+  container.id = 'whatsub-floating-comments-container';
+  container.className = 'whatsub-floating-comments-container';
+  
+  // 빌리빌리/틱톡 스타일 설정
+  container.style.position = 'absolute';
+  container.style.top = '0';
+  container.style.right = '0';
+  container.style.width = '100%';
+  container.style.height = '100%';
+  container.style.pointerEvents = 'none';
+  container.style.zIndex = '999999';
+  container.style.overflow = 'hidden';
+  
+  container.style.display = state.floatingCommentsEnabled ? 'block' : 'none';
+  return container;
+}
+
+// 컨트롤 패널 주입
+function injectControlPanel() {
+  // 컨트롤 패널 추가 - 이미 createSubtitleContainer에서 처리됨
+  setupControlPanelEvents();
+}
+
+// 댓글 컨테이너 주입
+function injectCommentsContainer() {
+  // 이미 createSubtitleContainer에서 처리됨
+  setupCommentsFeature();
+}
+
+// YouTube 자막 설정
+function setupYouTubeSubtitles() {
+  // YouTube 자막 요소 감시 시작
+  startYouTubeObserver();
+  
+  // 초기 자막 상태 확인
+  checkForYouTubeSubtitles();
+}
+
+// 자막 제거
+function removeSubtitles() {
+  console.log('[Whatsub] 자막 제거');
+  if (subtitleContainer) {
+    subtitleContainer.style.display = 'none';
+  }
+  // 자막 상태 업데이트
+  state.subtitlesEnabled = false;
+  saveSettings();
+}
+
+// 자막 표시
+function showSubtitle(originalText, translatedText) {
+  try {
+    if (!subtitleContainer) {
+      createSubtitleContainer();
+      document.body.appendChild(subtitleContainer);
+    }
+    
+    if (!originalTextElement || !translatedTextElement) {
+      console.error('[Whatsub] 자막 요소가 초기화되지 않았습니다.');
+      return false;
+    }
+    
+    // 원본 자막 설정
+    if (originalText) {
+      originalTextElement.textContent = originalText;
+      originalTextElement.style.display = 'block';
+    } else {
+      originalTextElement.style.display = 'none';
+    }
+    
+    // 번역 자막 설정
+    if (translatedText) {
+      translatedTextElement.textContent = translatedText;
+      translatedTextElement.style.display = state.subtitleSettings.dualSubtitles ? 'block' : 'none';
+    } else {
+      translatedTextElement.style.display = 'none';
+    }
+    
+    // 자막 컨테이너 표시
+    if (subtitleContainer) {
+      subtitleContainer.style.display = 'block';
+      
+      // 현재 자막 텍스트 저장
+      currentSubtitleText = originalText;
+      
+      // 자막 ID 생성
+      currentSubtitleId = hashSubtitle(originalText);
+      
+      // 현재 동영상 ID 저장
+      currentVideoId = getVideoId();
+      
+      // 현재 시간 저장
+      currentTimestamp = getCurrentTime();
+      
+      // 댓글 업데이트
+      if (state.commentsEnabled) {
+        loadComments(currentVideoId, currentSubtitleId);
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('[Whatsub] 자막 표시 중 오류:', error);
+    return false;
+  }
+}
+
+// 자막 드래그 가능하게 만들기
+function makeSubtitleDraggable() {
+  if (!subtitleContainer) return;
+  
+  let offsetX, offsetY, isDragging = false;
+  
+  // 드래그 시작
+  subtitleContainer.addEventListener('mousedown', function(e) {
+    isDragging = true;
+    
+    // 변환을 제거하고 현재 위치로 설정
+    const rect = subtitleContainer.getBoundingClientRect();
+    subtitleContainer.style.transform = 'none';
+    subtitleContainer.style.left = rect.left + 'px';
+    subtitleContainer.style.top = rect.top + 'px';
+    
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+    
+    // 커서 변경
+    subtitleContainer.style.cursor = 'grabbing';
+  });
+  
+  // 드래그 중
+  document.addEventListener('mousemove', function(e) {
+    if (!isDragging) return;
+    
+    // 새 위치 계산
+    const newLeft = e.clientX - offsetX;
+    const newTop = e.clientY - offsetY;
+    
+    // 위치 업데이트
+    subtitleContainer.style.left = newLeft + 'px';
+    subtitleContainer.style.top = newTop + 'px';
+    subtitleContainer.style.bottom = 'auto';
+  });
+  
+  // 드래그 종료
+  document.addEventListener('mouseup', function() {
+    if (isDragging) {
+      isDragging = false;
+      subtitleContainer.style.cursor = 'grab';
+    }
+  });
+  
+  // 마우스 진입 시 커서 변경
+  subtitleContainer.addEventListener('mouseenter', function() {
+    subtitleContainer.style.cursor = 'grab';
+  });
+  
+  // 마우스 이탈 시 커서 원복
+  subtitleContainer.addEventListener('mouseleave', function() {
+    if (!isDragging) {
+      subtitleContainer.style.cursor = 'default';
+    }
+  });
+  
+  // 더블 클릭으로 위치 초기화
+  subtitleContainer.addEventListener('dblclick', function() {
+    // 원래 위치로 돌아가기
+    subtitleContainer.style.left = '50%';
+    
+    switch (state.subtitleSettings.position) {
+      case 'top':
+        subtitleContainer.style.top = '10%';
+        subtitleContainer.style.bottom = 'auto';
+        subtitleContainer.style.transform = 'translateX(-50%)';
+        break;
+      case 'middle':
+        subtitleContainer.style.top = '50%';
+        subtitleContainer.style.bottom = 'auto';
+        subtitleContainer.style.transform = 'translate(-50%, -50%)';
+        break;
+      case 'bottom':
+      default:
+        subtitleContainer.style.top = 'auto';
+        subtitleContainer.style.bottom = '10%';
+        subtitleContainer.style.transform = 'translateX(-50%)';
+        break;
+    }
+  });
+}
+
+// YouTube 확인 함수
+function isYouTube() {
+  return window.location.hostname.includes('youtube.com');
+}
+
+// 컨트롤 패널 이벤트 핸들러
+function setupControlPanelEvents() {
+  try {
+    console.log('[Whatsub] 컨트롤 패널 이벤트 설정 중...');
+    
+    // 자막 켜기/끄기 토글
+    const subtitleToggle = document.getElementById('whatsub-toggle-subtitles');
+    if (subtitleToggle) {
+      subtitleToggle.checked = state.subtitlesEnabled;
+      subtitleToggle.addEventListener('change', function() {
+        state.subtitlesEnabled = this.checked;
+        if (state.subtitlesEnabled) {
+          setupSubtitles();
+        } else {
+          removeSubtitles();
+        }
+        // 상태 저장
+        chrome.runtime.sendMessage({
+          action: 'saveSettings',
+          settings: { subtitleEnabled: state.subtitlesEnabled }
+        });
+      });
+    }
+    
+    // 자동 자막 토글 이벤트
+    const autoSubtitleToggle = document.getElementById('whatsub-auto-subtitles');
+    if (autoSubtitleToggle) {
+      autoSubtitleToggle.checked = state.autoSubtitlesEnabled;
+      autoSubtitleToggle.disabled = !userState.features.autoSubtitles;
+      
+      autoSubtitleToggle.addEventListener('change', function() {
+        if (!userState.features.autoSubtitles) {
+          this.checked = false;
+          alert('자동 자막 기능은 프리미엄 회원만 사용할 수 있습니다.');
+          return;
+        }
+        
+        state.autoSubtitlesEnabled = this.checked;
+        
+        // 자동 자막 기능 토글
+        if (state.autoSubtitlesEnabled) {
+          console.log('[Whatsub] 자동 자막 활성화 시도');
+          whisperAI.start();
+        } else {
+          console.log('[Whatsub] 자동 자막 비활성화');
+          whisperAI.stop();
+        }
+        
+        // 상태 저장
+        saveSettings();
+      });
+    }
+    
+    // 듀얼 자막 토글 이벤트
+    const dualSubtitleToggle = document.getElementById('whatsub-dual-subtitles');
+    const singleLanguageSelector = document.querySelector('.whatsub-single-language');
+    const dualLanguageSelector = document.querySelector('.whatsub-dual-language');
+    
+    if (dualSubtitleToggle) {
+      dualSubtitleToggle.checked = state.subtitleSettings.dualSubtitles;
+      
+      // 초기 상태에 따라 표시할 언어 선택기 결정
+      if (singleLanguageSelector && dualLanguageSelector) {
+        if (state.subtitleSettings.dualSubtitles) {
+          singleLanguageSelector.style.display = 'none';
+          dualLanguageSelector.style.display = 'block';
+        } else {
+          singleLanguageSelector.style.display = 'flex';
+          dualLanguageSelector.style.display = 'none';
+        }
+      }
+      
+      dualSubtitleToggle.addEventListener('change', function() {
+        state.subtitleSettings.dualSubtitles = this.checked;
+        
+        // 언어 선택기 전환
+        if (singleLanguageSelector && dualLanguageSelector) {
+          if (state.subtitleSettings.dualSubtitles) {
+            singleLanguageSelector.style.display = 'none';
+            dualLanguageSelector.style.display = 'block';
+          } else {
+            singleLanguageSelector.style.display = 'flex';
+            dualLanguageSelector.style.display = 'none';
+          }
+        }
+        
+        // 설정 저장
+        chrome.runtime.sendMessage({
+          action: 'updateSettings',
+          settings: { dualSubtitles: state.subtitleSettings.dualSubtitles }
+        });
+        
+        // 자막 업데이트
+        updateSubtitleStyle();
+        if (originalTextElement && translatedTextElement) {
+          translatedTextElement.style.display = state.subtitleSettings.dualSubtitles ? 'block' : 'none';
+        }
+      });
+    }
+    
+    // 단일 언어 선택 이벤트
+    const languageSelect = document.getElementById('whatsub-language-select');
+    if (languageSelect) {
+      // 현재 언어 선택
+      Array.from(languageSelect.options).forEach(option => {
+        if (option.value === state.currentLanguage) {
+          option.selected = true;
+        }
+      });
+      
+      languageSelect.addEventListener('change', function() {
+        state.currentLanguage = this.value;
+        // 언어 변경 메시지 전송
+        chrome.runtime.sendMessage({
+          action: 'changeLanguage',
+          language: state.currentLanguage
+        });
+        // 현재 자막 다시 번역
+        if (currentSubtitleText) {
+          translateSubtitle(currentSubtitleText);
+        }
+      });
+    }
+    
+    // 듀얼 모드 원본 언어 선택 이벤트
+    const originalLanguageSelect = document.getElementById('whatsub-original-language-select');
+    if (originalLanguageSelect) {
+      // 현재 원본 언어 선택
+      Array.from(originalLanguageSelect.options).forEach(option => {
+        if (option.value === state.originalLanguage) {
+          option.selected = true;
+        }
+      });
+      
+      originalLanguageSelect.addEventListener('change', function() {
+        state.originalLanguage = this.value;
+        
+        // 원본 언어와 번역 언어가 동일한 경우, 번역 언어 자동 변경
+        const translatedLanguageSelect = document.getElementById('whatsub-translated-language-select');
+        if (translatedLanguageSelect && state.originalLanguage === state.currentLanguage) {
+          // 기본 대체 언어 설정 (영어가 아니면 영어로, 영어면 한국어로)
+          const fallbackLanguage = state.originalLanguage === 'en' ? 'ko' : 'en';
+          state.currentLanguage = fallbackLanguage;
+          
+          // 번역 언어 드롭다운 업데이트
+          Array.from(translatedLanguageSelect.options).forEach(option => {
+            option.selected = option.value === fallbackLanguage;
+          });
+        }
+        
+        // 언어 변경 메시지 전송
+        chrome.runtime.sendMessage({
+          action: 'changeOriginalLanguage',
+          language: state.originalLanguage
+        });
+        
+        // 현재 자막 다시 번역
+        if (currentSubtitleText) {
+          translateSubtitle(currentSubtitleText);
+        }
+      });
+    }
+    
+    // 듀얼 모드 번역 언어 선택 이벤트
+    const translatedLanguageSelect = document.getElementById('whatsub-translated-language-select');
+    if (translatedLanguageSelect) {
+      // 현재 번역 언어 선택
+      Array.from(translatedLanguageSelect.options).forEach(option => {
+        if (option.value === state.currentLanguage) {
+          option.selected = true;
+        }
+      });
+      
+      translatedLanguageSelect.addEventListener('change', function() {
+        // 원본 언어와 동일한 언어로 설정하지 못하도록 방지
+        if (this.value === state.originalLanguage) {
+          alert('원본 언어와 동일한 언어로 설정할 수 없습니다.');
+          
+          // 이전 선택으로 되돌림
+          Array.from(this.options).forEach(option => {
+            option.selected = option.value === state.currentLanguage;
+          });
+          return;
+        }
+        
+        state.currentLanguage = this.value;
+        
+        // 언어 변경 메시지 전송
+        chrome.runtime.sendMessage({
+          action: 'changeLanguage',
+          language: state.currentLanguage
+        });
+        
+        // 현재 자막 다시 번역
+        if (currentSubtitleText) {
+          translateSubtitle(currentSubtitleText);
+        }
+      });
+    }
+    
+    // 언어 전환 버튼 이벤트
+    const swapButton = document.getElementById('whatsub-language-swap');
+    if (swapButton) {
+      swapButton.addEventListener('click', function() {
+        // 현재 선택된 언어 가져오기
+        const originalSelect = document.getElementById('whatsub-original-language-select');
+        const translatedSelect = document.getElementById('whatsub-translated-language-select');
+        
+        if (originalSelect && translatedSelect) {
+          // 현재 값 저장
+          const originalValue = originalSelect.value;
+          const translatedValue = translatedSelect.value;
+          
+          // 값 교환
+          state.originalLanguage = translatedValue;
+          state.currentLanguage = originalValue;
+          
+          // 드롭다운 업데이트
+          Array.from(originalSelect.options).forEach(option => {
+            option.selected = option.value === translatedValue;
+          });
+          
+          Array.from(translatedSelect.options).forEach(option => {
+            option.selected = option.value === originalValue;
+          });
+          
+          // 언어 변경 메시지 전송
+          chrome.runtime.sendMessage({
+            action: 'changeOriginalLanguage',
+            language: state.originalLanguage
+          });
+          
+          chrome.runtime.sendMessage({
+            action: 'changeLanguage',
+            language: state.currentLanguage
+          });
+          
+          // 자막 업데이트
+          if (currentSubtitleText) {
+            translateSubtitle(currentSubtitleText);
+          }
+        }
+      });
+    }
+    
+    // 댓글 토글 이벤트
+    const commentsToggle = document.getElementById('whatsub-comments-toggle');
+    if (commentsToggle) {
+      commentsToggle.checked = state.commentsEnabled;
+      commentsToggle.addEventListener('change', function() {
+        state.commentsEnabled = this.checked;
+        
+        if (state.commentsEnabled) {
+          showComments();
+          // 현재 자막에 댓글 로드
+          loadComments(currentVideoId || getVideoId(), currentSubtitleId);
+        } else {
+          hideComments();
+        }
+        
+        // 설정 저장
+        saveSettings();
+      });
+    }
+    
+    // 피드백 버튼 이벤트
+    const likeBtn = document.getElementById('whatsub-like-btn');
+    const dislikeBtn = document.getElementById('whatsub-dislike-btn');
+    const recommendBtn = document.getElementById('whatsub-recommend-btn');
+    
+    if (likeBtn) {
+      likeBtn.addEventListener('click', function() {
+        this.classList.toggle('active');
+        if (this.classList.contains('active') && dislikeBtn) {
+          dislikeBtn.classList.remove('active');
+        }
+        // 피드백 전송
+        if (this.classList.contains('active') && currentSubtitleText) {
+          chrome.runtime.sendMessage({
+            action: 'sendFeedback',
+            type: 'like',
+            subtitleText: currentSubtitleText
+          });
+        }
+      });
+    }
+    
+    if (dislikeBtn) {
+      dislikeBtn.addEventListener('click', function() {
+        this.classList.toggle('active');
+        if (this.classList.contains('active') && likeBtn) {
+          likeBtn.classList.remove('active');
+        }
+        // 피드백 전송
+        if (this.classList.contains('active') && currentSubtitleText) {
+          chrome.runtime.sendMessage({
+            action: 'sendFeedback',
+            type: 'dislike',
+            subtitleText: currentSubtitleText
+          });
+        }
+      });
+    }
+    
+    if (recommendBtn) {
+      recommendBtn.addEventListener('click', function() {
+        this.classList.toggle('active');
+        // 추천 전송
+        if (this.classList.contains('active') && currentSubtitleText) {
+          chrome.runtime.sendMessage({
+            action: 'sendFeedback',
+            type: 'recommend',
+            subtitleText: currentSubtitleText
+          });
+        }
+      });
+    }
+    
+    // 설정 버튼 및 패널 이벤트
+    const settingsBtn = document.getElementById('whatsub-settings-btn');
+    const settingsPanel = document.getElementById('whatsub-settings-panel');
+    const closeSettingsBtn = document.getElementById('whatsub-close-settings');
+    
+    if (settingsBtn && settingsPanel) {
+      settingsBtn.addEventListener('click', function() {
+        settingsPanel.classList.toggle('visible');
+      });
+    }
+    
+    if (closeSettingsBtn && settingsPanel) {
+      closeSettingsBtn.addEventListener('click', function() {
+        settingsPanel.classList.remove('visible');
+      });
+    }
+    
+    // 위치 버튼 이벤트
+    const positionButtons = document.querySelectorAll('.whatsub-settings-choices [data-position]');
+    positionButtons.forEach(button => {
+      if (button.getAttribute('data-position') === state.subtitleSettings.position) {
+        button.classList.add('active');
+      }
+      
+      button.addEventListener('click', function() {
+        positionButtons.forEach(btn => btn.classList.remove('active'));
+        this.classList.add('active');
+        
+        state.subtitleSettings.position = this.getAttribute('data-position');
+        updateSubtitleStyle();
+        saveSettings();
+      });
+    });
+    
+    // 글꼴 크기 버튼 이벤트
+    const fontSizeButtons = document.querySelectorAll('.whatsub-settings-choices [data-font-size]');
+    fontSizeButtons.forEach(button => {
+      if (button.getAttribute('data-font-size') === state.subtitleSettings.fontSize) {
+        button.classList.add('active');
+      }
+      
+      button.addEventListener('click', function() {
+        fontSizeButtons.forEach(btn => btn.classList.remove('active'));
+        this.classList.add('active');
+        
+        state.subtitleSettings.fontSize = this.getAttribute('data-font-size');
+        updateSubtitleStyle();
+        saveSettings();
+      });
+    });
+    
+    // 투명도 버튼 이벤트
+    const opacityButtons = document.querySelectorAll('.whatsub-settings-choices [data-opacity]');
+    opacityButtons.forEach(button => {
+      // opacity와 background 설정을 매핑
+      const opacityToBackground = {
+        'low': 'transparent',
+        'medium': 'semi',
+        'high': 'solid'
+      };
+      
+      const backgroundToOpacity = {
+        'transparent': 'low',
+        'semi': 'medium',
+        'solid': 'high'
+      };
+      
+      if (backgroundToOpacity[state.subtitleSettings.background] === button.getAttribute('data-opacity')) {
+        button.classList.add('active');
+      }
+      
+      button.addEventListener('click', function() {
+        opacityButtons.forEach(btn => btn.classList.remove('active'));
+        this.classList.add('active');
+        
+        state.subtitleSettings.background = opacityToBackground[this.getAttribute('data-opacity')];
+        updateSubtitleStyle();
+        saveSettings();
+      });
+    });
+    
+    // 자막 토글과 자동 자막 토글 연동
+    setupSubtitleToggleSync();
+    
+    console.log('[Whatsub] 컨트롤 패널 이벤트 설정 완료');
+  } catch (error) {
+    console.error('[Whatsub] 컨트롤 패널 이벤트 설정 오류:', error);
+  }
+}
+
+// 설정 로드
+function loadSettings() {
+  console.log('[Whatsub] 설정 로드 시작...');
+  chrome.runtime.sendMessage({ action: 'getSettings' }, function(response) {
+    if (response && response.settings) {
+      console.log('[Whatsub] 설정 로드됨:', response.settings);
+      
+      // 기본 설정
+      if (response.settings.subtitleEnabled !== undefined) {
+        state.subtitlesEnabled = response.settings.subtitleEnabled;
+      }
+      
+      if (response.settings.language) {
+        state.currentLanguage = response.settings.language;
+      }
+      
+      if (response.settings.originalLanguage) {
+        state.originalLanguage = response.settings.originalLanguage;
+      }
+      
+      if (response.settings.autoSubtitlesEnabled !== undefined) {
+        state.autoSubtitlesEnabled = response.settings.autoSubtitlesEnabled;
+      }
+      
+      if (response.settings.commentsEnabled !== undefined) {
+        state.commentsEnabled = response.settings.commentsEnabled;
+      }
+      
+      // 자막 설정
+      if (response.settings.subtitleSettings) {
+        const settings = response.settings.subtitleSettings;
+        
+        if (settings.position) {
+          state.subtitleSettings.position = settings.position;
+        }
+        
+        if (settings.fontSize) {
+          state.subtitleSettings.fontSize = settings.fontSize;
+        }
+        
+        if (settings.background) {
+          state.subtitleSettings.background = settings.background;
+        }
+        
+        if (settings.dualSubtitles !== undefined) {
+          state.subtitleSettings.dualSubtitles = settings.dualSubtitles;
+        }
+      }
+      
+      // 설정에 따라 자막 표시 상태 업데이트
+      if (state.subtitlesEnabled) {
+        setupSubtitles();
+      } else {
+        removeSubtitles();
+      }
+      
+      // 자동 자막 상태 업데이트
+      if (state.autoSubtitlesEnabled) {
+        chrome.runtime.sendMessage({
+          action: 'startSpeechRecognition',
+          tabId: chrome.runtime.id
+        });
+      }
+      
+      // 댓글 기능 상태 업데이트
+      if (state.commentsEnabled && commentsContainer) {
+        commentsContainer.style.display = 'flex';
+      } else if (commentsContainer) {
+        commentsContainer.style.display = 'none';
+      }
+      
+      // 컨트롤 패널 이벤트 다시 설정
+      setupControlPanelEvents();
+    }
+  });
+}
+
+// 초기화 함수
+function init() {
+  console.log('[Whatsub] 초기화 시작...');
+  
+  // 스타일 주입
+  injectStyles();
+  
+  // 사용자 인증 상태 확인
+  checkUserAuth();
+  
+  // 설정 로드
+  loadSettings();
+  
+  // 자막 컨테이너 생성 및 추가
+  subtitleContainer = createSubtitleContainer();
+  if (subtitleContainer) {
+    document.body.appendChild(subtitleContainer);
+  }
+  
+  // 메시지 리스너 설정
+  setupMessageListeners();
+  
+  // 댓글 기능 초기화
+  setupCommentsFeature();
+  
+  // 백그라운드 연결 설정
+  setupBackgroundConnection();
+  
+  // YouTube 페이지인 경우 특별 처리
+  if (isYouTube()) {
+    console.log('[Whatsub] YouTube 페이지 감지됨');
+    setupYouTubeSubtitles();
+  } else {
+    console.log('[Whatsub] 일반 웹 페이지 감지됨');
+  }
+  
+  console.log('[Whatsub] 초기화 완료');
+}
+
+// 자막 컨테이너 생성 함수 수정
+function createSubtitleContainer() {
+  // 기존 자막 컨테이너가 있으면 제거
+  const existingContainer = document.getElementById('whatsub-subtitle-container');
+  if (existingContainer) {
+    existingContainer.remove();
+  }
+  
+  // 새로운 자막 컨테이너 생성
+  subtitleContainer = document.createElement('div');
+  subtitleContainer.id = 'whatsub-subtitle-container';
+  subtitleContainer.className = 'whatsub-subtitle-container';
+  
+  // 기본 스타일 설정
+  subtitleContainer.style.position = 'fixed';
+  subtitleContainer.style.left = '50%';
+  subtitleContainer.style.transform = 'translateX(-50%)';
+  subtitleContainer.style.zIndex = '999999';
+  
+  // 자막 텍스트 컨테이너
+  subtitleTextContainer = document.createElement('div');
+  subtitleTextContainer.className = 'whatsub-subtitle-text-container';
+  subtitleTextContainer.style.pointerEvents = 'none'; // 자막 텍스트는 클릭 불가
+  
+  // 원본 텍스트 요소
+  originalTextElement = document.createElement('div');
+  originalTextElement.className = 'whatsub-subtitle-text whatsub-original-text';
+  originalTextElement.style.display = 'none';
+  originalTextElement.style.pointerEvents = 'none';
+  
+  // 번역 텍스트 요소
+  translatedTextElement = document.createElement('div');
+  translatedTextElement.className = 'whatsub-subtitle-text whatsub-translated-text';
+  translatedTextElement.style.display = 'none';
+  translatedTextElement.style.pointerEvents = 'none';
+  
+  // 요소 추가
+  subtitleTextContainer.appendChild(originalTextElement);
+  subtitleTextContainer.appendChild(translatedTextElement);
+  subtitleContainer.appendChild(subtitleTextContainer);
+  
+  // 컨트롤 패널 추가
+  const controlPanel = createControlPanel();
+  controlPanel.style.pointerEvents = 'auto'; // 컨트롤 패널은 클릭 가능
+  controlPanel.style.opacity = '1';
+  controlPanel.style.transition = 'opacity 0.5s ease-in-out';
+  subtitleContainer.appendChild(controlPanel);
+  
+  // 드래그 기능 추가
+  makeSubtitleDraggable();
+  
+  // 자막 스타일 업데이트
+  updateSubtitleStyle();
+  
+  // 초기에는 숨김
+  subtitleContainer.style.display = 'none';
+  
+  // 마우스 움직임 감지 설정
+  setupMouseMovementDetection(subtitleContainer, controlPanel);
+  
+  return subtitleContainer;
+}
+
+// 마우스가 특정 요소 위에 있는지 확인
+function isMouseOverElement(element) {
+  const rect = element.getBoundingClientRect();
+  // event 객체를 직접 사용하는 대신 마우스 이벤트에서 받아오도록 수정
+  
+  return function(e) {
+    const mouseX = e.clientX;
+    const mouseY = e.clientY;
+    
+    return (
+      mouseX >= rect.left &&
+      mouseX <= rect.right &&
+      mouseY >= rect.top &&
+      mouseY <= rect.bottom
+    );
+  };
+}
+
+// 마우스 움직임 감지 설정 수정
+function setupMouseMovementDetection(container, controlPanel) {
+  let hideTimeout;
+  const hideDelay = 3000; // 3초 후 숨김
+  let lastMouseEvent = null;
+  
+  function showControlPanel(e) {
+    lastMouseEvent = e;
+    
+    if (controlPanel) {
+      controlPanel.style.opacity = '1';
+    }
+    
+    // 이전 타이머 취소
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+    }
+    
+    // 새 타이머 설정
+    hideTimeout = setTimeout(() => {
+      if (controlPanel && lastMouseEvent && !isMouseOverElement(controlPanel)(lastMouseEvent)) {
+        controlPanel.style.opacity = '0';
+      }
+    }, hideDelay);
+  }
+  
+  // 마우스 움직임 이벤트
+  container.addEventListener('mousemove', showControlPanel);
+  
+  // 마우스 진입/이탈 이벤트
+  container.addEventListener('mouseenter', showControlPanel);
+  
+  controlPanel.addEventListener('mouseenter', (e) => {
+    lastMouseEvent = e;
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+    }
+    controlPanel.style.opacity = '1';
+  });
+  
+  controlPanel.addEventListener('mouseleave', (e) => {
+    lastMouseEvent = e;
+    hideTimeout = setTimeout(() => {
+      controlPanel.style.opacity = '0';
+    }, hideDelay);
+  });
+  
+  // 초기 실행 (3초 후 자동으로 숨김)
+  hideTimeout = setTimeout(() => {
+    if (controlPanel) {
+      controlPanel.style.opacity = '0';
+    }
+  }, hideDelay);
+}
+
+// 댓글 컨테이너 생성
+function createCommentsContainer() {
+  const container = document.createElement('div');
+  container.id = 'whatsub-comments-container';
+  container.className = 'whatsub-comments-container';
+  container.style.display = 'none'; // 초기에는 숨겨진 상태
+  
+  // 댓글 헤더
+  const commentsHeader = document.createElement('div');
+  commentsHeader.className = 'whatsub-comments-header';
+  commentsHeader.innerHTML = `
+    <span class="whatsub-comments-title">댓글 <span class="whatsub-comments-count">0</span></span>
+    <div class="whatsub-comments-buttons">
+      <button id="whatsub-load-test-comments" class="whatsub-test-btn" title="테스트 댓글 로드">
+        테스트 댓글
+      </button>
+      <button id="whatsub-close-comments" class="whatsub-close-btn" title="댓글창 닫기">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  `;
+  
+  // 댓글 목록
+  const commentsList = document.createElement('div');
+  commentsList.id = 'whatsub-comments-list';
+  commentsList.className = 'whatsub-comments-list';
+  
+  // 댓글 입력
+  const commentInput = document.createElement('div');
+  commentInput.className = 'whatsub-comment-input-container';
+  commentInput.innerHTML = `
+    <textarea id="whatsub-comment-input" placeholder="댓글을 입력하세요..."></textarea>
+    <div class="whatsub-comment-options">
+      <input type="number" id="whatsub-comment-time" min="0" step="1" placeholder="시간(초)" title="이 댓글이 표시될 영상 시간(초)" value="${getCurrentTime() || 0}">
+      <select id="whatsub-comment-type">
+        <option value="normal">일반 댓글</option>
+        <option value="floating">흐름 댓글</option>
+      </select>
+      <button id="whatsub-comment-submit" class="whatsub-comment-submit-btn" title="댓글 제출">
+        <i class="fas fa-paper-plane"></i> 전송
+      </button>
+    </div>
+  `;
+  
+  // 컨테이너에 추가
+  container.appendChild(commentsHeader);
+  container.appendChild(commentsList);
+  container.appendChild(commentInput);
+  
+  return container;
+}
+
+// 댓글 기능 초기화 수정
+function setupCommentsFeature() {
+  // 댓글 토글 이벤트
+  const commentsToggle = document.getElementById('whatsub-comments-toggle');
+  if (commentsToggle) {
+    commentsToggle.checked = state.commentsEnabled;
+    commentsToggle.addEventListener('change', function() {
+      state.commentsEnabled = this.checked;
+      
+      if (state.commentsEnabled) {
+        showComments();
+      } else {
+        hideComments();
+      }
+      
+      // 설정 저장
+      saveSettings();
+    });
+  }
+  
+  // 댓글 닫기 버튼 이벤트
+  const closeCommentsBtn = document.getElementById('whatsub-close-comments');
+  if (closeCommentsBtn) {
+    closeCommentsBtn.addEventListener('click', function() {
+      hideComments();
+      
+      // 댓글 창만 닫고 흐름 댓글은 유지
+    });
+  }
+  
+  // 테스트 댓글 버튼 이벤트
+  const loadTestCommentsBtn = document.getElementById('whatsub-load-test-comments');
+  if (loadTestCommentsBtn) {
+    loadTestCommentsBtn.addEventListener('click', function() {
+      loadTestComments();
+      
+      // 테스트 모드 활성화 메시지
+      const commentsList = document.getElementById('whatsub-comments-list');
+      if (commentsList) {
+        const testModeMsg = document.createElement('div');
+        testModeMsg.className = 'whatsub-test-mode-message';
+        testModeMsg.textContent = '테스트 모드: 5초 간격으로 자동 댓글이 표시됩니다';
+        commentsList.insertBefore(testModeMsg, commentsList.firstChild);
+      }
+    });
+  }
+  
+  // 댓글 제출 버튼 이벤트
+  const commentSubmitBtn = document.getElementById('whatsub-comment-submit');
+  const commentInput = document.getElementById('whatsub-comment-input');
+  
+  if (commentSubmitBtn && commentInput) {
+    commentSubmitBtn.addEventListener('click', function() {
+      submitComment(commentInput.value);
+    });
+    
+    // 엔터 키로 제출
+    commentInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitComment(this.value);
+      }
+    });
+  }
+  
+  // 댓글 작성 버튼 이벤트
+  const commentBtn = document.getElementById('whatsub-comment-btn');
+  if (commentBtn) {
+    commentBtn.addEventListener('click', function() {
+      // 댓글 폼 표시
+      showComments();
+      
+      // 입력 필드에 포커스
+      const commentInput = document.getElementById('whatsub-comment-input');
+      if (commentInput) {
+        commentInput.focus();
+      }
+    });
+  }
+  
+  // 초기화 시 비디오 타임스탬프에 맞는 댓글 로드
+  loadCommentsForCurrentTime();
+  
+  // 비디오 시간 변경 감지를 위한 타이머 설정
+  setInterval(checkVideoTimeForComments, 1000);
+}
+
+// 댓글 제출 함수
+function submitComment(text) {
+  if (!text || text.trim() === '') return;
+  
+  const commentInput = document.getElementById('whatsub-comment-input');
+  if (!commentInput) return;
+  
+  // 시간 및 유형 데이터 가져오기
+  const timeInput = document.getElementById('whatsub-comment-time');
+  const typeSelect = document.getElementById('whatsub-comment-type');
+  
+  // 값 확인 후 기본값 설정
+  const timestamp = timeInput ? parseFloat(timeInput.value) || getCurrentTime() || 0 : getCurrentTime() || 0;
+  const commentType = typeSelect ? typeSelect.value : 'normal';
+  
+  // 입력 필드 초기화
+  commentInput.value = '';
+  
+  // 현재 비디오 정보와 시간 가져오기
+  const videoInfo = {
+    videoId: currentVideoId || getVideoId() || 'test_video',
+    subtitleId: currentSubtitleId || 'test_subtitle',
+    subtitleText: currentSubtitleText || 'Test subtitle',
+    timestamp: timestamp,
+    text: text.trim(),
+    type: commentType
+  };
+  
+  console.log('[Whatsub] 댓글 제출:', videoInfo);
+  
+  // 테스트 모드: 서버 전송 없이 즉시 표시
+  const commentId = `test_${Date.now()}`;
+  const newComment = {
+    id: commentId,
+    user: {
+      name: '테스트 사용자',
+      avatar: 'https://via.placeholder.com/24'
+    },
+    text: text.trim(),
+    timestamp: new Date().toISOString(),
+    likes: 0,
+    videoTime: timestamp
+  };
+  
+  // 댓글 목록에 추가 (일반 댓글인 경우)
+  if (commentType === 'normal' || commentType === 'both') {
+    addCommentToList(newComment);
+    updateCommentsCount();
+  }
+  
+  // 흐름 댓글로 표시 (흐름 댓글인 경우)
+  if (commentType === 'floating' || commentType === 'both') {
+    displayFloatingComment(newComment);
+  }
+  
+  showMessage('댓글이 추가되었습니다.');
+}
+
+// 자막 텍스트로부터 해시값 생성
+function hashSubtitle(text) {
+  if (!text) return 'empty';
+  
+  // 간단한 해시 알고리즘
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    const char = text.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  
+  // 해시값을 16진수 문자열로 변환
+  return Math.abs(hash).toString(16);
+}
+
+// 특정 비디오 및 자막 ID에 해당하는 댓글 로드
+function loadComments(videoId, subtitleId) {
+  if (!videoId || !subtitleId) return;
+  
+  console.log(`[Whatsub] 댓글 로드 중: 비디오 ID=${videoId}, 자막 ID=${subtitleId}`);
+  
+  // 테스트 환경에서는 로컬에서 댓글 생성
+  if (!window.testCommentsMap) {
+    window.testCommentsMap = {};
+  }
+  
+  // 해당 자막에 대한 댓글이 없으면 빈 배열 생성
+  const commentsKey = `${videoId}_${subtitleId}`;
+  if (!window.testCommentsMap[commentsKey]) {
+    window.testCommentsMap[commentsKey] = [];
+    
+    // 테스트를 위해 무작위 댓글 생성
+    if (Math.random() > 0.6) {
+      const randomComments = [
+        {
+          id: `${commentsKey}_1`,
+          user: { name: '홍길동', avatar: 'https://via.placeholder.com/24' },
+          text: '이 부분 정확한 번역이네요!',
+          timestamp: new Date().toISOString(),
+          likes: Math.floor(Math.random() * 10),
+          videoTime: getCurrentTime()
+        },
+        {
+          id: `${commentsKey}_2`,
+          user: { name: '김철수', avatar: 'https://via.placeholder.com/24' },
+          text: '이 문장이 원문과 좀 다른 의미로 번역된 것 같아요',
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
+          likes: Math.floor(Math.random() * 5),
+          videoTime: getCurrentTime() + 2
+        }
+      ];
+      
+      // 무작위로 1~2개 댓글 선택
+      const commentCount = Math.floor(Math.random() * 2) + 1;
+      for (let i = 0; i < commentCount; i++) {
+        window.testCommentsMap[commentsKey].push(randomComments[i]);
+      }
+    }
+  }
+  
+  // 댓글 목록 요소 가져오기
+  const commentsList = document.getElementById('whatsub-comments-list');
+  if (!commentsList) return;
+  
+  // 기존 댓글 비우기
+  commentsList.innerHTML = '';
+  
+  // 댓글 추가
+  const comments = window.testCommentsMap[commentsKey] || [];
+  comments.forEach(comment => {
+    addCommentToList(comment);
+  });
+  
+  // 댓글 수 업데이트
+  updateCommentsCount();
+  
+  // 흐름 댓글 표시 (실제 구현에서는 조건부로 표시)
+  if (state.floatingCommentsEnabled && comments.length > 0) {
+    comments.forEach((comment, index) => {
+      setTimeout(() => {
+        displayFloatingComment(comment);
+      }, index * 1500);
+    });
+  }
+}
+
+// 메시지 표시 함수
+function showMessage(message, type = 'info') {
+  console.log(`[Whatsub] ${message}`);
+  
+  // 메시지 컨테이너 생성
+  let messageContainer = document.getElementById('whatsub-message-container');
+  if (!messageContainer) {
+    messageContainer = document.createElement('div');
+    messageContainer.id = 'whatsub-message-container';
+    messageContainer.style.position = 'fixed';
+    messageContainer.style.bottom = '20px';
+    messageContainer.style.right = '20px';
+    messageContainer.style.zIndex = '9999999';
+    document.body.appendChild(messageContainer);
+  }
+  
+  // 메시지 요소 생성
+  const messageEl = document.createElement('div');
+  messageEl.className = `whatsub-message ${type}`;
+  messageEl.textContent = message;
+  messageEl.style.padding = '10px 15px';
+  messageEl.style.marginBottom = '10px';
+  messageEl.style.backgroundColor = type === 'error' ? '#f44336' : 
+                                   type === 'success' ? '#4caf50' : 
+                                   type === 'warning' ? '#ff9800' : '#2196f3';
+  messageEl.style.color = 'white';
+  messageEl.style.borderRadius = '4px';
+  messageEl.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+  messageEl.style.transition = 'all 0.3s ease';
+  messageEl.style.opacity = '0';
+  
+  // 컨테이너에 추가
+  messageContainer.appendChild(messageEl);
+  
+  // 애니메이션
+  setTimeout(() => {
+    messageEl.style.opacity = '1';
+  }, 10);
+  
+  // 3초 후 제거
+  setTimeout(() => {
+    messageEl.style.opacity = '0';
+    setTimeout(() => {
+      if (messageEl.parentNode) {
+        messageEl.parentNode.removeChild(messageEl);
+      }
+    }, 300);
+  }, 3000);
+} 
