@@ -1,0 +1,14 @@
+// 비공개 Firebase 구성 예제 파일
+// 실제 사용 시 이 파일의 이름을 firebase-config-private.js로 변경하고 
+// 실제 Firebase 프로젝트 정보로 값을 채우세요.
+// 주의: firebase-config-private.js 파일은 절대로 Git에 커밋하지 마세요!
+
+export const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID",
+  measurementId: "YOUR_MEASUREMENT_ID"
+}; 

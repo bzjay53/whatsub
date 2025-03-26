@@ -18,12 +18,14 @@
     "next": "^14.2.24",
     "next-auth": "^4.24.6",
     "nodemailer": "^6.10.0",
+    "openai": "^4.89.0",
     "prisma": "5.10.2",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.10.1",
     "@types/node": "^20.11.24",
     "@types/react": "^18.2.61",
     "@types/react-dom": "^18.2.19",

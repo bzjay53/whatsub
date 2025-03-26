@@ -1,0 +1,332 @@
+# Whatsub 프로젝트 종합 문서
+
+버전: 0.2.2
+최종 업데이트: 2025-03-26
+
+## 1. 프로젝트 개요
+
+### 1.1 프로젝트 정의
+Whatsub은 모든 웹사이트에서 자막 서비스를 제공하는 Chrome 확장프로그램입니다. 사용자가 시청하는 동영상에 다국어 자막을 제공하고, Whisper AI를 활용한 음성 인식 자막 생성 기능을 통해 어떤 웹사이트에서도 자막을 볼 수 있는 환경을 제공합니다.
+
+### 1.2 주요 기능
+- Google OAuth를 통한 인증
+- **유니버설 모드**: 유튜브뿐만 아니라 모든 웹사이트에서 자막 표시
+- **Whisper AI 통합**: 실시간 음성 인식을 통한 자막 생성
+- 다국어 지원 및 번역 기능
+- 자막 스타일 커스터마이징
+- 자막 위치 드래그 & 드롭 조정
+- 커뮤니티 자막 업로드/다운로드 기능
+- 구독 기반 프리미엄 기능
+
+### 1.3 현재 버전
+- **버전**: 0.2.2
+- **상태**: 알파 테스트 중
+- **마지막 업데이트**: 2025-03-26
+
+## 2. 아키텍처 개요
+
+### 2.1 핵심 구성요소
+
+```
+Whatsub 확장프로그램
+├── 백그라운드 프로세스 (background.js)
+│   ├── 인증 관리
+│   ├── 메시지 핸들링
+│   ├── 오디오 캡처 및 처리
+│   └── Whisper AI 통합
+├── 팝업 인터페이스 (popup.html/js)
+│   ├── 사용자 인터페이스
+│   ├── 설정 관리
+│   ├── 자막 제어
+│   └── 커뮤니티 자막 관리
+├── 콘텐츠 스크립트 (content-script.js)
+│   ├── 자막 UI 렌더링
+│   ├── 자막 드래그 & 드롭 기능
+│   ├── 스타일 커스터마이징
+│   └── 플랫폼 통합 (유튜브 및 일반 웹사이트)
+└── 서비스 (services/)
+    ├── Firebase 서비스 (firebase-service.js)
+    ├── 백그라운드 서비스 (background-service.js)
+    └── Firebase SDK (firebase-sdk.js)
+```
+
+### 2.2 데이터 흐름
+
+1. **인증 흐름**:
+   - 사용자 로그인 요청 → Chrome Identity API → Google OAuth → Firebase 인증 → 토큰 저장
+   - 로그아웃 → 토큰 폐기 → 캐시 제거 → 세션 종료
+
+2. **자막 생성 흐름**:
+   - 사용자가 자막 활성화 → 백그라운드에 오디오 캡처 요청 → Whisper AI 처리 → 자막 텍스트 생성 → 콘텐츠 스크립트에 전달 → 자막 표시
+
+3. **설정 관리 흐름**:
+   - 사용자 설정 변경 → Chrome 스토리지에 저장 → 설정 적용 → 자막 표시 업데이트
+
+4. **커뮤니티 자막 흐름**:
+   - 자막 업로드 → Firebase 저장 → 목록 업데이트
+   - 자막 다운로드 → Firebase 조회 → 자막 적용
+
+## 3. 파일 구조 및 의존성
+
+### 3.1 핵심 파일 구조
+
+```
+my-next-app/public/extension/
+├── manifest.json           # 확장프로그램 메타데이터
+├── background.js           # 백그라운드 프로세스
+├── popup.html              # 팝업 UI
+├── popup.js                # 팝업 로직
+├── content-script.js       # 콘텐츠 스크립트
+├── styles/
+│   ├── popup.css           # 팝업 스타일
+│   └── subtitles.css       # 자막 스타일
+├── icons/                  # 아이콘 및 이미지
+│   ├── icon-16.png
+│   ├── icon-48.png
+│   ├── icon-128.png
+│   └── google-icon.svg
+└── services/
+    ├── firebase-sdk.js     # Firebase SDK 통합
+    ├── firebase-service.js # Firebase 서비스
+    └── background-service.js # 백그라운드 서비스
+```
+
+### 3.2 핵심 의존성 관계
+
+#### manifest.json
+- **의존성 제공**: 확장프로그램에 필요한 권한 (identity, storage, tabCapture 등)
+- **영향 받는 파일**: 모든 확장프로그램 구성요소
+- **주요 관계**: OAuth 클라이언트 ID 설정이 인증 시스템에 영향
+
+#### background.js
+- **의존하는 파일**: firebase-sdk.js, firebase-service.js
+- **의존성 제공**: 메시지 핸들링, 오디오 캡처, Whisper AI 처리
+- **영향 받는 파일**: popup.js, content-script.js
+- **주요 관계**: 오디오 캡처와 자막 생성이 콘텐츠 스크립트 작동에 영향
+
+#### popup.js
+- **의존하는 파일**: background.js
+- **의존성 제공**: 사용자 상호작용 핸들링, 자막 제어
+- **영향 받는 파일**: content-script.js (설정 변경 시)
+- **주요 관계**: 자막 토글과 설정 변경이 자막 표시에 영향
+
+#### content-script.js
+- **의존하는 파일**: background.js
+- **의존성 제공**: 자막 UI 렌더링, 드래그 & 드롭 기능
+- **영향 받는 파일**: 없음 (최종 실행)
+- **주요 관계**: 자막 표시와 UI 업데이트가 사용자 경험에 직접 영향
+
+## 4. 주요 모듈 상세 분석
+
+### 4.1 인증 시스템
+
+#### 구현 상태
+- Google OAuth 기반 인증 구현 완료
+- Chrome Identity API를 통한 로그인/로그아웃 기능 완료
+- bzjay53@gmail.com 계정을 관리자로 특별 취급
+
+#### 핵심 코드 구성요소
+- **services/firebase-sdk.js**: Firebase 인증 연동
+- **background.js**: 인증 상태 관리 및 이벤트 처리
+- **popup.js**: 로그인/로그아웃 UI 및 사용자 상호작용
+
+#### 현재 문제점
+- 메시지 전송 오류: "The message port closed before a response was received."
+- 초기 실행 시 간헐적인 인증 상태 확인 실패
+- 인증 상태 유지 간헐적 문제
+
+#### 해결 방안
+- 비동기 통신 개선과 타임아웃 처리
+- 오류 발생 시 UI에 표시하지 않고 기본 동작 유지
+- 재시도 메커니즘 구현
+
+### 4.2 자막 생성 시스템
+
+#### 구현 상태
+- 기본 자막 UI 구현 완료
+- 드래그 & 드롭으로 자막 위치 조정 기능 구현
+- Whisper AI 통합 초기 구현 (시뮬레이션 모드로 테스트 가능)
+- 유니버설 모드로 모든 웹사이트에서 자막 표시 가능
+
+#### 핵심 코드 구성요소
+- **content-script.js**: 자막 UI 렌더링 및 사용자 상호작용
+- **background.js**: 오디오 캡처 및 Whisper AI 처리
+- **styles/subtitles.css**: 자막 스타일 정의
+
+#### 현재 문제점
+- 실제 Whisper AI 연동이 아직 완전히 구현되지 않음 (시뮬레이션)
+- 오디오 캡처 권한 문제 (getUserMedia 오류)
+- 일부 환경에서 AudioContext 지원 문제
+
+#### 해결 방안
+- 사용자 경험 개선을 위한 시뮬레이션 모드 구현
+- 백그라운드 환경에서 오디오 API 제한 우회 전략 구현
+- 실제 API 구현을 위한 계획 수립
+
+### 4.3 커뮤니티 자막 시스템
+
+#### 구현 상태
+- 기본 UI 구현 완료
+- 자막 업로드/다운로드 기능 구현 초기 단계
+- Firebase 통합 준비 중
+
+#### 핵심 코드 구성요소
+- **popup.js**: 자막 업로드/다운로드 UI 및 사용자 상호작용
+- **services/firebase-service.js**: 자막 데이터 저장 및 로드
+- **background.js**: 자막 관련 메시지 처리
+
+#### 현재 문제점
+- 실제 데이터 저장 및 로드 기능 미구현
+- 자막 파일 파싱 및 처리 로직 필요
+- 사용자 간 자막 공유 메커니즘 필요
+
+#### 해결 방안
+- Firebase Firestore를 활용한 자막 데이터 저장 구현
+- .srt, .vtt 등 다양한 자막 포맷 지원 추가
+- 현재 URL 기반 자막 매칭 시스템 구현
+
+## 5. 현재 진행 상황 및 문제점
+
+### 5.1 완료된 기능
+- Google OAuth 인증 및 로그인/로그아웃
+- 기본 자막 UI 구현
+- 자막 위치 드래그 & 드롭 조정
+- 자막 스타일 커스터마이징
+- 유니버설 모드 (모든 웹사이트에서 자막 지원)
+- bzjay53@gmail.com 관리자 계정 무제한 사용 설정
+
+### 5.2 진행 중인 기능
+- Whisper AI 통합 (현재 시뮬레이션 모드)
+- 커뮤니티 자막 업로드/다운로드
+- 다국어 지원 개선
+
+### 5.3 현재 문제점
+1. **인증 관련 문제**:
+   - "The message port closed before a response was received" 오류
+   - 초기 로드 시 인증 상태 확인 실패
+   
+2. **오디오 캡처 문제**:
+   - "Cannot read properties of undefined (reading 'getUserMedia')" 오류
+   - 백그라운드 컨텍스트에서 AudioContext 제한
+   
+3. **UI 관련 문제**:
+   - 초기 로드 시 빈 화면 표시
+   - 오류 메시지가 사용자에게 불필요하게 표시됨
+
+### 5.4 해결 전략
+1. **인증 시스템 강화**:
+   - 타임아웃 처리 추가
+   - 오류 발생 시 기본 상태로 복귀
+   - 재시도 메커니즘 구현
+   
+2. **오디오 캡처 개선**:
+   - 백그라운드 제한 우회 전략 구현
+   - 시뮬레이션 모드로 사용자 경험 유지
+   - 실제 API 구현을 위한 대체 접근법 연구
+   
+3. **UI 경험 개선**:
+   - 초기 로드 시 즉시 메인 탭 표시
+   - 오류 메시지 UI 표시 최소화
+   - 사용자 피드백 개선
+
+## 6. 향후 계획
+
+### 6.1 단기 목표 (1-2주)
+1. **안정성 개선**:
+   - 인증 시스템 안정화
+   - 메시지 통신 오류 해결
+   - 초기 로드 경험 개선
+   
+2. **Whisper AI 통합 실질화**:
+   - 실제 Whisper API 연동
+   - 오디오 캡처 안정성 강화
+   - 음성 인식 정확도 개선
+   
+3. **커뮤니티 자막 기능 완성**:
+   - Firebase 저장 구현
+   - 자막 파일 파싱 및 처리
+   - 사용자 간 자막 공유
+
+### 6.2 중기 목표 (1-2개월)
+1. **결제 시스템 구현**:
+   - 구독 모델 설계
+   - Stripe 또는 Chrome Web Store 결제 연동
+   - 사용량 제한 및 과금 체계
+   
+2. **성능 최적화**:
+   - 자막 렌더링 성능 개선
+   - 메모리 및 CPU 사용 최적화
+   - 배터리 사용량 감소
+   
+3. **추가 기능 구현**:
+   - 자막 편집 기능
+   - 자막 북마크 및 저장
+   - 단축키 지원 확대
+
+### 6.3 장기 목표 (3-6개월)
+1. **고급 AI 기능**:
+   - 실시간 다국어 번역
+   - 맥락 인식 자동 번역
+   - 사용자 선호도 학습
+   
+2. **확장 가능한 플랫폼**:
+   - API 공개를 통한 타사 통합
+   - 사용자 커뮤니티 확장
+   - 데스크톱 애플리케이션 버전
+   
+3. **접근성 및 국제화**:
+   - 다국어 UI 지원
+   - 장애인 접근성 강화
+   - 지역별 콘텐츠 최적화
+
+## 7. 개발자 참고사항
+
+### 7.1 주요 파일 역할
+- **background.js**: 백그라운드 프로세스, 오디오 캡처, Whisper 처리
+- **popup.js**: 사용자 인터페이스 및 상호작용 관리
+- **content-script.js**: 웹페이지에 자막 표시 및 관리
+- **services/firebase-sdk.js**: Firebase 연동 및 인증
+- **styles/subtitles.css**: 자막 스타일 정의
+
+### 7.2 디버깅 팁
+- Chrome 확장프로그램 디버깅: chrome://extensions/ → 개발자 모드 활성화 → 확장프로그램 디버깅
+- 백그라운드 스크립트 디버깅: 확장프로그램 세부정보 → 백그라운드 페이지 확인
+- 콘텐츠 스크립트 디버깅: 웹페이지 개발자 도구 → Sources 탭 → Content Scripts
+- 로깅: 모든 주요 함수에 console.log를 포함하여 추적 용이
+
+### 7.3 개발환경 설정
+1. 소스 코드 클론: `git clone <repository-url>`
+2. 의존성 설치: `npm install`
+3. 확장프로그램 로드:
+   - chrome://extensions/ 접속
+   - 개발자 모드 활성화
+   - "압축해제된 확장프로그램 로드" 클릭
+   - `my-next-app/public/extension` 디렉토리 선택
+4. 변경사항 적용: 확장프로그램 새로고침
+
+### 7.4 코딩 규칙
+- 함수명: camelCase 사용
+- 주석: 모든 함수 및 주요 로직에 설명 추가
+- 로깅: '[Whatsub]' 접두사 사용
+- 오류 처리: try-catch 블록으로 모든 비동기 작업 감싸기
+- 비동기 처리: async/await 사용 권장
+
+## 8. 추가 자료
+
+### 8.1 연관 문서
+- [architecture.md](./architecture.md): 아키텍처 상세 설명
+- [api-reference.md](./api-reference.md): API 참조 문서
+- [troubleshooting.md](./troubleshooting.md): 문제 해결 가이드
+- [oauth-authentication-guide.md](./oauth-authentication-guide.md): 인증 시스템 가이드
+
+### 8.2 유용한 링크
+- [Chrome 확장프로그램 개발 문서](https://developer.chrome.com/docs/extensions/)
+- [Firebase 문서](https://firebase.google.com/docs)
+- [Whisper API 문서](https://platform.openai.com/docs/guides/speech-to-text)
+- [WebAudio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
+
+---
+
+최종 업데이트: 2025-03-26
+버전: 0.2.2
+작성자: Whatsub 개발팀 

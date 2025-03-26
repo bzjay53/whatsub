@@ -11,250 +11,359 @@
   <link rel="icon" type="image/png" href="/extension/icons/icon-32.png" sizes="32x32">
   <link rel="icon" type="image/png" href="/extension/icons/icon-48.png" sizes="48x48">
   <link rel="icon" type="image/png" href="/extension/icons/icon-128.png" sizes="128x128">
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f7f7f7;
+      margin: 0;
+      padding: 0;
+      color: #333;
+      line-height: 1.6;
+    }
+    
+    .header {
+      background-color: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 15px 0;
+      width: 100%;
+    }
+    
+    .header-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+    }
+    
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      color: #4285f4;
+      text-decoration: none;
+    }
+    
+    .nav-links {
+      display: flex;
+      gap: 20px;
+    }
+    
+    .nav-links a {
+      text-decoration: none;
+      color: #555;
+      font-weight: 500;
+      transition: color 0.3s;
+    }
+    
+    .nav-links a:hover {
+      color: #4285f4;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 40px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .intro {
+      margin-bottom: 30px;
+    }
+    
+    .feedback-form {
+      margin-top: 30px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      font-family: inherit;
+    }
+    
+    textarea {
+      min-height: 150px;
+      resize: vertical;
+    }
+    
+    .checkbox-group {
+      margin-top: 5px;
+    }
+    
+    .checkbox-label {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    
+    .checkbox-label input {
+      width: auto;
+      margin-right: 10px;
+      margin-top: 4px;
+    }
+    
+    .button {
+      display: inline-block;
+      background-color: #4285f4;
+      color: white;
+      padding: 12px 24px;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: 500;
+      transition: background-color 0.3s;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    
+    .button:hover {
+      background-color: #3367d6;
+    }
+    
+    .alternative-methods {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+    }
+    
+    .alternative-methods h3 {
+      margin-bottom: 15px;
+    }
+    
+    .footer {
+      background-color: #333;
+      color: white;
+      padding: 30px 0;
+      margin-top: 50px;
+    }
+    
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      text-align: center;
+    }
+    
+    .footer-links {
+      margin-bottom: 20px;
+    }
+    
+    .footer-links a {
+      color: #aaa;
+      text-decoration: none;
+      margin: 0 15px;
+      transition: color 0.3s;
+    }
+    
+    .footer-links a:hover {
+      color: white;
+    }
+    
+    .copyright {
+      color: #888;
+      font-size: 14px;
+    }
+    
+    .success-message {
+      display: none;
+      background-color: #d4edda;
+      color: #155724;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    
+    .error-message {
+      display: none;
+      background-color: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+  </style>
 </head>
 <body>
-  <header class="site-header">
-    <div class="container">
-      <div class="logo">
-        <a href="/">
-          <img src="/extension/assets/logo.svg" alt="WhatSub 로고">
-          <h1>WhatSub</h1>
-        </a>
-      </div>
-      <nav class="main-nav">
-        <ul>
-          <li><a href="/#features">기능</a></li>
-          <li><a href="/#pricing">요금제</a></li>
-          <li><a href="/help">도움말</a></li>
-          <li><a href="/terms">이용약관</a></li>
-          <li><a href="/signup" class="btn-signup">회원가입</a></li>
-          <li><a href="/login" class="btn-login">로그인</a></li>
-        </ul>
+  <header class="header">
+    <div class="header-container">
+      <a href="../" class="logo">WhatSub</a>
+      <nav class="nav-links">
+        <a href="../#features">기능</a>
+        <a href="../pricing/">요금제</a>
+        <a href="../help/">도움말</a>
+        <a href="../login/">로그인</a>
+        <a href="../signup/">회원가입</a>
       </nav>
     </div>
   </header>
-
-  <main class="page-content">
-    <div class="container">
-      <div class="page-header">
-        <h1>피드백</h1>
-        <p>WhatSub 서비스 개선을 위한 의견을 보내주세요.</p>
-      </div>
-      
-      <div class="feedback-container">
-        <div class="feedback-content">
-          <div class="feedback-intro">
-            <p>WhatSub 팀은 사용자 피드백을 소중히 생각합니다. 서비스 이용 중 불편한 점이나 개선 제안, 새로운 기능 요청 등 어떤 의견이든 자유롭게 보내주세요.</p>
-            <p>여러분의 소중한 의견은 더 나은 서비스를 만드는 데 큰 도움이 됩니다.</p>
-          </div>
-          
-          <form id="feedbackForm" class="feedback-form">
-            <div class="form-group">
-              <label for="name">이름 (선택사항)</label>
-              <input type="text" id="name" name="name" placeholder="이름을 입력하세요">
-            </div>
-            
-            <div class="form-group">
-              <label for="email">이메일 <span class="required">*</span></label>
-              <input type="email" id="email" name="email" placeholder="이메일 주소를 입력하세요" required>
-              <small>답변을 받을 이메일 주소를 입력해주세요.</small>
-            </div>
-            
-            <div class="form-group">
-              <label for="feedbackType">피드백 유형 <span class="required">*</span></label>
-              <select id="feedbackType" name="feedbackType" required>
-                <option value="">유형을 선택하세요</option>
-                <option value="bug">버그 신고</option>
-                <option value="feature">기능 제안</option>
-                <option value="improvement">개선 제안</option>
-                <option value="question">일반 문의</option>
-                <option value="other">기타</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label for="subject">제목 <span class="required">*</span></label>
-              <input type="text" id="subject" name="subject" placeholder="피드백의 제목을 입력하세요" required>
-            </div>
-            
-            <div class="form-group">
-              <label for="message">내용 <span class="required">*</span></label>
-              <textarea id="message" name="message" rows="6" placeholder="피드백 내용을 자세히 적어주세요. 문제가 발생한 경우, 어떤 상황에서 발생했는지 구체적으로 알려주시면 해결에 도움이 됩니다." required></textarea>
-            </div>
-            
-            <div class="form-group">
-              <label for="attachment">스크린샷 첨부 (선택사항)</label>
-              <input type="file" id="attachment" name="attachment" accept="image/*">
-              <small>JPG, PNG, GIF 형식의 파일만 가능합니다. 최대 파일 크기: 5MB</small>
-            </div>
-            
-            <div class="form-group">
-              <label for="browser">브라우저 정보 <span class="required">*</span></label>
-              <select id="browser" name="browser" required>
-                <option value="">브라우저를 선택하세요</option>
-                <option value="chrome">Chrome</option>
-                <option value="firefox">Firefox</option>
-                <option value="edge">Edge</option>
-                <option value="safari">Safari</option>
-                <option value="opera">Opera</option>
-                <option value="other">기타</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label for="os">운영체제 <span class="required">*</span></label>
-              <select id="os" name="os" required>
-                <option value="">운영체제를 선택하세요</option>
-                <option value="windows">Windows</option>
-                <option value="macos">macOS</option>
-                <option value="linux">Linux</option>
-                <option value="ios">iOS</option>
-                <option value="android">Android</option>
-                <option value="other">기타</option>
-              </select>
-            </div>
-            
-            <div class="form-check">
-              <input type="checkbox" id="contactMe" name="contactMe" checked>
-              <label for="contactMe">답변 받기를 원합니다.</label>
-            </div>
-            
-            <button type="submit" class="btn btn-primary btn-block">피드백 보내기</button>
-          </form>
+  
+  <div class="container">
+    <h1>피드백</h1>
+    
+    <div class="intro">
+      <p>WhatSub을 사용해 주셔서 감사합니다. 여러분의 의견은 저희에게 매우 중요합니다. 제품을 개선하고 더 나은 서비스를 제공하기 위해 피드백을 남겨주세요.</p>
+    </div>
+    
+    <div class="success-message" id="success-message">
+      피드백이 성공적으로 제출되었습니다. 소중한 의견에 감사드립니다!
+    </div>
+    
+    <div class="error-message" id="error-message">
+      피드백 제출 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.
+    </div>
+    
+    <div class="feedback-form">
+      <form id="feedback-form">
+        <div class="form-group">
+          <label for="feedback-type">피드백 유형</label>
+          <select id="feedback-type" name="feedback-type" required>
+            <option value="" disabled selected>피드백 유형을 선택하세요</option>
+            <option value="bug">버그 리포트</option>
+            <option value="feature">기능 제안</option>
+            <option value="improvement">개선 제안</option>
+            <option value="complaint">불만 사항</option>
+            <option value="compliment">칭찬</option>
+            <option value="other">기타</option>
+          </select>
         </div>
         
-        <div class="feedback-sidebar">
-          <div class="contact-info">
-            <h2>다른 문의 방법</h2>
-            <div class="contact-method">
-              <h3>이메일</h3>
-              <p><a href="mailto:support@whatsub.netlify.app">support@whatsub.netlify.app</a></p>
-            </div>
-            <div class="contact-method">
-              <h3>지원 시간</h3>
-              <p>평일 9:00 AM - 6:00 PM (KST)</p>
-              <p>주말 및 공휴일 휴무</p>
-            </div>
-          </div>
-          
-          <div class="faq-preview">
-            <h2>자주 묻는 질문</h2>
-            <ul>
-              <li><a href="/help#installation">확장 프로그램 설치하기</a></li>
-              <li><a href="/help#account-setup">계정 설정하기</a></li>
-              <li><a href="/help#login-issues">로그인 문제</a></li>
-              <li><a href="/help#subtitle-download">자막 다운로드하기</a></li>
-              <li><a href="/help#extension-not-working">확장 프로그램이 작동하지 않을 때</a></li>
-            </ul>
+        <div class="form-group">
+          <label for="feedback-content">피드백 내용</label>
+          <textarea id="feedback-content" name="feedback-content" placeholder="여기에 자세한 피드백을 작성해 주세요..." required></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="user-email">이메일 주소 (선택사항)</label>
+          <input type="email" id="user-email" name="user-email" placeholder="회신을 원하시면 이메일을 입력해 주세요">
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="contact-consent" name="contact-consent">
+              <span>제출한 피드백에 대해 추가 문의를 위해 연락하는 것에 동의합니다.</span>
+            </label>
           </div>
         </div>
-      </div>
+        
+        <button type="submit" class="button">피드백 제출</button>
+      </form>
     </div>
-  </main>
-
-  <footer class="site-footer">
-    <div class="container">
-      <div class="footer-grid">
-        <div class="footer-brand">
-          <img src="/extension/assets/logo.svg" alt="WhatSub 로고" class="footer-logo">
-          <p>© 2024 WhatSub. All rights reserved.</p>
-        </div>
-        <div class="footer-links">
-          <div class="footer-column">
-            <h4>제품</h4>
-            <ul>
-              <li><a href="/#features">기능</a></li>
-              <li><a href="/#pricing">요금제</a></li>
-              <li><a href="/download">다운로드</a></li>
-            </ul>
-          </div>
-          <div class="footer-column">
-            <h4>지원</h4>
-            <ul>
-              <li><a href="/help">도움말</a></li>
-              <li><a href="/feedback">피드백</a></li>
-              <li><a href="/contact">문의하기</a></li>
-            </ul>
-          </div>
-          <div class="footer-column">
-            <h4>회사</h4>
-            <ul>
-              <li><a href="/about">소개</a></li>
-              <li><a href="/terms">이용약관</a></li>
-              <li><a href="/privacy">개인정보처리방침</a></li>
-            </ul>
-          </div>
-        </div>
+    
+    <div class="alternative-methods">
+      <h3>다른 피드백 방법</h3>
+      <p>크롬 확장 프로그램 내에서도 피드백을 제출할 수 있습니다. 확장 프로그램의 우측 상단에 있는 메뉴에서 '피드백' 옵션을 선택하세요.</p>
+    </div>
+  </div>
+  
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-links">
+        <a href="../">홈</a>
+        <a href="../help/">도움말</a>
+        <a href="../terms/">이용약관</a>
+        <a href="../privacy/">개인정보처리방침</a>
+      </div>
+      <div class="copyright">
+        &copy; 2024 WhatSub. All rights reserved.
       </div>
     </div>
   </footer>
-
-  <script src="/scripts/main.js"></script>
+  
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-      const feedbackForm = document.getElementById('feedbackForm');
-      const fileInput = document.getElementById('attachment');
+      const form = document.getElementById('feedback-form');
+      const successMessage = document.getElementById('success-message');
+      const errorMessage = document.getElementById('error-message');
       
-      // 파일 크기 제한
-      fileInput.addEventListener('change', function() {
-        const maxSize = 5 * 1024 * 1024; // 5MB
+      form.addEventListener('submit', function(event) {
+        event.preventDefault();
         
-        if (this.files[0] && this.files[0].size > maxSize) {
-          alert('파일 크기가 5MB를 초과합니다. 더 작은 파일을 선택해주세요.');
-          this.value = '';
+        // 폼 데이터 수집
+        const feedbackType = document.getElementById('feedback-type').value;
+        const feedbackContent = document.getElementById('feedback-content').value;
+        const userEmail = document.getElementById('user-email').value;
+        const contactConsent = document.getElementById('contact-consent').checked;
+        
+        // 크롬 확장 프로그램으로 피드백 전송 (실제로는 백엔드 API로 전송해야 함)
+        // 현재는 시뮬레이션만 진행
+        if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+          try {
+            chrome.runtime.sendMessage(
+              { 
+                action: 'submit_feedback',
+                data: {
+                  type: feedbackType,
+                  content: feedbackContent,
+                  email: userEmail,
+                  contactConsent: contactConsent,
+                  source: 'website'
+                }
+              },
+              function(response) {
+                if (response && response.success) {
+                  showSuccess();
+                } else {
+                  showError();
+                }
+              }
+            );
+          } catch (error) {
+            console.error('Error sending feedback to extension:', error);
+            showError();
+          }
+        } else {
+          // 크롬 확장 프로그램 컨텍스트가 아닌 경우 성공으로 처리
+          console.log('Feedback data:', { 
+            type: feedbackType, 
+            content: feedbackContent, 
+            email: userEmail, 
+            contactConsent: contactConsent 
+          });
+          
+          // 실제 구현에서는 여기에 API 호출이 들어가야 함
+          
+          showSuccess();
         }
       });
       
-      // 폼 제출 처리
-      feedbackForm.addEventListener('submit', function(e) {
-        e.preventDefault();
+      function showSuccess() {
+        form.reset();
+        successMessage.style.display = 'block';
+        errorMessage.style.display = 'none';
         
-        // 실제 서비스에서는 서버로 데이터 전송
-        // 여기서는 예시로 성공 메시지 표시
-        const submitBtn = feedbackForm.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.textContent = '전송 중...';
-        
-        setTimeout(() => {
-          // 알림 표시
-          alert('피드백이 성공적으로 제출되었습니다. 소중한 의견에 감사드립니다!');
-          
-          // 폼 초기화
-          feedbackForm.reset();
-          submitBtn.disabled = false;
-          submitBtn.textContent = '피드백 보내기';
-        }, 1000);
-      });
-      
-      // 브라우저 정보 자동 채우기
-      const browserSelect = document.getElementById('browser');
-      const userAgent = navigator.userAgent.toLowerCase();
-      
-      if (userAgent.indexOf('chrome') > -1) {
-        browserSelect.value = 'chrome';
-      } else if (userAgent.indexOf('firefox') > -1) {
-        browserSelect.value = 'firefox';
-      } else if (userAgent.indexOf('edge') > -1) {
-        browserSelect.value = 'edge';
-      } else if (userAgent.indexOf('safari') > -1 && userAgent.indexOf('chrome') === -1) {
-        browserSelect.value = 'safari';
-      } else if (userAgent.indexOf('opera') > -1 || userAgent.indexOf('opr') > -1) {
-        browserSelect.value = 'opera';
+        setTimeout(function() {
+          successMessage.style.display = 'none';
+        }, 5000);
       }
       
-      // 운영체제 정보 자동 채우기
-      const osSelect = document.getElementById('os');
-      
-      if (userAgent.indexOf('win') > -1) {
-        osSelect.value = 'windows';
-      } else if (userAgent.indexOf('mac') > -1) {
-        osSelect.value = 'macos';
-      } else if (userAgent.indexOf('linux') > -1) {
-        osSelect.value = 'linux';
-      } else if (userAgent.indexOf('android') > -1) {
-        osSelect.value = 'android';
-      } else if (userAgent.indexOf('iphone') > -1 || userAgent.indexOf('ipad') > -1) {
-        osSelect.value = 'ios';
+      function showError() {
+        errorMessage.style.display = 'block';
+        successMessage.style.display = 'none';
+        
+        setTimeout(function() {
+          errorMessage.style.display = 'none';
+        }, 5000);
       }
     });
   </script>

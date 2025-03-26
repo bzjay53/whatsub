@@ -1,0 +1,138 @@
+{
+  "project": "Whatsub 확장프로그램",
+  "date": "2023-06-15",
+  "description": "Chrome 확장프로그램으로 동영상에 자막 서비스를 제공하는 Whatsub 프로젝트",
+  "conversations": [
+    {
+      "datetime": "2023-06-15T10:00:00",
+      "topic": "초기 설정 및 OAuth 문제 해결",
+      "human": "OAuth 인증 문제를 해결해주세요. manifest.json에서 클라이언트 ID가 설정되지 않았습니다.",
+      "assistant": "manifest.json 파일을 확인하고 OAuth 클라이언트 ID를 728246104827-bt0fu7f10ft3e1v29ue1d9o9qeo8r42t.apps.googleusercontent.com으로 설정했습니다. 이제 구글 로그인이 정상적으로 작동할 것입니다."
+    },
+    {
+      "datetime": "2023-06-15T10:30:00",
+      "topic": "브랜딩 이슈 수정",
+      "human": "확장프로그램 이름이 일관되지 않습니다. 'WhatsUB'가 아니라 'Whatsub'(W만 대문자)로 통일해주세요.",
+      "assistant": "모든 브랜딩을 'Whatsub'으로 통일했습니다. manifest.json, popup.html 및 관련 파일들의 이름 표기를 수정했습니다."
+    },
+    {
+      "datetime": "2023-06-15T11:00:00",
+      "topic": "로그인/로그아웃 기능 개선",
+      "human": "로그인 후 로그아웃이 제대로 작동하지 않습니다. 로그아웃 후에도 브라우저를 새로고침하면 다시 로그인 상태로 표시됩니다.",
+      "assistant": "로그아웃 기능을 개선했습니다. Chrome Identity API를 사용하여 토큰을 완전히 폐기하고, 캐시를 제거하는 기능을 구현했습니다. 또한 로그아웃 프레임을 추가하여 구글 계정에서도 완전히 로그아웃되도록 했습니다."
+    },
+    {
+      "datetime": "2023-06-15T11:30:00",
+      "topic": "개선된 로그인 경험",
+      "human": "사용자가 비밀번호를 매번 입력하지 않고 구글 계정을 클릭만으로 로그인할 수 있게 개선해주세요.",
+      "assistant": "로그인 프로세스를 개선했습니다. chrome.identity.getAuthToken API를 사용하여 계정 선택기를 구현하고, 이전에 로그인한 계정을 기억하여 원활한 로그인 경험을 제공합니다. 사용자는 이제 계정을 클릭만으로 로그인할 수 있습니다."
+    },
+    {
+      "datetime": "2023-06-16T09:00:00",
+      "topic": "자막 기능 구현 계획",
+      "human": "유튜브와 같은 동영상 플랫폼에서 작동하는 자막 기능을 어떻게 구현할지 계획을 알려주세요.",
+      "assistant": "자막 기능은 다음과 같이 구현할 계획입니다: 1) content.js에서 비디오 요소를 감지, 2) SubtitleDisplay 클래스를 통해 자막 컨테이너 생성 및 관리, 3) 사용자 설정에 따라 위치, 크기, 배경색 등을 조정, 4) 다국어 지원 및 번역 API 연동. 코드 분석 결과 현재 일부 구현되어 있으나 개선이 필요합니다."
+    },
+    {
+      "datetime": "2023-06-16T10:00:00",
+      "topic": "UI/UX 개선",
+      "human": "로그인 화면이 전문적으로 보이지 않습니다. 더 모던하고 세련된 디자인으로 개선해주세요.",
+      "assistant": "로그인 화면을 완전히 재디자인했습니다. 그라데이션 로고, 현대적인 버튼 디자인, 부드러운 애니메이션, 더 명확한 오류 메시지 등을 추가했습니다. 전체적인 레이아웃과 사용자 흐름도 개선하여 더 전문적이고 세련된 모습으로 변경했습니다."
+    },
+    {
+      "datetime": "2023-06-16T14:00:00",
+      "topic": "토큰 관리 개선",
+      "human": "인증 토큰 관리가 불안정합니다. 토큰이 만료되거나 무효화될 때 처리를 개선해주세요.",
+      "assistant": "토큰 관리를 크게 개선했습니다. 12시간 유효한 토큰 캐싱, 자동 갱신 메커니즘, 오류 처리 등을 구현했습니다. 만료된 토큰은 자동으로 감지하여 새로운 토큰을 요청하고, 로그아웃 시에는 Google OAuth 토큰 폐기 API를 통해 토큰을 완전히 무효화합니다."
+    },
+    {
+      "datetime": "2023-06-16T16:00:00",
+      "topic": "코드 구조 개선",
+      "human": "코드가 복잡하고 이해하기 어렵습니다. 더 모듈화된 구조로 개선해주세요.",
+      "assistant": "코드 구조를 개선했습니다. 전역 상태 관리 객체를 도입하고, 기능별로 코드를 분리했습니다. 인증, UI 업데이트, 설정 관리 등의 기능을 독립적인 함수로 분리하여 유지보수성을 향상시켰습니다. 또한 주석과 에러 처리도 강화하여 코드의 가독성과 안정성을 높였습니다."
+    }
+  ],
+  "key_files": {
+    "manifest.json": "확장프로그램의 메타데이터와 권한 정의",
+    "background.js": "백그라운드 프로세스 및 이벤트 핸들러",
+    "popup.html/js": "사용자 인터페이스 및 상호작용",
+    "content.js": "웹페이지에 삽입되어 자막 기능 구현",
+    "lib/firebase-sdk.js": "인증 및 데이터 관리 기능"
+  },
+  "changes": [
+    {
+      "date": "2023-06-15",
+      "type": "fix",
+      "file": "manifest.json",
+      "description": "OAuth 클라이언트 ID 설정 수정"
+    },
+    {
+      "date": "2023-06-15",
+      "type": "improvement",
+      "file": "lib/firebase-sdk.js",
+      "description": "로그인 기능 개선 - Chrome Identity API 사용"
+    },
+    {
+      "date": "2023-06-15",
+      "type": "improvement",
+      "file": "lib/firebase-sdk.js",
+      "description": "로그아웃 기능 개선 - 토큰 폐기 및 캐시 제거"
+    },
+    {
+      "date": "2023-06-15",
+      "type": "branding",
+      "file": "manifest.json, popup.html",
+      "description": "'Whatsub'으로 브랜딩 통일"
+    },
+    {
+      "date": "2023-06-16",
+      "type": "feature",
+      "file": "content.js",
+      "description": "자막 표시 기능 개선"
+    },
+    {
+      "date": "2023-06-16",
+      "type": "improvement",
+      "file": "popup.html, popup.js",
+      "description": "UI/UX 개선 - 모던한 디자인 적용"
+    },
+    {
+      "date": "2023-06-16",
+      "type": "refactor",
+      "file": "background.js, popup.js",
+      "description": "코드 구조 개선 및 모듈화"
+    }
+  ],
+  "architecture": {
+    "background": "확장프로그램의 백그라운드 프로세스를 관리합니다. 인증 상태 유지, 메시지 핸들링, 토큰 관리 등을 담당",
+    "popup": "사용자 인터페이스와 설정을 제공. 로그인/로그아웃 기능, 자막 설정 등의 사용자 상호작용 처리",
+    "content": "웹페이지에 자막을 삽입하고 관리. 비디오 요소 감지, 자막 컨테이너 생성 및 위치 조정",
+    "lib": "인증 및 API 통신 기능을 제공. OAuth 처리, 토큰 관리, 외부 서비스 연동 등 담당"
+  },
+  "technologies": {
+    "frontend": "HTML, CSS, JavaScript",
+    "auth": "Google OAuth 2.0, Chrome Identity API",
+    "storage": "Chrome Storage API (local, sync)",
+    "api": "Chrome Extension API, Google API"
+  },
+  "current_status": {
+    "version": "0.2.2",
+    "completed_features": [
+      "OAuth 인증 및 로그인 개선",
+      "로그아웃 기능 완전 구현",
+      "UI 현대화",
+      "브랜딩 통일"
+    ],
+    "in_progress": [
+      "자막 기능 개선",
+      "다국어 지원"
+    ]
+  },
+  "future_plans": [
+    "다국어 자막 지원 개선",
+    "오프라인 모드 지원",
+    "자막 스타일 커스터마이징 강화",
+    "AI 기반 자동 번역 기능 추가",
+    "여러 동영상 플랫폼 지원 확대"
+  ]
+} 

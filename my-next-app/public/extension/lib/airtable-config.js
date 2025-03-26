@@ -1,9 +1,43 @@
-// Airtable API 설정
-// 2024년 2월 1일부터 API 키가 중단되고 개인 액세스 토큰(PAT)이 필요합니다.
-// 아래 토큰은 데모용이며, 실제 사용할 때는 유효한 개인 액세스 토큰으로 교체해야 합니다.
-export const AIRTABLE_API_KEY = 'patJmdg2U4d4DLnOZ.17e92f95f2e4ffd40bb9831ffe2d01ccd65fc9845ec9e9e4eb41458e6efdd03c';
-export const AIRTABLE_BASE_ID = 'appWxjlnNEJyNkCaI';
-export const AIRTABLE_USERS_TABLE_ID = 'tblUsers';
+/**
+ * Airtable 설정 파일
+ * Whatsub 확장 프로그램에서 사용하는 Airtable 연결 정보
+ */
+
+// Airtable API 키 (실제 환경에서는 안전하게 관리해야 함)
+export const AIRTABLE_API_KEY = 'key0123456789abcdef';
+
+// Airtable 베이스 ID
+export const AIRTABLE_BASE_ID = 'appWhatsub123456789';
+
+// Airtable 테이블 ID
+export const AIRTABLE_USERS_TABLE_ID = 'tblUsers123456789';
+export const AIRTABLE_USAGE_TABLE_ID = 'tblUsage123456789';
+export const AIRTABLE_SUBSCRIPTIONS_TABLE_ID = 'tblSubscriptions123456789';
+
+// 구독 플랜 설정
+export const SUBSCRIPTION_PLANS = {
+  free: {
+    name: '무료',
+    whisperLimit: 60, // 분 단위
+    translationLimit: 5000, // 글자 수
+    features: ['기본 자막', '기본 번역']
+  },
+  premium: {
+    name: '프리미엄',
+    whisperLimit: 300, // 분 단위
+    translationLimit: 100000, // 글자 수
+    features: ['고급 자막', '무제한 번역', '데이터 내보내기', '우선 지원']
+  },
+  enterprise: {
+    name: '기업용',
+    whisperLimit: 1000, // 분 단위
+    translationLimit: 1000000, // 글자 수
+    features: ['모든 프리미엄 기능', '커스텀 서비스', '전담 지원']
+  }
+};
+
+// Airtable API 기본 URL
+export const AIRTABLE_API_URL = 'https://api.airtable.com/v0';
 
 // 요청 헤더 설정
 export const getAirtableHeaders = () => ({
@@ -14,35 +48,6 @@ export const getAirtableHeaders = () => ({
 // API URL 생성
 export const getAirtableUrl = (tableId = AIRTABLE_USERS_TABLE_ID) => 
     `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tableId}`;
-
-// 구독 플랜 정보
-export const SUBSCRIPTION_PLANS = {
-    free: {
-        name: '무료',
-        whisperLimit: 60, // 분
-        translationLimit: 5000, // 자
-        features: [
-            '기본 자막 표시',
-            '유튜브 자막 표시',
-            '제한된 Whisper AI 기능',
-            '제한된 번역 기능'
-        ]
-    },
-    premium: {
-        name: '프리미엄',
-        whisperLimit: 600, // 분 (10시간)
-        translationLimit: 500000, // 자 (50만자)
-        features: [
-            '모든 무료 기능',
-            '무제한 자막 표시',
-            '고급 Whisper AI 기능',
-            '모든 언어 번역 지원',
-            '자막 파일 다운로드',
-            '자막 스타일 커스터마이징',
-            '미디어 싱크 조절'
-        ]
-    }
-};
 
 // 언어 옵션
 export const LANGUAGE_OPTIONS = [

@@ -1,0 +1,75 @@
+{
+  "project": "Whatsub - YouTube 자막 AI 번역 확장 프로그램",
+  "conversation_history": [
+    {
+      "role": "user",
+      "content": "Chrome Extension 개발 중인데 OAuth 인증 관련 401 invalid_client 오류가 발생합니다. 해결 방법을 알려주세요."
+    },
+    {
+      "role": "assistant",
+      "content": "manifest.json 파일의 OAuth 클라이언트 ID 설정을 확인하고, 오류 처리를 개선했습니다. 인증 로직을 개선하여 사용자 경험을 향상시켰습니다."
+    },
+    {
+      "role": "user",
+      "content": "사용자가 Google 계정 접근을 허용하지 않거나 Airtable API 인증에 실패하는 경우 처리가 필요합니다."
+    },
+    {
+      "role": "assistant",
+      "content": "background.js와 popup.js 파일에서 오류 처리를 개선했습니다. 특히 Airtable 오류가 발생해도 기본 기능이 작동하도록 변경했습니다."
+    },
+    {
+      "role": "user",
+      "content": "전부 에어테이블로 이전하고 firebase는 빼달라고 했는데 firebase sdk 기능은 달리 에어테이블에서 구현할 방법이 없어서 그걸 쓰는건가요?"
+    },
+    {
+      "role": "assistant",
+      "content": "맞습니다. Firebase SDK는 인증 기능을 제공하고, Airtable은 데이터 저장용입니다. Airtable만으로는 OAuth 인증 기능을 구현하기 어렵습니다."
+    },
+    {
+      "role": "user",
+      "content": "firebase sdk 서비스는 무료인가요? 사용량제한 없이 평생? 제가 그걸 계속 가지고 가도 문제 없을까요?"
+    },
+    {
+      "role": "assistant",
+      "content": "Firebase 무료 플랜(Spark)은 월 10,000명의 활성 사용자까지 무료이며, 구글 로그인과 같은 소셜 인증은 제한 없이 무료입니다. 장기적으로 봐도 인증 기능만 사용한다면 비용 효율적이고 안정적인 선택입니다."
+    }
+  ],
+  "project_status": {
+    "completed_tasks": [
+      "manifest.json의 OAuth 클라이언트 ID 및 key 필드 업데이트",
+      "firebase-sdk.js의 signInWithGoogle 함수 개선",
+      "background.js의 handleSignInWithGoogle 함수 오류 처리 강화",
+      "popup.js, popup.html, popup.css 파일 UI 및 오류 메시지 표시 개선",
+      "Airtable 연결 실패 시에도 기본 기능 작동 구현"
+    ],
+    "pending_tasks": [
+      "최종 테스트 및 배포",
+      "사용자 매뉴얼 작성",
+      "성능 최적화 검토"
+    ],
+    "key_files": {
+      "manifest.json": "확장 프로그램 설정 및 OAuth 구성",
+      "background.js": "백그라운드 스크립트 및 인증 처리",
+      "popup.js": "팝업 UI 및 사용자 상호작용",
+      "firebase-sdk.js": "Google OAuth 인증 처리",
+      "airtable-api.js": "Airtable 데이터 저장 및 조회"
+    }
+  },
+  "authentication": {
+    "firebase": {
+      "purpose": "사용자 인증 (Google OAuth)",
+      "status": "유지 (대체 어려움)",
+      "cost": "무료 (월 10,000명 활성 사용자까지)"
+    },
+    "airtable": {
+      "purpose": "사용자 데이터 저장 및 관리",
+      "status": "사용 중",
+      "limitations": "인증 기능 제공 불가"
+    }
+  },
+  "technical_decisions": {
+    "error_handling": "비치명적 오류(Airtable 연결 실패)는 경고로 처리하고 기본 기능 유지",
+    "authentication_flow": "Firebase SDK로 인증 후 사용자 정보 Airtable에 저장",
+    "ui_improvements": "사용자 친화적 오류 메시지 및 상태 표시 추가"
+  }
+} 

@@ -1,0 +1,8 @@
+[33mcommit 1f7177669cf31dfd59e714fa664bdc0eda0799aa[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
+Author: bzjay53 <bajay53@gmail.com>
+Date:   Fri Mar 21 17:52:51 2025 +0900
+
+    Add project documentation and OAuth authentication guide
+
+README.md
+oauth-authentication-guide.md

@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsUb 자막 테스트</title>
+  <style>
+    :root {
+      --primary-color: #5c6bc0;
+      --secondary-color: #8e99f3;
+      --background-color: #f5f5f5;
+      --text-color: #333;
+      --light-text: #666;
+      --darker-background: #e0e0e0;
+      --accent-color: #ff5252;
+      --success-color: #4caf50;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    
+    header {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    
+    h1 {
+      margin: 0;
+      font-size: 1.8rem;
+    }
+    
+    main {
+      flex: 1;
+      padding: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+    
+    .video-container {
+      position: relative;
+      padding-bottom: 56.25%; /* 16:9 */
+      height: 0;
+      overflow: hidden;
+      background-color: #000;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .video-container video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+    }
+    
+    .controls {
+      background-color: white;
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .control-group {
+      margin-bottom: 1.5rem;
+    }
+    
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+    
+    h2 {
+      color: var(--primary-color);
+      margin-top: 0;
+      margin-bottom: 1rem;
+      font-size: 1.3rem;
+      border-bottom: 2px solid var(--darker-background);
+      padding-bottom: 0.5rem;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+    
+    input[type="text"], 
+    textarea, 
+    select {
+      width: 100%;
+      padding: 0.7rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    button {
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 0.8rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+    
+    button:hover {
+      background-color: var(--secondary-color);
+    }
+    
+    .button-row {
+      display: flex;
+      gap: 1rem;
+    }
+    
+    .button-secondary {
+      background-color: var(--darker-background);
+      color: var(--text-color);
+    }
+    
+    .button-secondary:hover {
+      background-color: #ccc;
+    }
+    
+    .subtitle-container {
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-weight: bold;
+      text-align: center;
+      z-index: 100;
+      max-width: 80%;
+      min-width: 200px;
+      text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.8);
+    }
+    
+    .style-preview {
+      padding: 1rem;
+      background-color: #f0f0f0;
+      border-radius: 4px;
+      margin-top: 1rem;
+      text-align: center;
+    }
+    
+    .font-size-preview {
+      font-size: var(--preview-font-size, 20px);
+    }
+    
+    .color-preview {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      margin-left: 8px;
+      border: 1px solid #ccc;
+      vertical-align: middle;
+    }
+    
+    footer {
+      background-color: var(--primary-color);
+      color: white;
+      text-align: center;
+      padding: 1rem;
+      margin-top: 2rem;
+    }
+    
+    footer a {
+      color: white;
+      text-decoration: underline;
+    }
+    
+    .message {
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    
+    .message.success {
+      background-color: rgba(76, 175, 80, 0.2);
+      border: 1px solid var(--success-color);
+      color: #2e7d32;
+    }
+    
+    .message.error {
+      background-color: rgba(244, 67, 54, 0.2);
+      border: 1px solid var(--accent-color);
+      color: #c62828;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>WhatsUb 자막 테스트 페이지</h1>
+  </header>
+  
+  <main>
+    <div class="container">
+      <div id="message" class="message"></div>
+      
+      <div class="video-container">
+        <video id="test-video" controls crossorigin="anonymous">
+          <source src="https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+          귀하의 브라우저는 HTML5 비디오를 지원하지 않습니다.
+        </video>
+        <div id="subtitle-display" class="subtitle-container">자막이 여기에 표시됩니다</div>
+      </div>
+      
+      <div class="controls">
+        <div class="control-group">
+          <h2>자막 테스트</h2>
+          <label for="subtitle-text">자막 텍스트:</label>
+          <textarea id="subtitle-text" placeholder="여기에 표시할 자막 텍스트를 입력하세요...">WhatsUb 자막 테스트입니다. 이 텍스트가 비디오 위에 표시됩니다.</textarea>
+          
+          <div class="button-row" style="margin-top: 1rem;">
+            <button id="show-subtitle">자막 표시</button>
+            <button id="hide-subtitle" class="button-secondary">자막 숨기기</button>
+          </div>
+        </div>
+        
+        <div class="control-group">
+          <h2>자막 스타일 설정</h2>
+          
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 200px;">
+              <label for="font-size">글자 크기:</label>
+              <select id="font-size">
+                <option value="16px">작게</option>
+                <option value="20px" selected>보통</option>
+                <option value="24px">크게</option>
+                <option value="28px">매우 크게</option>
+              </select>
+            </div>
+            
+            <div style="flex: 1; min-width: 200px;">
+              <label for="text-color">글자 색상:</label>
+              <select id="text-color">
+                <option value="white" selected>흰색</option>
+                <option value="yellow">노란색</option>
+                <option value="#00ffff">청록색</option>
+                <option value="#ff9999">연분홍색</option>
+              </select>
+            </div>
+            
+            <div style="flex: 1; min-width: 200px;">
+              <label for="background-color">배경 색상:</label>
+              <select id="background-color">
+                <option value="rgba(0, 0, 0, 0.7)" selected>검정 (70% 투명)</option>
+                <option value="rgba(0, 0, 0, 0.9)">검정 (90% 투명)</option>
+                <option value="rgba(50, 50, 50, 0.8)">회색 (80% 투명)</option>
+                <option value="rgba(0, 0, 150, 0.7)">남색 (70% 투명)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div style="margin-top: 1rem;">
+            <label for="subtitle-position">자막 위치:</label>
+            <select id="subtitle-position">
+              <option value="bottom" selected>하단</option>
+              <option value="top">상단</option>
+              <option value="middle">중앙</option>
+            </select>
+          </div>
+          
+          <button id="apply-style" style="margin-top: 1rem;">스타일 적용</button>
+        </div>
+      </div>
+    </div>
+  </main>
+  
+  <footer>
+    <p>WhatsUb - 모든 비디오에 자막 서비스를 제공합니다.</p>
+  </footer>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // 요소 참조
+      const video = document.getElementById('test-video');
+      const subtitleDisplay = document.getElementById('subtitle-display');
+      const subtitleText = document.getElementById('subtitle-text');
+      const showSubtitleBtn = document.getElementById('show-subtitle');
+      const hideSubtitleBtn = document.getElementById('hide-subtitle');
+      const fontSizeSelect = document.getElementById('font-size');
+      const textColorSelect = document.getElementById('text-color');
+      const backgroundColorSelect = document.getElementById('background-color');
+      const subtitlePositionSelect = document.getElementById('subtitle-position');
+      const applyStyleBtn = document.getElementById('apply-style');
+      const messageElement = document.getElementById('message');
+      
+      // 초기화
+      subtitleDisplay.style.display = 'none';
+      
+      // 자막 표시 함수
+      function showSubtitle() {
+        subtitleDisplay.textContent = subtitleText.value || '샘플 자막 텍스트';
+        subtitleDisplay.style.display = 'block';
+        showMessage('자막이 표시되었습니다.', 'success', true);
+      }
+      
+      // 자막 숨기기 함수
+      function hideSubtitle() {
+        subtitleDisplay.style.display = 'none';
+        showMessage('자막이 숨겨졌습니다.', 'success', true);
+      }
+      
+      // 스타일 적용 함수
+      function applySubtitleStyle() {
+        const fontSize = fontSizeSelect.value;
+        const textColor = textColorSelect.value;
+        const backgroundColor = backgroundColorSelect.value;
+        const position = subtitlePositionSelect.value;
+        
+        subtitleDisplay.style.fontSize = fontSize;
+        subtitleDisplay.style.color = textColor;
+        subtitleDisplay.style.backgroundColor = backgroundColor;
+        
+        // 위치 설정
+        if (position === 'top') {
+          subtitleDisplay.style.bottom = 'auto';
+          subtitleDisplay.style.top = '60px';
+        } else if (position === 'middle') {
+          subtitleDisplay.style.bottom = 'auto';
+          subtitleDisplay.style.top = '50%';
+          subtitleDisplay.style.transform = 'translate(-50%, -50%)';
+        } else { // bottom
+          subtitleDisplay.style.bottom = '60px';
+          subtitleDisplay.style.top = 'auto';
+          subtitleDisplay.style.transform = 'translateX(-50%)';
+        }
+        
+        // 저장 및 확장 프로그램에 알림
+        const subtitleStyle = {
+          fontSize: fontSize,
+          textColor: textColor,
+          backgroundColor: backgroundColor,
+          position: position
+        };
+        
+        // 스토리지에 저장 시도
+        try {
+          chrome.storage.sync.set({ subtitleStyle: subtitleStyle }, function() {
+            showMessage('자막 스타일이 저장되었습니다.', 'success', true);
+          });
+        } catch (error) {
+          // 브라우저 확장이 아닌 경우는 로컬 스토리지 사용
+          localStorage.setItem('subtitleStyle', JSON.stringify(subtitleStyle));
+          showMessage('자막 스타일이 적용되었습니다.', 'success', true);
+        }
+      }
+      
+      // 메시지 표시 함수
+      function showMessage(text, type, autoHide = false) {
+        messageElement.textContent = text;
+        messageElement.className = 'message ' + (type || 'info');
+        messageElement.style.display = 'block';
+        
+        if (autoHide) {
+          setTimeout(() => {
+            messageElement.style.display = 'none';
+          }, 3000);
+        }
+      }
+      
+      // 이벤트 리스너
+      showSubtitleBtn.addEventListener('click', showSubtitle);
+      hideSubtitleBtn.addEventListener('click', hideSubtitle);
+      applyStyleBtn.addEventListener('click', applySubtitleStyle);
+      
+      // 비디오 이벤트
+      video.addEventListener('play', function() {
+        console.log('비디오 재생 시작');
+      });
+      
+      video.addEventListener('pause', function() {
+        console.log('비디오 일시정지');
+      });
+      
+      // 저장된 스타일 불러오기
+      try {
+        chrome.storage.sync.get(['subtitleStyle'], function(result) {
+          if (result.subtitleStyle) {
+            const style = result.subtitleStyle;
+            
+            if (style.fontSize && fontSizeSelect) {
+              fontSizeSelect.value = style.fontSize;
+            }
+            
+            if (style.textColor && textColorSelect) {
+              textColorSelect.value = style.textColor;
+            }
+            
+            if (style.backgroundColor && backgroundColorSelect) {
+              backgroundColorSelect.value = style.backgroundColor;
+            }
+            
+            if (style.position && subtitlePositionSelect) {
+              subtitlePositionSelect.value = style.position;
+            }
+            
+            // 불러온 스타일 즉시 적용
+            applySubtitleStyle();
+          }
+        });
+      } catch (error) {
+        // 브라우저 확장이 아닌 경우
+        try {
+          const savedStyle = localStorage.getItem('subtitleStyle');
+          if (savedStyle) {
+            const style = JSON.parse(savedStyle);
+            
+            if (style.fontSize && fontSizeSelect) {
+              fontSizeSelect.value = style.fontSize;
+            }
+            
+            if (style.textColor && textColorSelect) {
+              textColorSelect.value = style.textColor;
+            }
+            
+            if (style.backgroundColor && backgroundColorSelect) {
+              backgroundColorSelect.value = style.backgroundColor;
+            }
+            
+            if (style.position && subtitlePositionSelect) {
+              subtitlePositionSelect.value = style.position;
+            }
+            
+            // 불러온 스타일 즉시 적용
+            applySubtitleStyle();
+          }
+        } catch (e) {
+          console.error('저장된 스타일을 불러오는데 실패했습니다:', e);
+        }
+      }
+    });
+  </script>
+</body>
+</html> 

@@ -1,0 +1,780 @@
+/**
+ * content.css
+ * Whatsub 자막 및 콘텐츠 스크립트용 스타일
+ */
+
+/* 자막 컨테이너 기본 스타일 */
+#whatsub-subtitle-container {
+    font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    padding: 10px 15px;
+    border-radius: 5px;
+    user-select: none;
+    max-width: 80%;
+    text-align: center;
+    line-height: 1.5;
+    transition: opacity 0.3s ease;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    z-index: 2147483647; /* 최상위 z-index */
+    pointer-events: auto !important; /* 드래그 가능하도록 */
+}
+
+/* 자막 텍스트 하이라이트 효과 방지 */
+#whatsub-subtitle-container::selection {
+    background: transparent;
+}
+
+/* 드래그 모드에서의 스타일 */
+#whatsub-subtitle-container.dragging {
+    opacity: 0.8;
+    cursor: move;
+}
+
+/* 아웃라인 스타일 (옵션) */
+#whatsub-subtitle-container.with-outline {
+    text-shadow: 
+       -1px -1px 0 #000,  
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+         1px 1px 0 #000;
+}
+
+/* 자막 컨트롤 패널 */
+#whatsub-controls {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: rgba(0, 0, 0, 0.75);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 2147483646;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#whatsub-controls.hidden {
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+}
+
+/* 컨트롤 버튼 */
+.whatsub-control-button {
+    background-color: rgba(92, 107, 192, 0.9);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+}
+
+.whatsub-control-button:hover {
+    background-color: rgba(92, 107, 192, 1);
+}
+
+.whatsub-control-button.active {
+    background-color: rgba(76, 175, 80, 0.9);
+}
+
+/* 컨트롤 버튼 아이콘 */
+.whatsub-control-button svg {
+    margin-right: 5px;
+    width: 14px;
+    height: 14px;
+}
+
+/* 알림 메시지 */
+#whatsub-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: rgba(76, 175, 80, 0.9);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 2147483647;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#whatsub-notification.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+#whatsub-notification.error {
+    background-color: rgba(244, 67, 54, 0.9);
+}
+
+/* 로딩 인디케이터 */
+#whatsub-loading {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    z-index: 2147483646;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+#whatsub-loading.show {
+    opacity: 1;
+}
+
+#whatsub-loading .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    margin-right: 8px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 사이트별 특수 스타일 오버라이드 */
+.youtube-player #whatsub-subtitle-container {
+    bottom: 100px !important; /* 유튜브 컨트롤 위에 위치 */
+}
+
+.netflix-player #whatsub-subtitle-container {
+    bottom: 120px !important; /* 넷플릭스 컨트롤 위에 위치 */
+}
+
+/* WhatSub 콘텐츠 스타일 */
+
+/* 자막 컨테이너 스타일 */
+.whatsub-container {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647; /* 최대 z-index 값으로 설정 */
+  text-align: center;
+  padding: 12px 24px;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  font-family: 'Arial', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.5;
+  max-width: 85%;
+  text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.9);
+  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease;
+  pointer-events: none;
+  user-select: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 300px; /* 최소 너비 설정 */
+  min-height: 50px; /* 최소 높이 설정 */
+}
+
+/* 자막 텍스트 스타일 */
+.whatsub-text {
+  white-space: pre-line;
+  overflow-wrap: break-word;
+  margin: 0;
+  padding: 4px;
+}
+
+/* 드래그 가능한 자막 컨테이너 */
+.whatsub-container.draggable {
+  cursor: move;
+  pointer-events: all;
+}
+
+/* 좋아요, 싫어요, 추천 버튼 컨테이너 */
+.whatsub-interaction-buttons {
+  position: fixed;
+  bottom: 160px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483646; /* 최대 z-index - 1 */
+  background-color: rgba(0, 0, 0, 0.8);
+  border-radius: 50px;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* 상호작용 버튼 스타일 */
+.whatsub-interaction-button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.whatsub-interaction-button:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+  transform: scale(1.2);
+}
+
+.whatsub-interaction-button.active {
+  background-color: rgba(66, 133, 244, 0.7);
+}
+
+/* 각 버튼별 스타일 */
+.whatsub-interaction-button.like-button.active {
+  background-color: rgba(76, 175, 80, 0.7);
+}
+
+.whatsub-interaction-button.dislike-button.active {
+  background-color: rgba(244, 67, 54, 0.7);
+}
+
+.whatsub-interaction-button.recommend-button.active {
+  background-color: rgba(255, 193, 7, 0.7);
+}
+
+/* 컨트롤 패널 */
+.whatsub-controls {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483645; /* 최대 z-index - 2 */
+  background-color: rgba(0, 0, 0, 0.85);
+  border-radius: 50px;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.whatsub-controls.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 컨트롤 버튼 */
+.whatsub-control-button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.whatsub-control-button:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+  transform: scale(1.2);
+}
+
+/* 페이드 애니메이션 - 더 빠르게 수정 */
+.fade-in {
+  animation: fadeIn 0.2s forwards;
+}
+
+.fade-out {
+  animation: fadeOut 0.5s forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+  }
+}
+
+/* 댓글 컨테이너 */
+.whatsub-comments-container {
+  position: fixed;
+  top: 80px;
+  right: 0;
+  width: 100%;
+  height: calc(100% - 200px);
+  z-index: 2147483644; /* 최대 z-index - 3 */
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* 단일 댓글 아이템 */
+.whatsub-comment {
+  position: absolute;
+  right: -100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 6px 16px;
+  border-radius: 50px;
+  font-family: 'Arial', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  animation: comment-slide 8s linear forwards;
+  transition: top 0.3s ease-out;
+  pointer-events: none;
+  user-select: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 커스텀 자막 스타일 */
+.whatsub-container.outline-white {
+  text-shadow: 
+    -1px -1px 0 white,
+    1px -1px 0 white,
+    -1px 1px 0 white,
+    1px 1px 0 white;
+  color: black;
+}
+
+.whatsub-container.large-text {
+  font-size: 28px;
+}
+
+.whatsub-container.small-text {
+  font-size: 18px;
+}
+
+/* 자막 언어 선택기 컨테이너 */
+.whatsub-language-selector {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  z-index: 2147483646; /* 최대 z-index - 1 */
+  background-color: rgba(42, 42, 42, 0.95);
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  max-height: 300px;
+  overflow-y: auto;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* 언어 선택기 숨김 상태 */
+.whatsub-language-selector.hidden {
+  transform: translateY(20px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 언어 선택 항목 */
+.whatsub-language-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  margin-bottom: 5px;
+  font-family: 'Arial', sans-serif;
+  font-size: 14px;
+  color: white;
+  transition: background-color 0.2s ease;
+}
+
+.whatsub-language-item:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.whatsub-language-item.selected {
+  background-color: rgba(66, 133, 244, 0.7);
+  color: white;
+  font-weight: bold;
+}
+
+/* 댓글 애니메이션 */
+@keyframes comment-slide {
+  0% {
+    right: -100%;
+  }
+  100% {
+    right: 100%;
+  }
+}
+
+/* 모달 공유 대화상자 */
+.whatsub-share-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2147483647; /* 최대 z-index */
+  background-color: rgba(32, 32, 32, 0.95);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0px 8px 30px rgba(0, 0, 0, 0.4);
+  width: 500px;
+  max-width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.whatsub-share-modal.hidden {
+  opacity: 0;
+  transform: translate(-50%, -40%);
+  pointer-events: none;
+}
+
+.whatsub-share-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.whatsub-share-modal-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+}
+
+.whatsub-share-modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #ccc;
+}
+
+.whatsub-share-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.whatsub-share-input {
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  font-size: 14px;
+  color: white;
+}
+
+.whatsub-share-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.whatsub-share-button {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.whatsub-share-button:hover {
+  transform: translateY(-2px);
+}
+
+.whatsub-share-button.primary {
+  background-color: rgba(66, 133, 244, 0.9);
+  color: white;
+}
+
+.whatsub-share-button.secondary {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+/* 모달 배경 오버레이 */
+.whatsub-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 2147483646; /* 최대 z-index - 1 */
+  transition: opacity 0.3s ease;
+}
+
+.whatsub-modal-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .whatsub-container {
+    font-size: 18px;
+    padding: 10px 18px;
+    bottom: 120px;
+    min-width: 250px;
+  }
+  
+  .whatsub-controls {
+    padding: 8px 14px;
+    bottom: 20px;
+    gap: 12px;
+  }
+  
+  .whatsub-control-button {
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+  }
+  
+  .whatsub-language-selector {
+    bottom: 15px;
+    right: 15px;
+    max-height: 250px;
+  }
+  
+  .whatsub-interaction-buttons {
+    bottom: 180px;
+    padding: 8px 14px;
+    gap: 12px;
+  }
+  
+  .whatsub-interaction-button {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+}
+
+/**
+ * WhatsUb 콘텐츠 스타일
+ * 자막 및 UI 요소의 스타일을 정의합니다.
+ */
+
+/* 공통 스타일 */
+.whatsub-element {
+  font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+
+/* 자막 컨테이너 */
+.whatsub-subtitle-container {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+  z-index: 999999;
+  max-width: 80%;
+  min-width: 200px;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.8);
+  user-select: none;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+/* 위치 변형 (상단) */
+.whatsub-subtitle-container.top {
+  bottom: auto;
+  top: 60px;
+}
+
+/* 위치 변형 (중앙) */
+.whatsub-subtitle-container.middle {
+  bottom: auto;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* 테마 - 어두운 배경 (기본값) */
+.whatsub-subtitle-container.theme-dark {
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+}
+
+/* 테마 - 밝은 배경 */
+.whatsub-subtitle-container.theme-light {
+  background-color: rgba(255, 255, 255, 0.7);
+  color: black;
+  text-shadow: none;
+}
+
+/* 테마 - 반투명 파란색 */
+.whatsub-subtitle-container.theme-blue {
+  background-color: rgba(0, 80, 170, 0.7);
+  color: white;
+}
+
+/* 테마 - 반투명 노란색 */
+.whatsub-subtitle-container.theme-yellow {
+  background-color: rgba(255, 204, 0, 0.7);
+  color: black;
+  text-shadow: none;
+}
+
+/* 글자 크기 - 작게 */
+.whatsub-subtitle-container.size-small {
+  font-size: 16px;
+  padding: 6px 12px;
+}
+
+/* 글자 크기 - 보통 */
+.whatsub-subtitle-container.size-medium {
+  font-size: 20px;
+  padding: 8px 16px;
+}
+
+/* 글자 크기 - 크게 */
+.whatsub-subtitle-container.size-large {
+  font-size: 24px;
+  padding: 10px 20px;
+}
+
+/* 글자 크기 - 매우 크게 */
+.whatsub-subtitle-container.size-xlarge {
+  font-size: 28px;
+  padding: 12px 24px;
+}
+
+/* 자막 컨트롤 패널 */
+.whatsub-controls {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 8px;
+  border-radius: 4px;
+  display: flex;
+  gap: 8px;
+  z-index: 999999;
+}
+
+/* 컨트롤 패널 버튼 */
+.whatsub-controls button {
+  background-color: #5c6bc0;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.whatsub-controls button:hover {
+  background-color: #8e99f3;
+}
+
+/* 드래그 가능한 자막 */
+.whatsub-subtitle-container.draggable {
+  cursor: move;
+  user-select: none;
+  pointer-events: auto;
+}
+
+/* 유튜브 특정 스타일 조정 */
+.html5-video-container .whatsub-subtitle-container {
+  bottom: 80px;
+}
+
+/* 넷플릭스 특정 스타일 조정 */
+.netflix-player .whatsub-subtitle-container {
+  bottom: 100px;
+}
+
+/* 모바일 디바이스 반응형 조정 */
+@media screen and (max-width: 768px) {
+  .whatsub-subtitle-container {
+    font-size: 16px;
+    padding: 6px 12px;
+    min-width: auto;
+    width: 90%;
+  }
+  
+  .whatsub-controls {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* 자막 투명도 조정 */
+.whatsub-subtitle-container.opacity-low {
+  opacity: 0.7;
+}
+
+.whatsub-subtitle-container.opacity-medium {
+  opacity: 0.85;
+}
+
+.whatsub-subtitle-container.opacity-high {
+  opacity: 1;
+}
+
+/* 자막 윤곽선 */
+.whatsub-subtitle-container.with-outline {
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+}
+
+/* 애니메이션 효과 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.whatsub-subtitle-container.animated {
+  animation: fadeIn 0.3s ease;
+} 

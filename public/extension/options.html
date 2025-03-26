@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whatsub 설정</title>
+  <style>
+    /* 기본 스타일 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+
+    body {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f9f9f9;
+      color: #333;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* 헤더 스타일 */
+    .header {
+      background-color: #5c6bc0;
+      color: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .header .logo {
+      width: 48px;
+      height: 48px;
+      margin-right: 15px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    /* 설정 카드 스타일 */
+    .settings-card {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .settings-card h2 {
+      font-size: 18px;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+      color: #444;
+    }
+
+    /* 설정 행 스타일 */
+    .settings-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #f5f5f5;
+    }
+
+    .settings-row:last-child {
+      border-bottom: none;
+    }
+
+    .settings-label {
+      flex: 1;
+      min-width: 250px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .settings-description {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+      max-width: 400px;
+    }
+
+    .settings-control {
+      flex: 1;
+      min-width: 250px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* 폼 요소 스타일 */
+    input[type="text"],
+    input[type="password"],
+    input[type="number"],
+    input[type="email"],
+    select,
+    textarea {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    input[type="checkbox"],
+    input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
+    }
+
+    /* 컬러 선택 입력 */
+    .color-input-container {
+      display: flex;
+      align-items: center;
+      max-width: 300px;
+      width: 100%;
+    }
+
+    .color-preview {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      margin-right: 10px;
+      border: 1px solid #ddd;
+    }
+
+    /* 버튼 스타일 */
+    .buttons-container {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 14px;
+      transition: background-color 0.2s ease;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    button.primary {
+      background-color: #5c6bc0;
+      color: white;
+    }
+
+    button.primary:hover {
+      background-color: #4a59b8;
+    }
+
+    button.secondary {
+      background-color: #f5f5f5;
+      color: #333;
+    }
+
+    button.secondary:hover {
+      background-color: #e5e5e5;
+    }
+
+    button.danger {
+      background-color: #f44336;
+      color: white;
+    }
+
+    button.danger:hover {
+      background-color: #e53935;
+    }
+
+    /* 토글 스위치 */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 48px;
+      height: 24px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .3s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #5c6bc0;
+    }
+
+    input:focus + .slider {
+      box-shadow: 0 0 1px #5c6bc0;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(24px);
+    }
+
+    /* 알림 메시지 */
+    .alert {
+      padding: 12px 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      font-weight: 500;
+      display: none;
+    }
+
+    .alert.success {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+      border-left: 4px solid #4caf50;
+      display: block;
+    }
+
+    .alert.error {
+      background-color: #ffebee;
+      color: #c62828;
+      border-left: 4px solid #f44336;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="icons/icon48.png" alt="Whatsub 로고" class="logo">
+    <h1>Whatsub 설정</h1>
+  </div>
+
+  <div id="message-container" class="alert"></div>
+
+  <!-- 자막 설정 -->
+  <div class="settings-card">
+    <h2>자막 설정</h2>
+    <div class="settings-row">
+      <div class="settings-label">
+        자막 활성화
+        <div class="settings-description">자막 표시 여부를 설정합니다</div>
+      </div>
+      <div class="settings-control">
+        <label class="toggle-switch">
+          <input type="checkbox" id="subtitle-enabled" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">
+        글꼴 크기
+        <div class="settings-description">자막 텍스트의 크기를 설정합니다</div>
+      </div>
+      <div class="settings-control">
+        <select id="font-size">
+          <option value="16px">작게</option>
+          <option value="20px" selected>보통</option>
+          <option value="24px">크게</option>
+          <option value="28px">매우 크게</option>
+        </select>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">
+        텍스트 색상
+        <div class="settings-description">자막 텍스트의 색상을 설정합니다</div>
+      </div>
+      <div class="settings-control">
+        <div class="color-input-container">
+          <div class="color-preview" id="text-color-preview"></div>
+          <select id="text-color">
+            <option value="#ffffff" selected>흰색</option>
+            <option value="#ffff00">노란색</option>
+            <option value="#00ffff">청록색</option>
+            <option value="#ff00ff">분홍색</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">
+        배경 색상
+        <div class="settings-description">자막 배경의 색상과 투명도를 설정합니다</div>
+      </div>
+      <div class="settings-control">
+        <div class="color-input-container">
+          <div class="color-preview" id="bg-color-preview"></div>
+          <select id="background-color">
+            <option value="rgba(0, 0, 0, 0.75)" selected>검정 (75%)</option>
+            <option value="rgba(0, 0, 0, 0.5)">검정 (50%)</option>
+            <option value="rgba(0, 0, 0, 0)">투명</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">
+        자막 위치
+        <div class="settings-description">자막이 표시될 위치를 설정합니다</div>
+      </div>
+      <div class="settings-control">
+        <select id="subtitle-position">
+          <option value="bottom" selected>아래</option>
+          <option value="top">위</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- API 키 설정 -->
+  <div class="settings-card">
+    <h2>API 키 설정</h2>
+    <div class="settings-row">
+      <div class="settings-label">
+        OpenAI API 키 (옵션)
+        <div class="settings-description">고급 기능을 사용하려면 OpenAI API 키를 입력하세요</div>
+      </div>
+      <div class="settings-control">
+        <input type="password" id="openai-api-key" placeholder="sk-..." autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <!-- 일반 설정 -->
+  <div class="settings-card">
+    <h2>일반 설정</h2>
+    <div class="settings-row">
+      <div class="settings-label">
+        자동 시작
+        <div class="settings-description">페이지 로드 시 자막을 자동으로 활성화합니다</div>
+      </div>
+      <div class="settings-control">
+        <label class="toggle-switch">
+          <input type="checkbox" id="auto-start" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">
+        데이터 사용량
+        <div class="settings-description">음성 인식 시 데이터 사용량을 제한합니다</div>
+      </div>
+      <div class="settings-control">
+        <select id="data-usage">
+          <option value="low">저용량 (낮은 품질)</option>
+          <option value="medium" selected>중간 (권장)</option>
+          <option value="high">고용량 (높은 품질)</option>
+        </select>
+      </div>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">
+        음성 인식 언어
+        <div class="settings-description">음성 인식에 사용할 기본 언어를 설정합니다</div>
+      </div>
+      <div class="settings-control">
+        <select id="speech-language">
+          <option value="ko-KR" selected>한국어</option>
+          <option value="en-US">영어 (미국)</option>
+          <option value="ja-JP">일본어</option>
+          <option value="zh-CN">중국어 (간체)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 버튼 컨테이너 -->
+  <div class="buttons-container">
+    <button id="reset-button" class="secondary">기본값으로 재설정</button>
+    <button id="save-button" class="primary">저장</button>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html> 

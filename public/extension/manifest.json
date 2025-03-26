@@ -17,7 +17,8 @@
     "identity",
     "scripting",
     "tabCapture",
-    "clipboardWrite"
+    "clipboardWrite",
+    "audioCapture"
   ],
   "oauth2": {
     "client_id": "728246104827-bt0fu7f10ft3e1v29ue1d9o9qeo8r42t.apps.googleusercontent.com",
@@ -42,15 +43,23 @@
       "128": "icons/icon128.png"
     }
   },
+  "options_page": "options.html",
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["https://*/*", "http://*/*"],
-      "js": ["content-script.js"],
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js", "force-subtitle.js"],
       "css": ["styles/content.css"],
-      "run_at": "document_end"
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-scripts/subtitle-content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ],
   "web_accessible_resources": [
@@ -59,6 +68,9 @@
         "popup.html",
         "content.js",
         "content-script.js",
+        "force-subtitle.js",
+        "content-scripts/*.js",
+        "inject-subtitle.js",
         "styles/*.css",
         "icons/*",
         "images/*",
@@ -67,9 +79,10 @@
         "firebase-config.js",
         "audio-worklet/*.js",
         "lib/*.js",
-        "readme.md"
+        "readme.md",
+        "test-subtitle.html"
       ],
-      "matches": ["https://*/*", "http://*/*"]
+      "matches": ["<all_urls>"]
     }
   ],
   "commands": {
@@ -86,6 +99,13 @@
         "mac": "Command+Shift+P"
       },
       "description": "자막 위치 초기화"
+    },
+    "toggle-speech-recognition": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+R",
+        "mac": "Command+Shift+R"
+      },
+      "description": "음성 인식 시작/중지"
     }
   },
   "content_security_policy": {

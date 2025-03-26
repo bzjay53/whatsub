@@ -103,4 +103,25 @@ my-next-app/public/extension/
 
 ## 연락처
 
-문의사항이 있으시면 [example@whatsub.com](mailto:example@whatsub.com)로 연락주세요. 
+문의사항이 있으시면 [example@whatsub.com](mailto:example@whatsub.com)로 연락주세요.
+
+## Firebase 구성 설정
+
+이 프로젝트를 실행하려면 Firebase 구성이 필요합니다:
+
+1. `public/extension/firebase-config-private.js` 파일을 생성합니다.
+2. 다음 형식으로 Firebase 구성을 추가합니다:
+
+```javascript
+export const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID",
+  measurementId: "YOUR_MEASUREMENT_ID"
+};
+```
+
+3. 이 파일은 `.gitignore`에 자동으로 포함되어 있으므로 공개 저장소에 업로드되지 않습니다. 
