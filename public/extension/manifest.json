@@ -2,13 +2,13 @@
   "manifest_version": 3,
   "name": "Whatsub",
   "version": "0.2.2",
-  "description": "YouTube 동영상을 위한 자막 관리 도구",
+  "description": "모든 웹 비디오를 위한 자막 관리 및 번역 도구",
   "author": "contact@whatsub.io",
   "icons": {
-    "16": "icons/icon16.png",
-    "32": "icons/icon32.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   },
   "permissions": [
     "storage",
@@ -19,6 +19,10 @@
     "clipboardWrite",
     "notifications"
   ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
   "oauth2": {
     "client_id": "1060430808730-ic272t33ti0dje3ig6q3ge5l8895fq6n.apps.googleusercontent.com",
     "scopes": [
@@ -26,17 +30,13 @@
       "https://www.googleapis.com/auth/userinfo.profile"
     ]
   },
-  "host_permissions": [
-    "https://*/*",
-    "http://*/*"
-  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icons/icon16.png",
-      "32": "icons/icon32.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
     }
   },
   "background": {
@@ -46,25 +46,16 @@
     {
       "matches": ["https://*/*", "http://*/*"],
       "js": ["content-script.js"],
-      "css": ["styles/content.css"],
-      "run_at": "document_end"
+      "css": ["styles.css"],
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
       "resources": [
-        "popup.html",
-        "content.js",
-        "content-script.js",
-        "styles/*.css",
+        "styles.css",
         "icons/*",
-        "images/*",
-        "processors/*.js",
-        "firebase-sdk.js",
-        "firebase-config.js",
-        "audio-worklet/*.js",
-        "lib/*.js",
-        "readme.md"
+        "images/*"
       ],
       "matches": ["https://*/*", "http://*/*"]
     }

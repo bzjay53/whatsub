@@ -14,44 +14,60 @@ const state = {
  * background.js로 메시지를 전송하고 응답을 받는 함수
  */
 async function sendMessage(action, data = {}) {
-  return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      console.warn(`[Whatsub] 메시지 응답 타임아웃: ${action}`);
-      resolve({ success: false, error: 'timeout', errorType: 'timeout' });
-    }, 5000); // 5초 타임아웃
-
-    try {
-      chrome.runtime.sendMessage(
-        { action, ...data },
-        (response) => {
-          clearTimeout(timeoutId);
-          
-          if (chrome.runtime.lastError) {
-            console.error(`[Whatsub] 메시지 전송 오류 (${action}):`, chrome.runtime.lastError);
-            resolve({ 
-              success: false, 
-              error: chrome.runtime.lastError.message, 
-              errorType: 'runtime_error',
-              fallback: true 
-            });
-            return;
-          }
-          
-          resolve(response || { success: true });
-        }
-      );
-    } catch (error) {
-      clearTimeout(timeoutId);
-      console.error(`[Whatsub] 메시지 전송 예외 (${action}):`, error);
-      resolve({ 
-        success: false, 
-        error: error.message, 
-        errorType: 'exception',
-        fallback: true 
-      });
-    }
-  });
+  try {
+    console.log(`sendMessage 호출: ${action}`, data);
+    
+    // 5초 타임아웃으로 메시지 전송
+    const response = await Promise.race([
+      new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action, ...data }, (result) => {
+          console.log(`sendMessage 응답: ${action}`, result);
+          resolve(result);
+        });
+      }),
+      new Promise((resolve) => {
+        setTimeout(() => {
+          console.warn(`sendMessage 타임아웃: ${action}`);
+          resolve({ success: false, error: 'timeout' });
+        }, 5000);
+      })
+    ]);
+    
+    return response;
+  } catch (error) {
+    console.error(`sendMessage 오류: ${action}`, error);
+    return { success: false, error: error.message || '알 수 없는 오류' };
+  }
 }
+
+// 메시지 핸들러 등록 (팝업에서 메시지 수신)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('팝업에서 메시지 수신:', message.action);
+  
+  try {
+    switch (message.action) {
+      case 'openPopup':
+        // 특정 탭으로 이동 요청
+        if (message.tab) {
+          // 탭 전환
+          switchTab(message.tab);
+          sendResponse({ success: true });
+        }
+        break;
+        
+      // 다른 메시지 처리 추가 가능
+      
+      default:
+        console.warn('알 수 없는 메시지 액션:', message.action);
+        sendResponse({ success: false, error: '알 수 없는 메시지 액션' });
+    }
+  } catch (error) {
+    console.error('메시지 처리 오류:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+  
+  return true; // 비동기 응답 처리
+});
 
 // Whatsub 팝업 초기화 함수
 function initializePopup() {
