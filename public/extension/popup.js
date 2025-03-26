@@ -122,6 +122,22 @@ function initializePopup() {
       });
     }
     
+    // 메인 탭의 이중 자막 토글 이벤트 리스너 추가
+    const dualSubtitleMainToggle = document.getElementById('dual-subtitle-main');
+    if (dualSubtitleMainToggle) {
+      dualSubtitleMainToggle.addEventListener('change', function(e) {
+        toggleDualSubtitles(e.target.checked);
+      });
+    }
+    
+    // 설정 탭의 이중 자막 토글 이벤트 리스너 추가
+    const dualSubtitleToggle = document.getElementById('dual-subtitle');
+    if (dualSubtitleToggle) {
+      dualSubtitleToggle.addEventListener('change', function(e) {
+        toggleDualSubtitles(e.target.checked);
+      });
+    }
+    
     // 자막 설정 저장 버튼 이벤트 리스너
     const saveSettingsBtn = document.getElementById('save-settings');
     const saveSettings2Btn = document.getElementById('save-settings-2');
@@ -289,6 +305,10 @@ async function saveSubtitleSettings() {
     const background = document.getElementById('background-opacity').value;
     const dualSubtitles = document.getElementById('dual-subtitle').checked;
     
+    // 메인 탭의 이중 자막 설정 동기화
+    const dualSubtitleMain = document.getElementById('dual-subtitle-main');
+    if (dualSubtitleMain) dualSubtitleMain.checked = dualSubtitles;
+    
     // 설정 객체 생성
     const settings = {
       position: captionPosition,
@@ -298,12 +318,17 @@ async function saveSubtitleSettings() {
     };
     
     // 백그라운드 스크립트로 메시지 전송 (background.js가 다시 content script로 메시지 전달)
-    await sendMessage('updateSettings', { settings });
+    const response = await sendMessage('updateSettings', { settings });
     
     // 로컬 스토리지에 설정 저장
     chrome.storage.sync.set({ subtitleSettings: settings });
     
-    showMessage('자막 설정이 저장되었습니다.', 'success');
+    if (response && response.success) {
+      showMessage('자막 설정이 저장되었습니다.', 'success');
+    } else {
+      console.warn('자막 설정 저장 응답 문제:', response);
+      showMessage('자막 설정이 저장되었지만, 현재 탭에 적용하지 못했습니다.', 'warning');
+    }
   } catch (error) {
     console.error('자막 설정 저장 중 오류 발생:', error);
     showMessage('설정 저장 중 오류가 발생했습니다.', 'error');
@@ -332,6 +357,7 @@ function loadSubtitleSettings() {
       const fontSize = document.getElementById('font-size');
       const backgroundOpacity = document.getElementById('background-opacity');
       const dualSubtitle = document.getElementById('dual-subtitle');
+      const dualSubtitleMain = document.getElementById('dual-subtitle-main');
       
       if (captionPosition && data.subtitleSettings.position) {
         captionPosition.value = data.subtitleSettings.position;
@@ -345,15 +371,35 @@ function loadSubtitleSettings() {
         backgroundOpacity.value = data.subtitleSettings.background;
       }
       
+      // 이중 자막 설정 동기화
+      const isDualMode = data.subtitleSettings.dualSubtitles !== false;
       if (dualSubtitle) {
-        dualSubtitle.checked = data.subtitleSettings.dualSubtitles !== false;
+        dualSubtitle.checked = isDualMode;
+      }
+      if (dualSubtitleMain) {
+        dualSubtitleMain.checked = isDualMode;
       }
     }
     
-    // 초기 상태에서 자막이 활성화되어 있다면 자막 서비스 시작
+    // 초기 상태에서 자막이 활성화되어 있다면 자막 서비스 강제 시작
     if (data.subtitleEnabled === true) {
+      console.log('자막 자동 활성화 시도');
       chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
         if (tabs && tabs.length > 0) {
+          // 먼저 콘텐츠 스크립트 직접 호출 시도
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: 'toggleSubtitles',
+            enabled: true
+          }).catch(() => {
+            console.log('직접 호출 실패, 백그라운드 경유 시도');
+            // 실패 시 백그라운드 통해 전달
+            sendMessage('toggleSubtitleFilter', {
+              enabled: true,
+              tabId: tabs[0].id
+            });
+          });
+          
+          // 음성 인식 시작
           sendMessage('startSpeechRecognition', { 
             tabId: tabs[0].id,
             useWhisper: true,
@@ -456,6 +502,15 @@ async function handleGoogleSignIn() {
     showLoading();
     showMessage('로그인 중...', 'info');
     
+    // 사용자 정보 일시적 초기화
+    const userNameEl = document.getElementById('user-name');
+    const userEmailEl = document.getElementById('user-email');
+    const userAvatarEl = document.getElementById('user-avatar');
+    
+    if (userNameEl) userNameEl.textContent = '';
+    if (userEmailEl) userEmailEl.textContent = '';
+    if (userAvatarEl) userAvatarEl.src = 'icons/default-avatar.png';
+    
     // 백그라운드 서비스에 로그인 요청
     const response = await sendMessage('signInWithGoogle');
     
@@ -481,8 +536,8 @@ async function handleGoogleSignIn() {
         };
       }
       
-      // 사용자 정보 표시
-      updateAuthState();
+      // 즉시 사용자 정보 업데이트
+      updateUserInfoImmediate(response.user);
       
       // 메인 탭으로 전환
       switchTab('main');
@@ -496,6 +551,51 @@ async function handleGoogleSignIn() {
     showMessage('로그인 중 오류가 발생했습니다.', 'error');
   } finally {
     hideLoading();
+  }
+}
+
+// 즉시 사용자 정보를 업데이트하는 함수 (로그인 직후 호출)
+function updateUserInfoImmediate(user) {
+  if (!user) return;
+  
+  try {
+    // DOM 요소 확인
+    const userNameEl = document.getElementById('user-name');
+    const userEmailEl = document.getElementById('user-email');
+    const userAvatarEl = document.getElementById('user-avatar');
+    
+    // 즉시 상태 업데이트
+    if (userNameEl) {
+      userNameEl.textContent = user.displayName || (user.email ? user.email.split('@')[0] : '사용자');
+    }
+    
+    if (userEmailEl) {
+      userEmailEl.textContent = user.email || '';
+    }
+    
+    if (userAvatarEl) {
+      if (user.photoURL) {
+        userAvatarEl.src = user.photoURL;
+      } else {
+        userAvatarEl.src = 'icons/default-avatar.png';
+      }
+    }
+    
+    // 사용자 정보 컨테이너 표시
+    const userInfoContainerEl = document.getElementById('user-info-container');
+    if (userInfoContainerEl) userInfoContainerEl.style.display = 'block';
+    
+    // 로그인 필요 메시지 숨김
+    const loginRequiredEl = document.getElementById('login-required-message');
+    if (loginRequiredEl) loginRequiredEl.style.display = 'none';
+    
+    // 컨트롤 컨테이너 표시
+    const controlsContainerEl = document.getElementById('controls-container');
+    if (controlsContainerEl) controlsContainerEl.style.display = 'block';
+    
+    console.log('[Whatsub] 사용자 정보 즉시 업데이트 완료:', user.email);
+  } catch (error) {
+    console.error('[Whatsub] 사용자 정보 업데이트 중 오류:', error);
   }
 }
 
@@ -944,33 +1044,26 @@ async function showTestSubtitle() {
       return;
     }
     
-    // 테스트 자막 텍스트 준비
-    const originalText = "This is a test subtitle for WhatSub extension.";
-    const translatedText = "이것은 WhatSub 확장 프로그램을 위한 테스트 자막입니다.";
+    // 자막 필터 토글 켜기 (필요한 경우)
+    const filterToggle = document.getElementById('filter-toggle');
+    if (filterToggle && !filterToggle.checked) {
+      filterToggle.checked = true;
+      await toggleSubtitleFilter(true);
+    }
     
-    // 백그라운드 스크립트로 메시지 전송 (background.js가 다시 content script로 메시지 전달)
-    const response = await sendMessage('showTestSubtitle', {
-      original: originalText,
-      translated: translatedText,
+    // 백그라운드 스크립트로 테스트 자막 표시 요청
+    const response = await sendMessage('testSubtitle', {
       tabId: tabs[0].id
     });
     
-    // 자막 활성화가 안 되어 있다면 활성화
     if (response && response.success) {
-      // 필터 토글 켜기
-      const filterToggle = document.getElementById('filter-toggle');
-      if (filterToggle && !filterToggle.checked) {
-        filterToggle.checked = true;
-        toggleSubtitleFilter(true);
-      }
-      
       showMessage('테스트 자막이 표시되었습니다.', 'success');
     } else {
-      showMessage('테스트 자막 표시 중 오류가 발생했습니다.', 'error');
+      showMessage(response?.error || '테스트 자막 표시 중 오류가 발생했습니다.', 'error');
     }
   } catch (error) {
     console.error('테스트 자막 표시 중 오류 발생:', error);
-    showMessage('테스트 자막 표시 중 오류가 발생했습니다. 페이지를 새로고침해 주세요.', 'error');
+    showMessage('테스트 자막 표시 중 오류가 발생했습니다.', 'error');
   }
 }
 
@@ -1179,3 +1272,46 @@ document.addEventListener('DOMContentLoaded', function() {
     hideLoading();
   }
 });
+
+// 이중 자막 토글 함수
+async function toggleDualSubtitles(isEnabled) {
+  try {
+    // 메인 탭과 설정 탭의 토글 동기화
+    const dualSubtitleMain = document.getElementById('dual-subtitle-main');
+    const dualSubtitle = document.getElementById('dual-subtitle');
+    
+    if (dualSubtitleMain) dualSubtitleMain.checked = isEnabled;
+    if (dualSubtitle) dualSubtitle.checked = isEnabled;
+    
+    // 현재 활성화된 탭 가져오기
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tabs || tabs.length === 0) {
+      console.error('활성화된 탭을 찾을 수 없습니다.');
+      return;
+    }
+    
+    // 설정 업데이트
+    const settings = {
+      dualSubtitles: isEnabled
+    };
+    
+    // 백그라운드 스크립트로 메시지 전송
+    await sendMessage('updateSettings', { settings });
+    
+    // 로컬 스토리지에 설정 저장
+    chrome.storage.sync.get('subtitleSettings', function(data) {
+      const currentSettings = data.subtitleSettings || {};
+      chrome.storage.sync.set({ 
+        subtitleSettings: { 
+          ...currentSettings, 
+          dualSubtitles: isEnabled 
+        } 
+      });
+    });
+    
+    showMessage(isEnabled ? '이중 자막이 활성화되었습니다.' : '이중 자막이 비활성화되었습니다.');
+  } catch (error) {
+    console.error('이중 자막 토글 중 오류 발생:', error);
+    showMessage('이중 자막 설정 중 오류가 발생했습니다.', 'error');
+  }
+}
