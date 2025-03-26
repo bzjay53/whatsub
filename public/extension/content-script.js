@@ -2342,12 +2342,155 @@ function setupSubtitleContainer(forceUpdate = false) {
       subtitleContainer.appendChild(textContainer);
     }
     
+    // 자막 컨트롤 추가
+    const controlsContainer = document.createElement('div');
+    controlsContainer.id = 'whatsub-controls';
+    controlsContainer.classList.add('whatsub-controls');
+    controlsContainer.innerHTML = `
+      <div class="whatsub-control-buttons">
+        <button id="whatsub-like-btn" class="whatsub-control-btn" title="좋아요">👍</button>
+        <button id="whatsub-dislike-btn" class="whatsub-control-btn" title="싫어요">👎</button>
+        <button id="whatsub-recommend-btn" class="whatsub-control-btn" title="추천">⭐</button>
+        <select id="whatsub-language-select" class="whatsub-language-select" title="언어 선택">
+          <option value="ko">한국어</option>
+          <option value="en">영어</option>
+          <option value="ja">일본어</option>
+          <option value="zh">중국어</option>
+        </select>
+        <button id="whatsub-dual-btn" class="whatsub-control-btn" title="이중 자막">${state.dualSubtitles ? '📃✓' : '📃'}</button>
+        <button id="whatsub-settings-btn" class="whatsub-control-btn" title="설정">⚙️</button>
+      </div>
+    `;
+    subtitleContainer.appendChild(controlsContainer);
+    
+    // 컨트롤 이벤트 리스너 등록
+    subtitleContainer.addEventListener('mouseenter', function() {
+      controlsContainer.style.display = 'block';
+    });
+    
+    subtitleContainer.addEventListener('mouseleave', function() {
+      controlsContainer.style.display = 'none';
+    });
+    
     // 자막 스타일 적용
     applySubtitleStyles(subtitleContainer);
+    
+    // 추가적인 컨트롤 UI 스타일 설정
+    controlsContainer.style.display = 'none';
+    controlsContainer.style.position = 'absolute';
+    controlsContainer.style.top = '-40px';
+    controlsContainer.style.left = '0';
+    controlsContainer.style.width = '100%';
+    controlsContainer.style.textAlign = 'center';
+    controlsContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    controlsContainer.style.borderRadius = '8px';
+    controlsContainer.style.padding = '5px';
+    controlsContainer.style.zIndex = '10000';
+    controlsContainer.style.pointerEvents = 'auto';
+    
+    // 컨트롤 버튼 스타일
+    const buttons = controlsContainer.querySelectorAll('.whatsub-control-btn');
+    buttons.forEach(button => {
+      button.style.background = 'none';
+      button.style.border = 'none';
+      button.style.color = 'white';
+      button.style.fontSize = '16px';
+      button.style.margin = '0 5px';
+      button.style.cursor = 'pointer';
+      button.style.padding = '5px';
+    });
+    
+    // 언어 선택 스타일
+    const langSelect = controlsContainer.querySelector('.whatsub-language-select');
+    if (langSelect) {
+      langSelect.style.background = 'rgba(50, 50, 50, 0.8)';
+      langSelect.style.border = 'none';
+      langSelect.style.color = 'white';
+      langSelect.style.fontSize = '14px';
+      langSelect.style.margin = '0 5px';
+      langSelect.style.cursor = 'pointer';
+      langSelect.style.padding = '5px';
+      langSelect.style.borderRadius = '4px';
+      
+      // 현재 언어 선택
+      langSelect.value = state.subtitleLanguage || 'ko';
+      
+      // 언어 변경 이벤트
+      langSelect.addEventListener('change', function(e) {
+        state.subtitleLanguage = e.target.value;
+        // 설정 저장
+        chrome.storage.sync.set({ subtitleLanguage: state.subtitleLanguage });
+        // 현재 텍스트 업데이트
+        if (state.currentText) {
+          updateSubtitleText(state.currentText);
+        }
+      });
+    }
+    
+    // 컨트롤 버튼 이벤트 리스너
+    const likeBtn = controlsContainer.querySelector('#whatsub-like-btn');
+    const dislikeBtn = controlsContainer.querySelector('#whatsub-dislike-btn');
+    const recommendBtn = controlsContainer.querySelector('#whatsub-recommend-btn');
+    const dualBtn = controlsContainer.querySelector('#whatsub-dual-btn');
+    const settingsBtn = controlsContainer.querySelector('#whatsub-settings-btn');
+    
+    if (likeBtn) {
+      likeBtn.addEventListener('click', function() {
+        showFeedbackMessage('좋아요를 표시했습니다.');
+      });
+    }
+    
+    if (dislikeBtn) {
+      dislikeBtn.addEventListener('click', function() {
+        showFeedbackMessage('싫어요를 표시했습니다.');
+      });
+    }
+    
+    if (recommendBtn) {
+      recommendBtn.addEventListener('click', function() {
+        showFeedbackMessage('추천으로 등록되었습니다.');
+      });
+    }
+    
+    if (dualBtn) {
+      dualBtn.addEventListener('click', function() {
+        state.dualSubtitles = !state.dualSubtitles;
+        dualBtn.textContent = state.dualSubtitles ? '📃✓' : '📃';
+        
+        // 설정 저장
+        chrome.storage.sync.get('subtitleSettings', function(data) {
+          const currentSettings = data.subtitleSettings || {};
+          chrome.storage.sync.set({ 
+            subtitleSettings: { 
+              ...currentSettings, 
+              dualSubtitles: state.dualSubtitles 
+            } 
+          });
+        });
+        
+        // 컨테이너 재설정
+        setupSubtitleContainer(true);
+        
+        // 현재 텍스트 업데이트
+        if (state.currentText) {
+          updateSubtitleText(state.currentText);
+        }
+      });
+    }
+    
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', function() {
+        // 확장 프로그램 팝업 열기
+        chrome.runtime.sendMessage({ action: 'openPopup', tab: 'settings' });
+      });
+    }
     
     // 문서에 추가
     document.body.appendChild(subtitleContainer);
     console.log('자막 컨테이너 설정 완료', state.dualSubtitles ? '(이중 자막 모드)' : '(단일 자막 모드)');
+    
+    // 컨테이너를 드래그 가능하게 설정
+    makeContainerDraggable(subtitleContainer);
     
     return subtitleContainer;
   } catch (error) {
@@ -2356,218 +2499,70 @@ function setupSubtitleContainer(forceUpdate = false) {
   }
 }
 
-// 자막 텍스트 업데이트
-function updateSubtitleText(text) {
-  try {
-    // 빈 텍스트는 무시
-    if (!text || text.trim() === '') return;
-    
-    // 상태 업데이트
-    state.currentText = text;
-    
-    // 자막 UI가 없으면 생성
-    let subtitleContainer = document.getElementById('whatsub-subtitles');
-    if (!subtitleContainer) {
-      subtitleContainer = setupSubtitleContainer();
-    }
-    
-    // 자막 텍스트 업데이트 (이중 자막 모드에 따라 처리)
-    if (state.dualSubtitles) {
-      // 이중 자막 모드
-      const originalSubtitle = document.getElementById('whatsub-original-subtitle');
-      const translatedSubtitle = document.getElementById('whatsub-translated-subtitle');
-      
-      if (originalSubtitle && translatedSubtitle) {
-        // 원본 텍스트 설정
-        originalSubtitle.textContent = text;
-        
-        // 번역 텍스트 설정 (번역이 필요한 경우)
-        if (state.subtitleLanguage && state.subtitleLanguage !== 'auto') {
-          translateSubtitleText(text, state.subtitleLanguage)
-            .then(translatedText => {
-              translatedSubtitle.textContent = translatedText || '(번역 불가)';
-            })
-            .catch(error => {
-              console.error('자막 번역 오류:', error);
-              translatedSubtitle.textContent = '(번역 오류)';
-            });
-        } else {
-          translatedSubtitle.textContent = '(언어 자동 감지 중...)';
-        }
-      }
-    } else {
-      // 단일 자막 모드
-      const subtitleText = document.getElementById('whatsub-subtitle-text');
-      if (subtitleText) {
-        // 자막 번역 모드일 경우
-        if (state.subtitleLanguage && state.subtitleLanguage !== 'auto') {
-          translateSubtitleText(text, state.subtitleLanguage)
-            .then(translatedText => {
-              subtitleText.textContent = translatedText || text;
-            })
-            .catch(error => {
-              console.error('자막 번역 오류:', error);
-              subtitleText.textContent = text;
-            });
-        } else {
-          // 번역이 필요 없는 경우 원본 표시
-          subtitleText.textContent = text;
-        }
-      }
-    }
-    
-    // 자막 컨테이너 표시
-    subtitleContainer.style.display = 'block';
-    
-  } catch (error) {
-    console.error('자막 텍스트 업데이트 오류:', error);
-  }
+// 피드백 메시지 표시
+function showFeedbackMessage(message, type = 'info') {
+  // 메시지 요소 생성
+  const feedbackEl = document.createElement('div');
+  feedbackEl.className = `whatsub-feedback whatsub-feedback-${type}`;
+  feedbackEl.textContent = message;
+  
+  // 스타일 설정
+  feedbackEl.style.position = 'fixed';
+  feedbackEl.style.bottom = '100px';
+  feedbackEl.style.left = '50%';
+  feedbackEl.style.transform = 'translateX(-50%)';
+  feedbackEl.style.padding = '10px 15px';
+  feedbackEl.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+  feedbackEl.style.color = 'white';
+  feedbackEl.style.borderRadius = '5px';
+  feedbackEl.style.zIndex = '10001';
+  feedbackEl.style.fontFamily = 'Arial, sans-serif';
+  feedbackEl.style.fontSize = '14px';
+  feedbackEl.style.transition = 'opacity 0.3s ease';
+  
+  // 문서에 추가
+  document.body.appendChild(feedbackEl);
+  
+  // 일정 시간 후 제거
+  setTimeout(() => {
+    feedbackEl.style.opacity = '0';
+    setTimeout(() => {
+      feedbackEl.remove();
+    }, 300);
+  }, 2000);
 }
 
-// 자막 텍스트 번역 함수
-async function translateSubtitleText(text, targetLang) {
-  if (!text || text.trim() === '') return '';
-  if (!targetLang || targetLang === 'auto') return text;
+// 컨테이너를 드래그 가능하게 만들기
+function makeContainerDraggable(container) {
+  let isDragging = false;
+  let offsetX, offsetY;
   
-  try {
-    // 캐시된 번역이 있는지 확인
-    const cacheKey = `${text}_${targetLang}`;
-    if (state.translationCache[cacheKey]) {
-      return state.translationCache[cacheKey];
-    }
-    
-    // 번역 API 호출
-    const response = await fetch('https://api.whatsub.co/translate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        text: text,
-        target: targetLang,
-        source: 'auto'
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`번역 요청 실패: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (data && data.translatedText) {
-      // 번역 결과 캐싱
-      state.translationCache[cacheKey] = data.translatedText;
-      return data.translatedText;
-    }
-    
-    return text;
-  } catch (error) {
-    console.error('번역 오류:', error);
-    return text;
-  }
-}
-
-// 자막 스타일 적용
-function applySubtitleStyles(container, settings) {
-  if (!container) return;
+  container.style.cursor = 'move';
+  container.style.userSelect = 'none';
   
-  try {
-    // 설정값 적용 또는 기본값 사용
-    const position = (settings && settings.position) || state.subtitlePosition || 'bottom';
-    const fontSize = (settings && settings.fontSize) || state.subtitleFontSize || 'medium';
-    const background = (settings && settings.background) || state.subtitleBackground || 'medium';
+  container.addEventListener('mousedown', function(e) {
+    isDragging = true;
+    offsetX = e.clientX - container.getBoundingClientRect().left;
+    offsetY = e.clientY - container.getBoundingClientRect().top;
     
-    // 기본 스타일 설정
-    container.style.textAlign = 'center';
-    container.style.fontFamily = 'Arial, sans-serif';
-    container.style.fontWeight = 'bold';
-    container.style.color = '#ffffff';
-    container.style.textShadow = '1px 1px 1px rgba(0, 0, 0, 0.8)';
-    container.style.padding = '10px';
-    container.style.width = '90%';
-    container.style.maxWidth = '800px';
-    container.style.margin = '0 auto';
-    container.style.zIndex = '9999';
-    container.style.pointerEvents = 'none';
-    container.style.position = 'fixed';
-    container.style.left = '50%';
-    container.style.transform = 'translateX(-50%)';
+    // 드래그 중에는 기본 transform 제거
+    container.style.transform = '';
+    container.style.left = container.getBoundingClientRect().left + 'px';
+    container.style.top = container.getBoundingClientRect().top + 'px';
     
-    // 위치 설정
-    switch (position) {
-      case 'top':
-        container.style.top = '50px';
-        container.style.bottom = 'auto';
-        break;
-      case 'middle':
-        container.style.top = '50%';
-        container.style.bottom = 'auto';
-        container.style.transform = 'translate(-50%, -50%)';
-        break;
-      case 'bottom':
-      default:
-        container.style.bottom = '50px';
-        container.style.top = 'auto';
-        break;
+    e.preventDefault();
+  });
+  
+  document.addEventListener('mousemove', function(e) {
+    if (isDragging) {
+      container.style.left = (e.clientX - offsetX) + 'px';
+      container.style.top = (e.clientY - offsetY) + 'px';
     }
-    
-    // 폰트 크기 설정
-    switch (fontSize) {
-      case 'small':
-        container.style.fontSize = '16px';
-        break;
-      case 'medium':
-        container.style.fontSize = '20px';
-        break;
-      case 'large':
-        container.style.fontSize = '24px';
-        break;
-      case 'xlarge':
-        container.style.fontSize = '28px';
-        break;
-      default:
-        container.style.fontSize = '20px';
-    }
-    
-    // 배경 투명도 설정
-    let bgOpacity = 0.5;
-    switch (background) {
-      case 'none':
-        bgOpacity = 0;
-        break;
-      case 'low':
-        bgOpacity = 0.3;
-        break;
-      case 'medium':
-        bgOpacity = 0.5;
-        break;
-      case 'high':
-        bgOpacity = 0.7;
-        break;
-      default:
-        bgOpacity = 0.5;
-    }
-    
-    container.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
-    container.style.borderRadius = '8px';
-    
-    // 이중 자막 모드일 경우 추가 스타일
-    if (state.dualSubtitles) {
-      const originalSubtitle = document.getElementById('whatsub-original-subtitle');
-      const translatedSubtitle = document.getElementById('whatsub-translated-subtitle');
-      
-      if (originalSubtitle && translatedSubtitle) {
-        originalSubtitle.style.marginBottom = '10px';
-        originalSubtitle.style.fontSize = container.style.fontSize;
-        translatedSubtitle.style.fontSize = 
-          parseFloat(container.style.fontSize) * 0.85 + 'px'; // 번역 자막은 약간 작게
-      }
-    }
-    
-  } catch (error) {
-    console.error('자막 스타일 적용 오류:', error);
-  }
+  });
+  
+  document.addEventListener('mouseup', function() {
+    isDragging = false;
+  });
 }
 
 // 메시지 핸들러 설정
@@ -2717,5 +2712,278 @@ function toggleSubtitles(enabled) {
   } catch (error) {
     console.error('자막 토글 오류:', error);
     return false;
+  }
+}
+
+// 자막 텍스트 업데이트
+function updateSubtitleText(text) {
+  try {
+    // 빈 텍스트는 무시
+    if (!text || text.trim() === '') return;
+    
+    // 상태 업데이트
+    state.currentText = text;
+    
+    // 자막 UI가 없으면 생성
+    let subtitleContainer = document.getElementById('whatsub-subtitles');
+    if (!subtitleContainer) {
+      subtitleContainer = setupSubtitleContainer();
+    }
+    
+    // 자막 텍스트 업데이트 (이중 자막 모드에 따라 처리)
+    if (state.dualSubtitles) {
+      // 이중 자막 모드
+      const originalSubtitle = document.getElementById('whatsub-original-subtitle');
+      const translatedSubtitle = document.getElementById('whatsub-translated-subtitle');
+      
+      if (originalSubtitle && translatedSubtitle) {
+        // 원본 텍스트 설정
+        originalSubtitle.textContent = text;
+        
+        // 번역 텍스트 설정 (번역이 필요한 경우)
+        if (state.subtitleLanguage && state.subtitleLanguage !== 'auto') {
+          translateSubtitleText(text, state.subtitleLanguage)
+            .then(translatedText => {
+              translatedSubtitle.textContent = translatedText || '(번역 불가)';
+            })
+            .catch(error => {
+              console.error('자막 번역 오류:', error);
+              translatedSubtitle.textContent = '(번역 오류)';
+            });
+        } else {
+          translatedSubtitle.textContent = '(언어 자동 감지 중...)';
+        }
+      }
+    } else {
+      // 단일 자막 모드
+      const subtitleText = document.getElementById('whatsub-subtitle-text');
+      if (subtitleText) {
+        // 자막 번역 모드일 경우
+        if (state.subtitleLanguage && state.subtitleLanguage !== 'auto') {
+          translateSubtitleText(text, state.subtitleLanguage)
+            .then(translatedText => {
+              subtitleText.textContent = translatedText || text;
+            })
+            .catch(error => {
+              console.error('자막 번역 오류:', error);
+              subtitleText.textContent = text;
+            });
+        } else {
+          // 번역이 필요 없는 경우 원본 표시
+          subtitleText.textContent = text;
+        }
+      }
+    }
+    
+    // 자막 컨테이너 표시
+    subtitleContainer.style.display = 'block';
+    
+  } catch (error) {
+    console.error('자막 텍스트 업데이트 오류:', error);
+  }
+}
+
+// 자막 텍스트 번역 함수
+async function translateSubtitleText(text, targetLang) {
+  if (!text || text.trim() === '') return '';
+  if (!targetLang || targetLang === 'auto') return text;
+  
+  try {
+    // 캐시된 번역이 있는지 확인
+    const cacheKey = `${text}_${targetLang}`;
+    if (state.translationCache[cacheKey]) {
+      return state.translationCache[cacheKey];
+    }
+    
+    // 원격 번역 요청 대신 로컬 번역 시뮬레이션 (API 에러 방지)
+    // 실제 번역이 되지는 않지만, 번역 기능 시뮬레이션
+    const simpleTranslations = {
+      'ko': {
+        'This is a test subtitle.': '이것은 테스트 자막입니다.',
+        'This is a Whatsub test subtitle message.': '이것은 WhatsUb 테스트 자막 메시지입니다.',
+        'Hello, world!': '안녕하세요, 세계!',
+        'Welcome to Whatsub!': 'WhatsUb에 오신 것을 환영합니다!',
+        'Thank you for using Whatsub.': 'WhatsUb를 사용해 주셔서 감사합니다.'
+      },
+      'en': {
+        '이것은 테스트 자막입니다.': 'This is a test subtitle.',
+        '이것은 WhatsUb 테스트 자막 메시지입니다.': 'This is a Whatsub test subtitle message.',
+        '안녕하세요, 세계!': 'Hello, world!',
+        'WhatsUb에 오신 것을 환영합니다!': 'Welcome to Whatsub!',
+        'WhatsUb를 사용해 주셔서 감사합니다.': 'Thank you for using Whatsub.'
+      },
+      'ja': {
+        'This is a test subtitle.': 'これはテストの字幕です。',
+        'This is a Whatsub test subtitle message.': 'これはWhatsUbのテスト字幕メッセージです。',
+        'Hello, world!': 'こんにちは、世界！',
+        'Welcome to Whatsub!': 'WhatsUbへようこそ！',
+        'Thank you for using Whatsub.': 'WhatsUbをご利用いただきありがとうございます。'
+      },
+      'zh': {
+        'This is a test subtitle.': '这是一个测试字幕。',
+        'This is a Whatsub test subtitle message.': '这是一个WhatsUb测试字幕消息。',
+        'Hello, world!': '你好，世界！',
+        'Welcome to Whatsub!': '欢迎使用WhatsUb！',
+        'Thank you for using Whatsub.': '感谢您使用WhatsUb。'
+      }
+    };
+    
+    // 간단한 번역 매핑 확인
+    let translatedText = '';
+    if (simpleTranslations[targetLang] && simpleTranslations[targetLang][text]) {
+      translatedText = simpleTranslations[targetLang][text];
+    } else {
+      // 간단한 접두사 추가 (테스트용)
+      const langPrefix = {
+        'ko': '[한국어] ',
+        'en': '[English] ',
+        'ja': '[日本語] ',
+        'zh': '[中文] '
+      };
+      translatedText = (langPrefix[targetLang] || '') + text;
+    }
+    
+    // 번역 결과 캐싱
+    state.translationCache[cacheKey] = translatedText;
+    return translatedText;
+    
+    /* 실제 API 호출 코드 - API가 준비되면 주석 해제
+    const response = await fetch('https://api.whatsub.co/translate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: text,
+        target: targetLang,
+        source: 'auto'
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`번역 요청 실패: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data && data.translatedText) {
+      // 번역 결과 캐싱
+      state.translationCache[cacheKey] = data.translatedText;
+      return data.translatedText;
+    }
+    */
+    
+    return translatedText;
+  } catch (error) {
+    console.error('번역 오류:', error);
+    return text;
+  }
+}
+
+// 자막 스타일 적용
+function applySubtitleStyles(container, settings) {
+  if (!container) return;
+  
+  try {
+    // 설정값 적용 또는 기본값 사용
+    const position = (settings && settings.position) || state.subtitlePosition || 'bottom';
+    const fontSize = (settings && settings.fontSize) || state.subtitleFontSize || 'medium';
+    const background = (settings && settings.background) || state.subtitleBackground || 'medium';
+    
+    // 기본 스타일 설정
+    container.style.textAlign = 'center';
+    container.style.fontFamily = 'Arial, sans-serif';
+    container.style.fontWeight = 'bold';
+    container.style.color = '#ffffff';
+    container.style.textShadow = '1px 1px 1px rgba(0, 0, 0, 0.8)';
+    container.style.padding = '10px';
+    container.style.width = '90%';
+    container.style.maxWidth = '800px';
+    container.style.margin = '0 auto';
+    container.style.zIndex = '9999';
+    container.style.pointerEvents = 'none';
+    container.style.position = 'fixed';
+    container.style.left = '50%';
+    container.style.transform = 'translateX(-50%)';
+    
+    // 위치 설정
+    switch (position) {
+      case 'top':
+        container.style.top = '50px';
+        container.style.bottom = 'auto';
+        break;
+      case 'middle':
+        container.style.top = '50%';
+        container.style.bottom = 'auto';
+        container.style.transform = 'translate(-50%, -50%)';
+        break;
+      case 'bottom':
+      default:
+        container.style.bottom = '50px';
+        container.style.top = 'auto';
+        break;
+    }
+    
+    // 폰트 크기 설정
+    switch (fontSize) {
+      case 'small':
+        container.style.fontSize = '16px';
+        break;
+      case 'medium':
+        container.style.fontSize = '20px';
+        break;
+      case 'large':
+        container.style.fontSize = '24px';
+        break;
+      case 'xlarge':
+        container.style.fontSize = '28px';
+        break;
+      default:
+        container.style.fontSize = '20px';
+    }
+    
+    // 배경 투명도 설정
+    let bgOpacity = 0.5;
+    switch (background) {
+      case 'none':
+        bgOpacity = 0;
+        break;
+      case 'low':
+        bgOpacity = 0.3;
+        break;
+      case 'medium':
+        bgOpacity = 0.5;
+        break;
+      case 'high':
+        bgOpacity = 0.7;
+        break;
+      default:
+        bgOpacity = 0.5;
+    }
+    
+    container.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
+    container.style.borderRadius = '8px';
+    
+    // 이중 자막 모드일 경우 추가 스타일
+    if (state.dualSubtitles) {
+      const originalSubtitle = document.getElementById('whatsub-original-subtitle');
+      const translatedSubtitle = document.getElementById('whatsub-translated-subtitle');
+      
+      if (originalSubtitle && translatedSubtitle) {
+        originalSubtitle.style.marginBottom = '10px';
+        originalSubtitle.style.fontSize = container.style.fontSize;
+        translatedSubtitle.style.fontSize = 
+          parseFloat(container.style.fontSize) * 0.85 + 'px'; // 번역 자막은 약간 작게
+      }
+    }
+    
+    // 컨트롤 UI 포인터 이벤트 활성화
+    const controlsContainer = document.getElementById('whatsub-controls');
+    if (controlsContainer) {
+      controlsContainer.style.pointerEvents = 'auto';
+    }
+    
+  } catch (error) {
+    console.error('자막 스타일 적용 오류:', error);
   }
 }

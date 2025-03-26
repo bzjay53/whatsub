@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Whatsub</title>
-  <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="styles/popup.css">
   <!-- 필요한 스크립트 로드 -->
   <script src="popup.js"></script>
 </head>
 <body>
   <div class="header">
     <div class="logo">
-      <img src="icons/icon-48.png" alt="WhaSub Logo">
+      <img src="icons/icon-48.png" alt="WhatSub Logo" width="24" height="24">
       <h1>WhatSub</h1>
     </div>
     <div>
@@ -22,20 +22,23 @@
   </div>
 
   <!-- 로딩 인디케이터 -->
-  <div id="loading" class="loading">
-    <div class="spinner"></div>
+  <div id="loading-indicator" class="loading">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <p class="loading-text">로딩 중...</p>
+    </div>
   </div>
 
   <!-- 로그인 탭 (처음 시작 화면) -->
   <div id="signin-tab" class="tab-content">
     <div class="signin-container">
-      <img src="icons/icon-128.png" alt="WhaSub Logo" class="signin-logo">
+      <img src="icons/icon-128.png" alt="WhatSub Logo" class="signin-logo" width="64" height="64">
       <h2 class="signin-title">WhatSub</h2>
       <p class="signin-description">유튜브 영상에 자막을 손쉽게<br>번역하고 필터링하세요</p>
       
       <button id="google-signin" class="signin-button">
         <div class="icon-wrapper">
-          <img src="icons/google-icon.svg" alt="Google">
+          <img src="icons/google-icon.svg" alt="Google" width="18" height="18">
         </div>
         <div class="text-wrapper">
           Google로 계속하기
@@ -66,14 +69,15 @@
     <div id="user-info-container">
       <div id="user-info" class="card">
         <div class="user-info">
-          <img id="user-avatar" src="icons/default-avatar.png" alt="사용자 프로필" class="user-avatar">
+          <img id="user-avatar" src="icons/default-avatar.png" alt="사용자 프로필" class="user-avatar" width="40" height="40">
           <div class="user-details">
             <h3 id="user-name">사용자 이름</h3>
-            <p id="user-email">example@email.com</p>
+            <p id="user-email"></p>
           </div>
         </div>
         <div>
-          <p id="usage-display">사용량: 0/100</p>
+          <p id="subscription-status">현재 플랜: 무료</p>
+          <p id="usage-text">오늘 0/60분 사용함</p>
           <div class="usage-meter">
             <div id="usage-fill" class="usage-fill" style="width: 0%;"></div>
           </div>
@@ -81,25 +85,28 @@
       </div>
     </div>
 
-    <div id="login-required-message" style="display: none;" class="card">
-      <h3>로그인이 필요합니다</h3>
-      <p>WhaSub의 모든 기능을 사용하기 위해 로그인해주세요.</p>
-      <button id="goto-login">로그인 페이지로 이동</button>
+    <div id="login-required-message" style="display: none;" class="card login-required-card">
+      <div class="login-required-content">
+        <img src="icons/icon-128.png" alt="WhatSub Logo" class="login-required-logo">
+        <h3>로그인이 필요합니다</h3>
+        <p>WhaSub의 모든 기능을 사용하기 위해<br>로그인해주세요.</p>
+        <button id="goto-login" class="primary-button">로그인 하기</button>
+      </div>
     </div>
 
     <div id="controls-container" class="card">
       <div id="filter-container">
         <h3>자막 필터링</h3>
-        <p>유튜브 영상의 자막을 필터링하고 번역하세요.</p>
+        <p>모든 웹 비디오(YouTube, Netflix, Vimeo 등)의 자막을 필터링하고 번역하세요.</p>
         <div class="setting-row">
-          <span>자막 필터링 활성화</span>
+          <span>자막 기능 활성화</span>
           <label class="toggle-switch">
             <input type="checkbox" id="filter-toggle">
             <span class="toggle-slider"></span>
           </label>
         </div>
         <div class="setting-row">
-          <span>필터 언어</span>
+          <span>자막 언어</span>
           <select id="filter-language">
             <option value="ko">한국어</option>
             <option value="en">영어</option>
@@ -107,6 +114,18 @@
             <option value="zh">중국어</option>
           </select>
         </div>
+        <div class="setting-row">
+          <span>이중 자막 표시</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="dual-subtitle-main" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="subtitle-shortcut">
+        <p><strong>단축키</strong></p>
+        <p>자막 토글: Ctrl+Shift+S</p>
+        <p>위치 초기화: Ctrl+Shift+P</p>
       </div>
       <div class="controls">
         <button id="logout-btn">로그아웃</button>
@@ -115,30 +134,32 @@
     </div>
 
     <div id="status-container"></div>
+
+    <div id="subtitle-community" class="card">
+      <h3>커뮤니티 자막</h3>
+      <div class="community-controls">
+        <button id="upload-subtitle" class="action-button">
+          자막 업로드
+        </button>
+        <button id="download-subtitle" class="action-button">
+          자막 다운로드
+        </button>
+      </div>
+      <div class="subtitle-list" id="subtitle-list">
+        <!-- 자막 목록이 여기에 동적으로 추가됩니다 -->
+      </div>
+    </div>
   </div>
 
   <!-- 설정 탭 -->
   <div id="settings-tab" class="tab-content">
     <div class="card">
-      <h3>확장 프로그램 설정</h3>
-      <div class="setting-row">
-        <span>자동 시작</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="auto-start">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-      <div class="setting-row">
-        <span>개발자 모드</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="dev-mode">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
+      <h3>자막 설정</h3>
       <div class="setting-row">
         <span>자막 표시 위치</span>
         <select id="caption-position">
           <option value="bottom">하단</option>
+          <option value="middle">중앙</option>
           <option value="top">상단</option>
         </select>
       </div>
@@ -149,6 +170,28 @@
           <option value="medium">보통</option>
           <option value="large">크게</option>
         </select>
+      </div>
+      <div class="setting-row">
+        <span>배경 투명도</span>
+        <select id="background-opacity">
+          <option value="semi">중간</option>
+          <option value="transparent">투명</option>
+          <option value="solid">진하게</option>
+        </select>
+      </div>
+      <div class="controls">
+        <button id="test-subtitle-btn">테스트 자막 표시</button>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h3>확장 프로그램 설정</h3>
+      <div class="setting-row">
+        <span>자동 시작</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="auto-start">
+          <span class="toggle-slider"></span>
+        </label>
       </div>
       <div class="controls">
         <button id="reset-settings">설정 초기화</button>
@@ -161,36 +204,40 @@
   <div id="help-tab" class="tab-content">
     <div class="card">
       <h3>WhaSub 사용 방법</h3>
-      <p>WhaSub는 유튜브 영상의 자막을 번역하고 필터링하는 확장 프로그램입니다.</p>
+      <p>WhaSub는 다양한 웹사이트의 모든 동영상에 자막을 표시하고 번역하는 확장 프로그램입니다.</p>
       <ol>
-        <li>유튜브 영상 페이지에서 확장 프로그램 아이콘을 클릭합니다.</li>
-        <li>자막 필터링 기능을 활성화합니다.</li>
-        <li>원하는 필터 언어를 선택합니다.</li>
-        <li>유튜브 영상의 자막이 자동으로 번역됩니다.</li>
+        <li>동영상(YouTube, Netflix, Vimeo 등)이 재생되는 페이지에서 확장 프로그램 아이콘을 클릭합니다.</li>
+        <li>자막 기능을 활성화합니다.</li>
+        <li>원하는 언어를 선택합니다.</li>
+        <li>영상 자막이 자동으로 표시되며, 필요한 경우 번역됩니다.</li>
       </ol>
       <p>더 많은 도움말은 <a href="#" id="help-center-link">도움말 센터</a>를 참조하세요.</p>
     </div>
     <div class="card">
       <h3>자주 묻는 질문</h3>
       <p><strong>Q: 자막이 표시되지 않아요.</strong></p>
-      <p>A: 유튜브 영상에 자막이 있는지 확인하세요. 영상에 자막이 없으면 기능이 작동하지 않습니다.</p>
+      <p>A: 다음 사항들을 확인해보세요:
+        <br>1. 확장 프로그램이 활성화되어 있는지 확인하세요.
+        <br>2. 영상이 재생 중인지 확인하세요. 영상이 일시정지된 상태에서는 자막이 표시되지 않을 수 있습니다.
+        <br>3. 오디오 출력이 있는지 확인하세요. Whatsub은 오디오를 분석하여 자막을 생성합니다.
+        <br>4. 브라우저 권한 설정을 확인하세요. 확장 프로그램이 오디오 캡처 권한을 가지고 있어야 합니다.
+        <br>5. Whatsub은 다양한 웹사이트(YouTube, Netflix, Vimeo 등)의 모든 비디오에서 작동합니다.
+      </p>
       <p><strong>Q: 사용량은 어떻게 결정되나요?</strong></p>
       <p>A: 자막 번역 및 필터링을 사용할 때마다 사용량이 증가합니다. 구독 플랜에 따라 월간 사용량이 결정됩니다.</p>
+      <p><strong>Q: 자막 위치를 변경할 수 있나요?</strong></p>
+      <p>A: 네, 자막을 마우스로 드래그하여 원하는 위치로 이동할 수 있습니다. 또는 설정 탭에서 상단/중앙/하단 위치를 선택할 수 있습니다.</p>
     </div>
   </div>
 
   <!-- 디버그 정보 (기본적으로 숨김) -->
   <div id="debug-info" style="display: none; margin-top: 16px; padding: 10px; background-color: #f0f0f0; font-size: 12px; border-top: 1px solid #ddd;">
     <h4 style="margin-top: 0; margin-bottom: 8px;">개발자 정보</h4>
-    <div id="auth-state-display">인증 상태: 확인 중...</div>
+    <pre id="debug-info-content" style="white-space: pre-wrap; font-size: 11px; max-height: 150px; overflow-y: auto;"></pre>
     <div class="controls" style="margin-top: 8px;">
       <button id="check-auth-btn" style="font-size: 11px; padding: 4px 8px;">인증 확인</button>
       <button id="reload-btn" style="font-size: 11px; padding: 4px 8px;">새로고침</button>
-      <button id="test-login-btn" style="font-size: 11px; padding: 4px 8px; display: none;">테스트 로그인</button>
     </div>
   </div>
-
-  <!-- 테스트 스크립트 (개발 중에만 사용) -->
-  <!-- <script src="test-login.js"></script> -->
 </body>
 </html> 

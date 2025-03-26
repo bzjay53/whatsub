@@ -38,11 +38,11 @@ console.log('======================================');
 // 전역 상태 관리
 const state = {
   // 인증 관련 상태
-  isAuthenticated: false,
-  user: null,
-  token: null,
-  authChecked: false,
-  lastAuthCheck: 0,
+  auth: {
+    isAuthenticated: false,
+    user: null,
+    idToken: null
+  },
   
   // 위스퍼 API 관련 상태
   whisperActive: false,
