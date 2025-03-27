@@ -17,26 +17,37 @@ async function sendMessage(action, data = {}) {
   try {
     console.log(`sendMessage 호출: ${action}`, data);
     
-    // 5초 타임아웃으로 메시지 전송
+    // 10초 타임아웃으로 메시지 전송 (타임아웃 시간 증가)
     const response = await Promise.race([
       new Promise((resolve) => {
         chrome.runtime.sendMessage({ action, ...data }, (result) => {
+          // 런타임 오류 체크
+          if (chrome.runtime.lastError) {
+            console.error(`sendMessage 런타임 오류: ${action}`, chrome.runtime.lastError);
+            resolve({ 
+              success: false, 
+              error: chrome.runtime.lastError.message,
+              errorType: 'runtime_error' 
+            });
+            return;
+          }
           console.log(`sendMessage 응답: ${action}`, result);
-          resolve(result);
+          resolve(result || { success: true });
         });
       }),
       new Promise((resolve) => {
         setTimeout(() => {
           console.warn(`sendMessage 타임아웃: ${action}`);
-          resolve({ success: false, error: 'timeout' });
-        }, 5000);
+          resolve({ success: false, error: 'timeout', errorType: 'timeout' });
+        }, 10000); // 10초로 증가
       })
     ]);
     
-    return response;
+    // 응답이 없는 경우 성공으로 처리
+    return response || { success: true };
   } catch (error) {
     console.error(`sendMessage 오류: ${action}`, error);
-    return { success: false, error: error.message || '알 수 없는 오류' };
+    return { success: false, error: error.message || '알 수 없는 오류', errorType: 'exception' };
   }
 }
 
@@ -518,7 +529,7 @@ async function handleGoogleSignIn() {
     showLoading();
     showMessage('로그인 중...', 'info');
     
-    // 사용자 정보 일시적 초기화
+    // 사용자 정보 일시적 초기화 (빈 문자열로 설정)
     const userNameEl = document.getElementById('user-name');
     const userEmailEl = document.getElementById('user-email');
     const userAvatarEl = document.getElementById('user-avatar');

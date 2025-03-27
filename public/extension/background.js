@@ -1924,4 +1924,283 @@ async function updateSubtitleText(text, tabId) {
     console.error('자막 텍스트 업데이트 처리 오류:', error);
     return { success: false, error: error.message };
   }
-} 
+}
+
+// 자막 메시지 처리 함수
+async function handleSubtitleMessages(message, sender, sendResponse) {
+  try {
+    console.log('handleSubtitleMessages 호출됨:', message.action);
+    
+    // 요청 액션에 따라 처리
+    switch (message.action) {
+      case 'toggleSubtitleFilter':
+        await handleToggleSubtitle(message, sender, sendResponse);
+        break;
+        
+      case 'testSubtitle':
+        await handleTestSubtitle(message, sender, sendResponse);
+        break;
+        
+      case 'updateSettings':
+        await handleSettingsUpdate(message, sender, sendResponse);
+        break;
+        
+      case 'startSpeechRecognition':
+        await handleStartSpeechRecognition(message, sender, sendResponse);
+        break;
+      
+      case 'stopSpeechRecognition':
+        await handleStopSpeechRecognition(message, sender, sendResponse);
+        break;
+        
+      case 'updateWhisperSettings':
+        await handleUpdateWhisperSettings(message, sender, sendResponse);
+        break;
+        
+      default:
+        console.log('알 수 없는 자막 액션:', message.action);
+        sendResponse({ success: false, error: '지원되지 않는 액션입니다.' });
+    }
+  } catch (error) {
+    console.error('자막 메시지 처리 오류:', error);
+    sendResponse({ success: false, error: error.message || '자막 처리 중 오류가 발생했습니다.' });
+  }
+}
+
+// 자막 토글 처리 함수
+async function handleToggleSubtitle(message, sender, sendResponse) {
+  try {
+    const { enabled, tabId } = message;
+    console.log(`자막 토글 처리: ${enabled ? '활성화' : '비활성화'}`);
+    
+    // 타겟 탭 ID 확인 (메시지에서 받거나 현재 활성 탭 사용)
+    const targetTabId = tabId || (await getActiveTabId());
+    if (!targetTabId) {
+      sendResponse({ success: false, error: '타겟 탭을 찾을 수 없습니다.' });
+      return;
+    }
+    
+    try {
+      // 콘텐츠 스크립트에 메시지 전송
+      const result = await chrome.tabs.sendMessage(targetTabId, {
+        action: 'toggleSubtitles',
+        enabled: enabled
+      });
+      console.log('자막 토글 응답:', result);
+      sendResponse({ success: true, result });
+    } catch (error) {
+      console.error('자막 토글 메시지 전송 오류:', error);
+      sendResponse({ success: false, error: '자막 토글 메시지 전송 중 오류가 발생했습니다.' });
+    }
+  } catch (error) {
+    console.error('자막 토글 처리 오류:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+// 테스트 자막 처리 함수
+async function handleTestSubtitle(message, sender, sendResponse) {
+  try {
+    const { tabId } = message;
+    console.log('테스트 자막 처리');
+    
+    // 타겟 탭 ID 확인
+    const targetTabId = tabId || (await getActiveTabId());
+    if (!targetTabId) {
+      sendResponse({ success: false, error: '타겟 탭을 찾을 수 없습니다.' });
+      return;
+    }
+    
+    try {
+      // 콘텐츠 스크립트에 메시지 전송
+      const result = await chrome.tabs.sendMessage(targetTabId, {
+        action: 'showTestSubtitle',
+        text: '이것은 테스트 자막입니다. Whatsub 확장 프로그램이 정상적으로 작동 중입니다.',
+        duration: 5000 // 5초 동안 표시
+      });
+      console.log('테스트 자막 응답:', result);
+      sendResponse({ success: true, result });
+    } catch (error) {
+      console.error('테스트 자막 메시지 전송 오류:', error);
+      sendResponse({ success: false, error: '테스트 자막 메시지 전송 중 오류가 발생했습니다.' });
+    }
+  } catch (error) {
+    console.error('테스트 자막 처리 오류:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+// 설정 업데이트 처리 함수
+async function handleSettingsUpdate(message, sender, sendResponse) {
+  try {
+    const { settings } = message;
+    console.log('자막 설정 업데이트 처리:', settings);
+    
+    // 활성 탭 ID 가져오기
+    const targetTabId = await getActiveTabId();
+    if (!targetTabId) {
+      sendResponse({ success: false, error: '타겟 탭을 찾을 수 없습니다.' });
+      return;
+    }
+    
+    try {
+      // 콘텐츠 스크립트에 메시지 전송
+      const result = await chrome.tabs.sendMessage(targetTabId, {
+        action: 'updateSettings',
+        settings: settings
+      });
+      console.log('설정 업데이트 응답:', result);
+      sendResponse({ success: true, result });
+    } catch (error) {
+      console.error('설정 업데이트 메시지 전송 오류:', error);
+      sendResponse({ 
+        success: false, 
+        error: '설정 업데이트 메시지 전송 중 오류가 발생했습니다.',
+        localSuccess: true // 로컬 저장은 성공했음을 알림
+      });
+    }
+  } catch (error) {
+    console.error('설정 업데이트 처리 오류:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+// 활성 탭 ID 가져오기 함수
+async function getActiveTabId() {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs && tabs.length > 0) {
+      return tabs[0].id;
+    }
+    return null;
+  } catch (error) {
+    console.error('활성 탭 조회 오류:', error);
+    return null;
+  }
+}
+
+// 음성 인식 시작 함수 (실제 구현은 아니고 성공 응답만 반환)
+async function handleStartSpeechRecognition(message, sender, sendResponse) {
+  try {
+    console.log('음성 인식 시작 요청 처리:', message);
+    // 실제 음성 인식 구현은 없음 (준비 중)
+    // 성공 응답만 보내서 UI 흐름이 진행되도록 함
+    sendResponse({ 
+      success: true, 
+      message: '음성 인식 시작 요청이 처리되었습니다. (실제 음성 인식은 미구현)'
+    });
+  } catch (error) {
+    console.error('음성 인식 시작 처리 오류:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+// 음성 인식 중지 함수
+async function handleStopSpeechRecognition(message, sender, sendResponse) {
+  try {
+    console.log('음성 인식 중지 요청 처리');
+    // 실제 음성 인식 구현은 없음 (준비 중)
+    // 성공 응답만 보냄
+    sendResponse({ 
+      success: true, 
+      message: '음성 인식 중지 요청이 처리되었습니다.'
+    });
+  } catch (error) {
+    console.error('음성 인식 중지 처리 오류:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+// Whisper 설정 업데이트 함수
+async function handleUpdateWhisperSettings(message, sender, sendResponse) {
+  try {
+    console.log('Whisper 설정 업데이트 요청 처리:', message.settings);
+    // 실제 Whisper 설정 구현은 없음
+    // 성공 응답만 보냄
+    sendResponse({ 
+      success: true, 
+      message: 'Whisper 설정 업데이트 요청이 처리되었습니다.'
+    });
+  } catch (error) {
+    console.error('Whisper 설정 업데이트 처리 오류:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+// 메시지 리스너 등록
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('백그라운드에서 메시지 수신:', message.action);
+  
+  // 자막 관련 메시지 처리
+  if (message.action === 'toggleSubtitleFilter' || 
+      message.action === 'testSubtitle' || 
+      message.action === 'updateSettings' ||
+      message.action === 'startSpeechRecognition' ||
+      message.action === 'stopSpeechRecognition' ||
+      message.action === 'updateWhisperSettings') {
+    handleSubtitleMessages(message, sender, sendResponse);
+    return true; // 비동기 응답을 위해 true 반환
+  }
+  
+  // 인증 관련 메시지 처리
+  if (message.action === 'signInWithGoogle' ||
+      message.action === 'signOut' ||
+      message.action === 'checkAuth') {
+    // 인증 서비스 미구현 - 더미 응답 반환
+    if (message.action === 'signInWithGoogle') {
+      console.log('로그인 요청 처리 (더미 응답)');
+      setTimeout(() => {
+        sendResponse({
+          success: true,
+          user: {
+            uid: 'dummy-user-id',
+            email: 'bzjay53@gmail.com',
+            displayName: 'Whatsub 사용자',
+            photoURL: 'icons/default-avatar.png'
+          }
+        });
+      }, 500); // 실제 서버 통신을 시뮬레이션하기 위한 지연
+    } else if (message.action === 'signOut') {
+      console.log('로그아웃 요청 처리');
+      setTimeout(() => {
+        sendResponse({ success: true });
+      }, 300);
+    } else if (message.action === 'checkAuth') {
+      console.log('인증 상태 확인 요청 처리');
+      setTimeout(() => {
+        sendResponse({
+          isAuthenticated: true,
+          user: {
+            uid: 'dummy-user-id',
+            email: 'bzjay53@gmail.com',
+            displayName: 'Whatsub 사용자',
+            photoURL: 'icons/default-avatar.png'
+          }
+        });
+      }, 300);
+    }
+    return true; // 비동기 응답을 위해 true 반환
+  }
+  
+  // 사용량 데이터 요청 처리
+  if (message.action === 'getUsage') {
+    console.log('사용량 데이터 요청 처리');
+    setTimeout(() => {
+      sendResponse({
+        success: true,
+        usage: {
+          whisper: {
+            used: 10,
+            limit: 60
+          }
+        },
+        subscription: {
+          plan: 'free'
+        }
+      });
+    }, 300);
+    return true;
+  }
+  
+  return false;
+});
