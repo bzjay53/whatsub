@@ -18,6 +18,15 @@ function loadStyles() {
   console.log('[Whatsub] 자막 스타일이 로드되었습니다.');
 }
 
+// 스타일을 직접 주입하는 함수
+function injectStyles(styles) {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = styles;
+  document.head.appendChild(styleElement);
+  console.log('[Whatsub] 자막 스타일이 주입되었습니다.');
+  return styleElement;
+}
+
 // 페이지 로드 시 스타일 적용
 loadStyles();
 
@@ -543,6 +552,12 @@ function setupControlPanelEvents() {
         action: 'saveSettings',
         settings: { subtitleEnabled: state.subtitlesEnabled }
       });
+      
+      // 팝업에 상태 변경 알림 (확장 팝업의 필터 토글과 동기화)
+      chrome.runtime.sendMessage({
+        action: 'updateFilterToggle',
+        enabled: state.subtitlesEnabled
+      });
     });
   }
 
@@ -811,20 +826,31 @@ function init() {
   }
   
   // 스타일 주입
-  injectStyles();
+  injectStyles('');
   
-  // 설정 로드
-  loadSettings();
+  // 설정 로드 (자동 시작 설정 확인 포함)
+  chrome.storage.sync.get(['autoStart', 'subtitleEnabled'], function(initialData) {
+    console.log('[Whatsub] 자동 시작 설정:', initialData.autoStart, '자막 활성화 설정:', initialData.subtitleEnabled);
+    
+    // 자동 시작이 꺼져 있으면 자막을 비활성화로 시작
+    if (initialData.autoStart !== true) {
+      state.subtitlesEnabled = false;
+      removeSubtitles();
+    } else {
+      // 자동 시작이 켜져 있으면 자막 활성화 설정에 따름
+      state.subtitlesEnabled = initialData.subtitleEnabled === true;
+      
+      if (state.subtitlesEnabled) {
+        loadSettings();
+      } else {
+        removeSubtitles();
+      }
+    }
+  });
   
   // 자막 컨테이너 생성 및 추가
   subtitleContainer = createSubtitleContainer();
   document.body.appendChild(subtitleContainer);
-  
-  // 자막 초기화
-  setupSubtitles();
-  
-  // 메시지 리스너 설정
-  setupMessageListeners();
   
   console.log('[Whatsub] 초기화 완료');
 }
@@ -1003,6 +1029,12 @@ function createControlPanel() {
   controlPanel.appendChild(settingsPanel);
   
   return controlPanel;
+}
+
+// 메시지 리스너 설정 함수 (호환성 유지)
+function setupMessageListeners() {
+  console.log('[Whatsub] 메시지 리스너가 이미 설정되어 있습니다.');
+  // 메시지 리스너는 이미 전역 스코프에 설정되어 있음
 }
 
 // 초기화 실행

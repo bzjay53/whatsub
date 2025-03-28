@@ -854,7 +854,7 @@ async function startAudioCapture(tabId) {
     
     // 탭 오디오 캡처 시작
     // chrome.tabCapture가 지원되지 않는 환경에서는 시뮬레이션으로 대체
-    if (chrome.tabCapture) {
+    if (chrome.tabCapture && typeof chrome.tabCapture.capture === 'function') {
       try {
         const streamInfo = await chrome.tabCapture.capture({
           audio: true,

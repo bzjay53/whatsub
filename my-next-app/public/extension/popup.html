@@ -97,7 +97,6 @@
     <div id="controls-container" class="card">
       <div id="filter-container">
         <h3>자막 필터링</h3>
-        <p>유튜브 영상의 자막을 필터링하고 번역하세요.</p>
         <div class="setting-row">
           <span>자막 필터링 활성화</span>
           <label class="toggle-switch">
@@ -113,6 +112,13 @@
             <option value="ja">일본어</option>
             <option value="zh">중국어</option>
           </select>
+        </div>
+        <div class="setting-row">
+          <span>이중 자막 표시</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="dual-subtitle" checked>
+            <span class="toggle-slider"></span>
+          </label>
         </div>
       </div>
       <div class="subtitle-shortcut">
@@ -171,13 +177,6 @@
           <option value="transparent">투명</option>
           <option value="solid">진하게</option>
         </select>
-      </div>
-      <div class="setting-row">
-        <span>이중 자막 표시</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="dual-subtitle" checked>
-          <span class="toggle-slider"></span>
-        </label>
       </div>
       <div class="controls">
         <button id="test-subtitle-btn">테스트 자막 표시</button>

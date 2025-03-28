@@ -9,6 +9,32 @@ const state = {
   subtitleActive: false
 };
 
+// 메시지 리스너 설정
+chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+  console.log('[Whatsub] 팝업에서 메시지 수신:', message.action);
+  
+  // 자막 필터 토글 상태 업데이트 (콘텐츠 스크립트에서 전송됨)
+  if (message.action === 'updateFilterToggle') {
+    const filterToggle = document.getElementById('filter-toggle');
+    if (filterToggle) {
+      filterToggle.checked = message.enabled;
+      state.subtitleActive = message.enabled;
+      
+      // 스토리지에 상태 저장
+      chrome.storage.sync.set({ 
+        subtitleEnabled: message.enabled
+      });
+      
+      console.log(`[Whatsub] 자막 필터 상태 업데이트됨: ${message.enabled ? '활성화' : '비활성화'}`);
+    }
+    
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  return false;
+});
+
 /**
  * Whatsub 팝업 - 통신 함수
  * background.js로 메시지를 전송하고 응답을 받는 함수
@@ -139,6 +165,41 @@ function initializePopup() {
       filterLanguage.addEventListener('change', function(e) {
         const language = e.target.value;
         changeFilterLanguage(language);
+      });
+    }
+    
+    // 이중 자막 표시 토글 이벤트 리스너 추가
+    const dualSubtitle = document.getElementById('dual-subtitle');
+    if (dualSubtitle) {
+      dualSubtitle.addEventListener('change', function(e) {
+        const isEnabled = e.target.checked;
+        
+        // 현재 저장된 설정 가져오기
+        chrome.storage.sync.get(['subtitleSettings'], function(data) {
+          const settings = data.subtitleSettings || {};
+          
+          // 설정 업데이트
+          const updatedSettings = {
+            ...settings,
+            dualSubtitles: isEnabled
+          };
+          
+          // 설정 저장
+          chrome.storage.sync.set({ subtitleSettings: updatedSettings });
+          
+          // 현재 활성화된 탭 가져오기
+          chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+            if (tabs && tabs.length > 0) {
+              // 콘텐츠 스크립트에 메시지 전송
+              chrome.tabs.sendMessage(tabs[0].id, {
+                action: 'updateSettings',
+                settings: { dualSubtitles: isEnabled }
+              });
+            }
+          });
+          
+          showMessage(isEnabled ? '이중 자막이 활성화되었습니다.' : '이중 자막이 비활성화되었습니다.', 'info', 1000);
+        });
       });
     }
     
@@ -380,21 +441,44 @@ function loadSubtitleSettings() {
       
       if (dualSubtitle) {
         dualSubtitle.checked = data.subtitleSettings.dualSubtitles !== false;
+        
+        // 메인 탭의 이중 자막 토글을 동기화
+        const mainDualSubtitle = document.getElementById('dual-subtitle');
+        if (mainDualSubtitle) {
+          mainDualSubtitle.checked = data.subtitleSettings.dualSubtitles !== false;
+          
+          // 이중 자막 토글 이벤트 리스너 추가
+          mainDualSubtitle.addEventListener('change', function(e) {
+            const isEnabled = e.target.checked;
+            
+            // 설정 저장
+            chrome.storage.sync.set({ 
+              subtitleSettings: { 
+                ...data.subtitleSettings, 
+                dualSubtitles: isEnabled 
+              } 
+            });
+            
+            // 현재 활성화된 탭 가져오기
+            chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+              if (tabs && tabs.length > 0) {
+                // 콘텐츠 스크립트에 메시지 전송
+                chrome.tabs.sendMessage(tabs[0].id, {
+                  action: 'updateSettings',
+                  settings: { dualSubtitles: isEnabled }
+                });
+              }
+            });
+            
+            showMessage(isEnabled ? '이중 자막이 활성화되었습니다.' : '이중 자막이 비활성화되었습니다.', 'info', 1000);
+          });
+        }
       }
     }
     
-    // 초기 상태에서 자막이 활성화되어 있다면 자막 서비스 시작
-    if (data.subtitleEnabled === true) {
-      chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-        if (tabs && tabs.length > 0) {
-          sendMessage('startSpeechRecognition', { 
-            tabId: tabs[0].id,
-            useWhisper: true,
-            universalMode: true
-          });
-        }
-      });
-    }
+    // 자막 서비스 상태 설정은 사용자가 필터 버튼을 직접 누를 때만 변경되도록 수정
+    // 팝업이 열릴 때는 자동으로 자막이 활성화되지 않음
+    console.log('[Whatsub] 자막 필터 상태 로드됨:', state.subtitleActive ? '활성화' : '비활성화');
   });
 }
 
@@ -930,7 +1014,7 @@ function hideLoading() {
 }
 
 // 메시지 표시 (토스트 스타일)
-function showMessage(message, type = 'info') {
+function showMessage(message, type = 'info', duration = 1000) {
   try {
     // 기존 메시지 컨테이너 확인
     let containerEl = document.getElementById('toast-container');
@@ -953,11 +1037,11 @@ function showMessage(message, type = 'info') {
     // 애니메이션을 위한 타이밍 조정
     setTimeout(() => toastEl.classList.add('show'), 10);
     
-    // 일정 시간 후 제거
+    // 일정 시간 후 제거 (1초로 변경)
     setTimeout(() => {
       toastEl.classList.remove('show');
       setTimeout(() => toastEl.remove(), 300); // 페이드 아웃 후 제거
-    }, 5000);
+    }, duration);
     
     // 콘솔에도 기록
     console.log(`[Whatsub] ${type.toUpperCase()}: ${message}`);
