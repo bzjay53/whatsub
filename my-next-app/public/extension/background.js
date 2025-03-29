@@ -566,32 +566,46 @@ async function checkAuth(maxRetries = 2, retryDelayMs = 1000) {
         token: result.whatsub_auth?.token || result.auth?.token || result.authToken
       };
       
-      // 토큰 유효성 확인 (저장된 토큰이 있는 경우)
-      if (stored.isAuthenticated && stored.token) {
-        const isTokenValid = await validateToken(stored.token);
-        
-        if (isTokenValid) {
-          // 유효한 토큰이 있으면 인증된 상태로 반환
-          state.auth.isAuthenticated = true;
-          state.auth.user = stored.user;
-          state.auth.idToken = stored.token;
-          
-          return {
-            isAuthenticated: true,
-            user: stored.user
-          };
-        } else {
-          // 토큰이 유효하지 않으면 로그아웃 처리
-          console.warn('[Whatsub] 저장된 토큰이 유효하지 않음');
-          await signOut(true);
-          return { isAuthenticated: false };
-        }
-      } else {
-        // 인증 정보가 없음
+      // 인증 정보가 없는 경우 빠르게 처리
+      if (!stored.isAuthenticated || !stored.token) {
+        console.log('[Whatsub] 저장된 인증 정보가 없음');
         state.auth.isAuthenticated = false;
         state.auth.user = null;
         state.auth.idToken = null;
         
+        return { isAuthenticated: false };
+      }
+      
+      // 토큰 유효성 확인 (저장된 토큰이 있는 경우)
+      // 타임아웃 추가
+      const tokenValidationPromise = validateToken(stored.token);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Token validation timeout')), 5000)
+      );
+      
+      let isTokenValid;
+      try {
+        isTokenValid = await Promise.race([tokenValidationPromise, timeoutPromise]);
+      } catch (timeoutError) {
+        console.warn('[Whatsub] 토큰 유효성 검증 타임아웃, 유효하다고 가정');
+        // 타임아웃 시 토큰이 유효하다고 일단 가정
+        isTokenValid = true;
+      }
+      
+      if (isTokenValid) {
+        // 유효한 토큰이 있으면 인증된 상태로 반환
+        state.auth.isAuthenticated = true;
+        state.auth.user = stored.user;
+        state.auth.idToken = stored.token;
+        
+        return {
+          isAuthenticated: true,
+          user: stored.user
+        };
+      } else {
+        // 토큰이 유효하지 않으면 로그아웃 처리
+        console.warn('[Whatsub] 저장된 토큰이 유효하지 않음');
+        await signOut(true);
         return { isAuthenticated: false };
       }
     } catch (error) {
@@ -706,10 +720,18 @@ async function startSpeechRecognition(params) {
     whisperState.isActive = true;
     
     // 인식 시작 메시지 전송
-    chrome.tabs.sendMessage(tabId, {
-      action: 'whisperStarted',
-      settings: whisperState.settings
-    }).catch(err => console.warn('[Whatsub] 탭에 메시지 전송 실패 (무시됨):', err));
+    chrome.tabs.sendMessage(
+      tabId, 
+      {
+        action: 'whisperStarted',
+        settings: whisperState.settings
+      }, 
+      function(response) {
+        if (chrome.runtime.lastError) {
+          console.warn('[Whatsub] 탭에 메시지 전송 실패 (무시됨):', chrome.runtime.lastError);
+        }
+      }
+    );
     
     return { success: true, message: '음성 인식이 시작되었습니다.' };
   } catch (error) {
@@ -744,9 +766,17 @@ async function stopSpeechRecognition(params) {
     
     // 중지 메시지 전송
     if (tabId) {
-      chrome.tabs.sendMessage(tabId, {
-        action: 'whisperStopped'
-      }).catch(err => console.warn('[Whatsub] 탭에 메시지 전송 실패 (무시됨):', err));
+      chrome.tabs.sendMessage(
+        tabId, 
+        {
+          action: 'whisperStopped'
+        }, 
+        function(response) {
+          if (chrome.runtime.lastError) {
+            console.warn('[Whatsub] 탭에 메시지 전송 실패 (무시됨):', chrome.runtime.lastError);
+          }
+        }
+      );
     }
     
     return { success: true, message: '음성 인식이 중지되었습니다.' };
@@ -773,10 +803,18 @@ async function updateWhisperSettings(params) {
     
     // 활성화된 상태인 경우 설정 변경 메시지 전송
     if (whisperState.isActive && whisperState.tabId === tabId) {
-      chrome.tabs.sendMessage(tabId, {
-        action: 'whisperSettingsUpdated',
-        settings: whisperState.settings
-      }).catch(err => console.warn('[Whatsub] 탭에 메시지 전송 실패 (무시됨):', err));
+      chrome.tabs.sendMessage(
+        tabId, 
+        {
+          action: 'whisperSettingsUpdated',
+          settings: whisperState.settings
+        }, 
+        function(response) {
+          if (chrome.runtime.lastError) {
+            console.warn('[Whatsub] 탭에 메시지 전송 실패 (무시됨):', chrome.runtime.lastError);
+          }
+        }
+      );
     }
     
     return { success: true, message: '설정이 업데이트되었습니다.' };
@@ -946,15 +984,27 @@ function startSimulatedRecognition(tabId) {
     
     // 자막 전송
     if (tabId) {
-      chrome.tabs.sendMessage(tabId, {
-        action: 'newSubtitle',
-        data: {
-          text: text,
-          translation: language === 'ko' ? phrase.en : phrase.ko,
-          confidence: 0.95,
-          timestamp: Date.now()
-        }
-      }).catch(err => console.warn('[Whatsub] 탭에 자막 전송 실패 (무시됨):', err));
+      try {
+        chrome.tabs.sendMessage(
+          tabId, 
+          {
+            action: 'newSubtitle',
+            data: {
+              text: text,
+              translation: language === 'ko' ? phrase.en : phrase.ko,
+              confidence: 0.95,
+              timestamp: Date.now()
+            }
+          },
+          function(response) {
+            if (chrome.runtime.lastError) {
+              console.warn('[Whatsub] 탭에 자막 전송 실패 (무시됨):', chrome.runtime.lastError);
+            }
+          }
+        );
+      } catch (error) {
+        console.error('[Whatsub] 자막 전송 중 오류 발생:', error);
+      }
     }
     
     index++;
@@ -1006,10 +1056,18 @@ chrome.commands.onCommand.addListener(async (command) => {
       const newState = !(data.subtitleEnabled === true);
       
       // 콘텐츠 스크립트에 메시지 전송
-      chrome.tabs.sendMessage(tabId, {
-        action: 'toggleSubtitles',
-        enabled: newState
-      });
+      chrome.tabs.sendMessage(
+        tabId, 
+        {
+          action: 'toggleSubtitles',
+          enabled: newState
+        }, 
+        function(response) {
+          if (chrome.runtime.lastError) {
+            console.warn('[Whatsub] 탭에 자막 토글 메시지 전송 실패 (무시됨):', chrome.runtime.lastError);
+          }
+        }
+      );
       
       // 상태 저장
       chrome.storage.sync.set({ subtitleEnabled: newState });
@@ -1019,9 +1077,17 @@ chrome.commands.onCommand.addListener(async (command) => {
   } 
   else if (command === 'reset-position') {
     // 자막 위치 초기화 요청
-    chrome.tabs.sendMessage(tabId, {
-      action: 'resetPosition'
-    });
+    chrome.tabs.sendMessage(
+      tabId, 
+      {
+        action: 'resetPosition'
+      }, 
+      function(response) {
+        if (chrome.runtime.lastError) {
+          console.warn('[Whatsub] 자막 위치 초기화 메시지 전송 실패 (무시됨):', chrome.runtime.lastError);
+        }
+      }
+    );
     
     console.log('[Whatsub] 자막 위치 초기화 요청 전송');
   }
