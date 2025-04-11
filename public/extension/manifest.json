@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Whatsub",
   "version": "0.2.2",
-  "description": "모든 웹 비디오를 위한 자막 관리 및 번역 도구",
+  "description": "YouTube 동영상을 위한 자막 관리 도구",
   "author": "contact@whatsub.io",
   "icons": {
     "16": "icons/icon16.png",
@@ -19,10 +19,6 @@
     "clipboardWrite",
     "notifications"
   ],
-  "host_permissions": [
-    "https://*/*",
-    "http://*/*"
-  ],
   "oauth2": {
     "client_id": "1060430808730-ic272t33ti0dje3ig6q3ge5l8895fq6n.apps.googleusercontent.com",
     "scopes": [
@@ -30,6 +26,10 @@
       "https://www.googleapis.com/auth/userinfo.profile"
     ]
   },
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -40,22 +40,34 @@
     }
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["https://*/*", "http://*/*"],
       "js": ["content-script.js"],
-      "css": ["styles.css"],
-      "run_at": "document_idle"
+      "css": ["styles/content.css"],
+      "run_at": "document_end"
     }
   ],
   "web_accessible_resources": [
     {
       "resources": [
-        "styles.css",
+        "popup.html",
+        "content.js",
+        "content-script.js",
+        "styles/*.css",
         "icons/*",
-        "images/*"
+        "images/*",
+        "processors/*.js",
+        "components/*.js",
+        "services/*.js",
+        "firebase-sdk.js",
+        "firebase-config.js",
+        "audio-worklet/*.js",
+        "lib/*.js",
+        "readme.md"
       ],
       "matches": ["https://*/*", "http://*/*"]
     }

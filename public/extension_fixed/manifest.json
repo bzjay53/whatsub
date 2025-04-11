@@ -1,0 +1,93 @@
+{
+  "manifest_version": 3,
+  "name": "Whatsub",
+  "version": "0.2.2",
+  "description": "YouTube 동영상을 위한 자막 관리 도구",
+  "author": "contact@whatsub.io",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "identity",
+    "scripting",
+    "tabCapture",
+    "clipboardWrite",
+    "notifications"
+  ],
+  "oauth2": {
+    "client_id": "1060430808730-ic272t33ti0dje3ig6q3ge5l8895fq6n.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+    ]
+  },
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*/*", "http://*/*"],
+      "js": ["content-script.js"],
+      "css": ["styles/content.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "popup.html",
+        "content.js",
+        "content-script.js",
+        "styles/*.css",
+        "icons/*",
+        "images/*",
+        "processors/*.js",
+        "firebase-sdk.js",
+        "firebase-config.js",
+        "audio-worklet/*.js",
+        "lib/*.js",
+        "readme.md"
+      ],
+      "matches": ["https://*/*", "http://*/*"]
+    }
+  ],
+  "commands": {
+    "toggle-subtitles": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "자막 표시 토글"
+    },
+    "reset-position": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "자막 위치 초기화"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src https://accounts.google.com/ https://www.googleapis.com/ https://*.openai.com/ 'self'"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvK6Iv63I9b63HMjJQcV+tSekbcrGuNaFONJZQT44vZCnVpW6WYueIQUV3zwVF/M9Y6PrPR96nMUiT7vrDQgxwJnkZiJMQrjSYfBP2j8MtmDiL7gOYG/LEkZSWLOYkJHCzQwQHmSaDPBTNj3/4qIGz3KUJS85D6xqKGLtBSJE1QXsF5gJF/+NfF+E2H9mlesKTbGc/GRpaJDFSh/L4l2Y0Ck4YMcH8mGRbZ5TDBwbpwH+9m5QNlt9iGnZGFEPZiMtX/ZgOjFfxLKeBKGLCXkm1jXRjHnzZsJtR5k9ZrxOMr9ReneAm4aNIYGD6kXiSSjmJo9Dl544QWxj8j/2ZwIDAQAB"
+} 

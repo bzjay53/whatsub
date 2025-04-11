@@ -1,3 +1,30 @@
+/**
+ * @file content-script.js
+ * @description 웹페이지에 주입되는 컨텐츠 스크립트. 자막 표시 UI와 기본 이벤트 처리를 담당합니다.
+ * 
+ * @dependencies
+ * - components/SubtitleDisplay.js: 자막 UI 표시 컴포넌트
+ * - components/CommentDisplay.js: 실시간 댓글 표시 컴포넌트
+ * - background.js: 백그라운드 통신을 통한 데이터 처리
+ * - popup.js: 설정 상태 동기화
+ * 
+ * @communication
+ * - receive: toggleSubtitles, updateSettings, showTestSubtitle, whisperStarted, whisperStopped
+ * - send: updateFilterToggle, updateDualSubtitleToggle, saveSettings
+ * 
+ * @example
+ * // 자막 토글 메시지 수신 처리
+ * if (message.action === 'toggleSubtitles') {
+ *   state.subtitlesEnabled = message.enabled;
+ *   if (state.subtitlesEnabled) {
+ *     setupSubtitles();
+ *   } else {
+ *     removeSubtitles();
+ *   }
+ *   sendResponse({ success: true });
+ * }
+ */
+
 // Whatsub 콘텐츠 스크립트 (기본 버전)
 console.log('[Whatsub] 콘텐츠 스크립트가 로드되었습니다. 버전: 0.2.2');
 
@@ -18,108 +45,43 @@ function loadStyles() {
   console.log('[Whatsub] 자막 스타일이 로드되었습니다.');
 }
 
+// 스타일을 직접 주입하는 함수
+function injectStyles(styles) {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = styles;
+  document.head.appendChild(styleElement);
+  console.log('[Whatsub] 자막 스타일이 주입되었습니다.');
+  return styleElement;
+}
+
 // 페이지 로드 시 스타일 적용
 loadStyles();
 
-// 스타일 주입 함수
-function injectStyles() {
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = chrome.runtime.getURL('styles/subtitles.css');
-  link.id = 'whatsub-styles';
-  document.head.appendChild(link);
-  
-  // Font Awesome 로드
-  const fontAwesome = document.createElement('link');
-  fontAwesome.rel = 'stylesheet';
-  fontAwesome.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
-  document.head.appendChild(fontAwesome);
-  
-  console.log('[Whatsub] 스타일이 주입되었습니다.');
-}
-
-// 전체 상태 객체
+// 전역 상태 관리
 const state = {
-  subtitlesEnabled: false,
-  autoSubtitlesEnabled: false,
-  commentsEnabled: false,
-  dualSubtitlesEnabled: false,
-  floatingCommentsEnabled: false, // 흐르는 댓글 표시 여부
+  subtitlesEnabled: true,
   currentLanguage: 'ko',
-  originalLanguage: 'auto',
-  defaultSettings: {
-    fontSize: 'medium',
-    position: 'bottom',
-    background: 'semi-transparent'
-  },
+  autoSubtitlesEnabled: false,
+  universalMode: false, // 모든 웹사이트에서 작동하는 모드
   subtitleSettings: {
-    fontSize: 'medium',
     position: 'bottom',
-    background: 'semi-transparent',
-    targetLanguage: 'ko',
-    sourceLanguage: 'auto',
-    dualSubtitles: false
-  },
-  commentSettings: {
-    fontSize: 'small',
-    speed: 'normal',
-    opacity: 0.8,
-    maxDisplayed: 10
-  },
-  userId: null,                      // 사용자 ID
-  isLoggedIn: false,                 // 로그인 상태
-  subtitleActive: false,             // 자막 활성화 상태
-  subtitleLanguage: 'ko',            // 자막 언어 (기본값: 한국어)
-  subtitlePosition: 'bottom',        // 자막 위치 (bottom, middle, top)
-  subtitleFontSize: 'medium',        // 자막 폰트 크기 (small, medium, large, xlarge)
-  subtitleBackground: 'medium',      // 자막 배경 (none, low, medium, high)
-  dualSubtitles: false,              // 이중 자막 모드 (원본 + 번역)
-  currentText: '',                   // 현재 표시 중인 자막 텍스트
-  speechRecognitionActive: false,    // 음성 인식 활성화 상태
-  universalMode: false,              // 유니버설 모드 (모든 페이지에서 자막 표시)
-  overlayActive: false,              // 오버레이 UI 활성화 상태
-  debug: false,                      // 디버그 모드
-  translationCache: {},              // 번역 결과 캐시 (성능 최적화)
-  lastRecognitionTime: 0             // 마지막 인식 시간 (타임스탬프)
-};
-
-// 사용자 상태 객체 추가
-const userState = {
-  isLoggedIn: false,
-  subscriptionType: 'free', // 'free' 또는 'premium'
-  features: {
-    autoSubtitles: false,
+    fontSize: 'medium',
+    background: 'semi',
     dualSubtitles: false,
-    comments: false,
-    floatingComments: false
+    dualLanguage: 'en'
   }
 };
 
 // 자막 컨테이너 요소
 let subtitleContainer = null;
-let subtitleTextContainer = null;
 let originalTextElement = null;
 let translatedTextElement = null;
-let commentsContainer = null; // 댓글 컨테이너 추가
-let currentSubtitleText = null;
-let currentSubtitleId = null;
-let currentVideoId = null;
-let currentTimestamp = 0;
 
 // 자막 관련 설정
+let currentSubtitleText = '';
 let lastSubtitleText = '';
 let isYouTubePage = false;
 let youtubeObserver = null;
-
-// 언어 목록 정의
-const languages = [
-  { code: 'ko', name: '한국어' },
-  { code: 'en', name: '영어' },
-  { code: 'ja', name: '일본어' },
-  { code: 'zh', name: '중국어' },
-  { code: 'es', name: '스페인어' },
-  { code: 'fr', name: '프랑스어' }
-];
 
 // 유튜브 페이지 감지
 function checkIfYouTubePage() {
@@ -201,139 +163,246 @@ function checkForYouTubeSubtitles() {
 
 // 자막 번역 함수
 async function translateSubtitle(text) {
+  if (!text || text.trim().length === 0) return;
+  
   try {
-    // 번역할 텍스트가 없으면 무시
-    if (!text || text.trim() === '') {
-      updateSubtitles(text, '');
-      return;
-    }
+    // 언어 감지 (생략 가능)
+    // const detectedLanguage = await detectLanguage(text);
+    const detectedLanguage = 'en'; // 예시: 기본적으로 영어로 가정
     
-    // 현재 설정된 언어 확인
-    const targetLanguage = state.subtitleSettings.targetLanguage || state.currentLanguage || 'ko';
+    // 원본 자막 표시
+    updateSubtitles(text);
     
-    console.log(`[Whatsub] 자막 번역 시도: ${text.substring(0, 30)}... -> ${targetLanguage}`);
-    
-    // 번역 요청
-    const response = await chrome.runtime.sendMessage({
-      action: 'translateText',
-      text: text,
-      source: state.originalLanguage || 'auto',
-      target: targetLanguage
-    });
-    
-    // 응답 처리
-    if (response && response.success) {
-      console.log(`[Whatsub] 번역 완료: ${response.translatedText.substring(0, 30)}...`);
-      updateSubtitles(text, response.translatedText);
-    } else {
-      console.error('[Whatsub] 번역 응답 오류:', response?.error);
-      // 번역 실패시에도 원본은 표시
-      updateSubtitles(text, '');
+    // 번역이 필요한 경우 (선택된 언어와 감지된 언어가 다른 경우)
+    if (state.currentLanguage !== detectedLanguage) {
+      // 백그라운드 서비스에 번역 요청
+      chrome.runtime.sendMessage({
+        action: 'translateText',
+        text: text,
+        source: detectedLanguage,
+        target: state.currentLanguage
+      }, function(response) {
+        if (response && response.success && response.translatedText) {
+          // 번역된 텍스트 표시
+          updateSubtitles(text, response.translatedText);
+        }
+      });
     }
   } catch (error) {
     console.error('[Whatsub] 자막 번역 중 오류:', error);
-    // 오류 발생시에도 원본은 표시
-    updateSubtitles(text, '');
   }
 }
 
-// 자막 업데이트 함수
-function updateSubtitles(originalText, translatedText) {
-  // 자막 텍스트 저장
-  currentSubtitleText = originalText;
-  currentTranslatedText = translatedText;
+/**
+ * 자막 이벤트 핸들러 설정
+ * 자막 토글, 언어 변경, 위치 변경 등 다양한 이벤트를 처리합니다.
+ * 
+ * @listens chrome.runtime.onMessage - 크롬 익스텐션 메시지 이벤트
+ * @fires updateFilterToggle - 자막 필터 토글 상태 업데이트 메시지
+ * @fires updateDualSubtitleToggle - 이중 자막 토글 상태 업데이트 메시지
+ */
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('[Whatsub] 콘텐츠 스크립트 메시지 수신:', message.action);
   
-  // 자막 요소 업데이트
-  if (originalTextElement) {
-    originalTextElement.textContent = originalText || "";
-    originalTextElement.style.display = originalText ? "block" : "none";
+  // 자막 토글
+  if (message.action === 'toggleSubtitles') {
+    state.subtitlesEnabled = message.enabled;
+    state.universalMode = message.universalMode || false;
+    
+    if (state.subtitlesEnabled) {
+      if (isYouTube() || state.universalMode) {
+        setupSubtitles();
+      }
+    } else {
+      removeSubtitles();
+    }
+    sendResponse({ success: true });
   }
   
-  if (translatedTextElement) {
-    translatedTextElement.textContent = translatedText || "";
-    translatedTextElement.style.display = (translatedText && state.subtitleSettings.dualSubtitles) ? "block" : "none";
+  if (message.action === 'changeLanguage') {
+    state.currentLanguage = message.language;
+    
+    // 자막이 활성화된 상태면 현재 자막을 새 언어로 다시 번역
+    if (state.subtitlesEnabled && currentSubtitleText) {
+      translateSubtitle(currentSubtitleText);
+    }
+    
+    sendResponse({ success: true });
   }
   
-  // 자막 컨테이너가 숨겨져 있으면 표시
-  if (subtitleContainer && subtitleContainer.style.display === "none") {
-    subtitleContainer.style.display = "block";
+  if (message.action === 'updateSettings') {
+    if (message.settings) {
+      state.subtitleSettings = { ...state.subtitleSettings, ...message.settings };
+      updateSubtitleStyle();
+    }
+    sendResponse({ success: true });
   }
-}
-
-// 메시지 리스너 설정
-function setupMessageListeners() {
-  chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  
+  if (message.action === 'checkStatus') {
+    sendResponse({ 
+      isInitialized: true,
+      isSubtitleEnabled: state.subtitlesEnabled,
+      selectedLanguage: state.currentLanguage,
+      settings: state.subtitleSettings,
+      isYouTubePage: isYouTubePage
+    });
+  }
+  
+  if (message.action === 'updateSubtitles') {
+    updateSubtitles(message.original, message.translated);
+    sendResponse({ success: true });
+  }
+  
+  if (message.action === 'resetPosition') {
+    resetPosition();
+    sendResponse({ success: true });
+  }
+  
+  // 시뮬레이션된 자막 표시 (테스트용)
+  if (message.action === 'showTestSubtitle') {
+    if (state.subtitlesEnabled || message.universalMode) {
+      showSubtitle(message.original, message.translated);
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: '자막이 활성화되지 않았습니다.' });
+    }
+  }
+  
+  // 로그아웃 시 세션 스토리지 정리 처리
+  if (message.action === 'clearSessionStorage') {
     try {
-      console.log('[Whatsub] 메시지 수신:', request.action);
-      
-      switch(request.action) {
-        case 'toggleSubtitles':
-          // 자막 켜기/끄기
-          state.subtitlesEnabled = request.enabled;
-          if (state.subtitlesEnabled) {
-            setupSubtitles();
-          } else {
-            removeSubtitles();
-          }
-          sendResponse({ success: true });
-          break;
-          
-        case 'changeLanguage':
-          // 언어 변경
-          state.subtitleSettings.targetLanguage = request.language;
-          // 현재 표시 중인 자막이 있으면 다시 번역
-          if (currentSubtitleText) {
-            translateSubtitle(currentSubtitleText);
-          }
-          sendResponse({ success: true });
-          break;
-          
-        case 'showTestSubtitle':
-          // 테스트 자막 표시
-          showSubtitle(request.original, request.translated);
-          sendResponse({ success: true });
-          break;
-          
-        case 'updateSettings':
-          // 설정 업데이트
-          if (request.settings) {
-            Object.assign(state.subtitleSettings, request.settings);
-            updateSubtitleStyle();
-            saveSettings();
-          }
-          sendResponse({ success: true });
-          break;
-          
-        default:
-          sendResponse({ success: false, error: '알 수 없는 명령입니다.' });
+      // Whatsub 관련 세션 스토리지 항목 정리
+      const keysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (key.includes('whatsub') || key.includes('auth') || key.includes('token'))) {
+          keysToRemove.push(key);
+        }
       }
       
-      return true; // 비동기 응답을 위해 true 반환
+      // 식별된 키 제거
+      keysToRemove.forEach(key => {
+        sessionStorage.removeItem(key);
+      });
+      
+      console.log('[Whatsub] 세션 스토리지 정리됨');
+      
+      // 페이지 상태 초기화
+      state.subtitlesEnabled = false;
+      state.currentLanguage = 'ko';
+      state.subtitleSettings = {
+        position: 'bottom',
+        fontSize: 'medium',
+        background: 'semi',
+        dualSubtitles: false
+      };
+      
+      sendResponse({ 
+        success: true, 
+        message: '세션 스토리지가 정리되었습니다.',
+        clearedItems: keysToRemove.length
+      });
     } catch (error) {
-      console.error('[Whatsub] 메시지 처리 중 오류:', error);
-      sendResponse({ success: false, error: error.message });
-      return true;
+      console.error('[Whatsub] 세션 스토리지 정리 오류:', error);
+      sendResponse({ 
+        success: false, 
+        error: error.message || '세션 스토리지 정리 중 오류가 발생했습니다.' 
+      });
     }
-  });
-}
+  }
+  
+  // Whisper AI 관련 메시지 처리
+  if (message.action === 'whisperStarted') {
+    console.log('[Whatsub] Whisper 음성 인식 시작됨:', message.settings);
+    setupSubtitles(); // 자막 UI 설정
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  if (message.action === 'whisperStopped') {
+    console.log('[Whatsub] Whisper 음성 인식 중지됨');
+    removeSubtitles(); // 자막 UI 제거
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  if (message.action === 'whisperSettingsUpdated') {
+    console.log('[Whatsub] Whisper 설정 업데이트됨:', message.settings);
+    // 설정 적용
+    if (message.settings) {
+      state.currentLanguage = message.settings.language || state.currentLanguage;
+    }
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  if (message.action === 'newSubtitle') {
+    // Whisper에서 새로운 자막 텍스트가 인식되었을 때
+    console.log('[Whatsub] 새 자막 수신됨:', message.data);
+    
+    if (message.data) {
+      // 자막 표시
+      showSubtitle(message.data.text, message.data.translation);
+    }
+    
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  if (message.action === 'updateDualSubtitleToggle') {
+    // 듀얼 자막 토글 상태 업데이트
+    state.subtitleSettings.dualSubtitles = message.enabled;
+    
+    // 듀얼 자막 토글 체크박스 업데이트
+    const dualSubtitleToggle = document.getElementById('whatsub-dual-subtitle-toggle');
+    if (dualSubtitleToggle) {
+      dualSubtitleToggle.checked = message.enabled;
+    }
+    
+    // 듀얼 언어 선택기 표시/숨김
+    const dualLanguageSelector = document.getElementById('whatsub-dual-language-selector');
+    if (dualLanguageSelector) {
+      dualLanguageSelector.style.display = message.enabled ? 'flex' : 'none';
+    }
+    
+    // 자막 업데이트
+    updateSubtitleStyle();
+    if (originalTextElement && translatedTextElement) {
+      translatedTextElement.style.display = message.enabled ? 'block' : 'none';
+    }
+    
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  return true;
+});
 
-// 자막 설정 저장
-function saveSettings() {
+/**
+ * 자막 설정 저장
+ * 변경된 자막 설정을 백그라운드 스크립트에 전송하여 저장합니다.
+ * 
+ * @fires saveSettings - 설정 저장 메시지
+ */
+function saveSubtitleSettings() {
   chrome.runtime.sendMessage({
     action: 'saveSettings',
     settings: {
-      subtitleEnabled: state.subtitlesEnabled,
-      subtitleSettings: state.subtitleSettings,
-      commentsEnabled: state.commentsEnabled,
-      floatingCommentsEnabled: state.floatingCommentsEnabled,
-      currentLanguage: state.currentLanguage
+      subtitleSettings: state.subtitleSettings
     }
   });
 }
 
-// 자막 스타일 업데이트
+/**
+ * 자막 스타일 업데이트
+ * 설정에 따라 자막 컨테이너의 스타일을 업데이트합니다.
+ * 
+ * @requires subtitleContainer - 자막 컨테이너 DOM 요소
+ * @requires originalTextElement - 원본 자막 텍스트 DOM 요소
+ * @requires translatedTextElement - 번역된 자막 텍스트 DOM 요소
+ */
 function updateSubtitleStyle() {
-  if (!subtitleContainer || !subtitleTextContainer) return;
+  if (!subtitleContainer) return;
   
   // 위치 설정
   switch(state.subtitleSettings.position) {
@@ -341,17 +410,13 @@ function updateSubtitleStyle() {
       subtitleContainer.style.top = '10%';
       subtitleContainer.style.bottom = 'auto';
       break;
-    case 'middle':
-      subtitleContainer.style.top = '50%';
-      subtitleContainer.style.bottom = 'auto';
-      subtitleContainer.style.transform = 'translate(-50%, -50%)';
-      break;
     case 'bottom':
+      subtitleContainer.style.top = 'auto';
+      subtitleContainer.style.bottom = '10%';
+      break;
     default:
       subtitleContainer.style.top = 'auto';
       subtitleContainer.style.bottom = '10%';
-      subtitleContainer.style.transform = 'translateX(-50%)';
-      break;
   }
   
   // 폰트 사이즈 설정
@@ -371,176 +436,102 @@ function updateSubtitleStyle() {
   // 스타일 적용
   if (originalTextElement) {
     originalTextElement.style.fontSize = fontSizeMap[state.subtitleSettings.fontSize];
-    originalTextElement.style.color = '#ffffff';
-    originalTextElement.style.textShadow = '1px 1px 2px rgba(0, 0, 0, 0.8)';
-    originalTextElement.style.marginBottom = '4px';
   }
   
   if (translatedTextElement) {
     translatedTextElement.style.fontSize = fontSizeMap[state.subtitleSettings.fontSize];
-    translatedTextElement.style.color = '#ffffff';
-    translatedTextElement.style.textShadow = '1px 1px 2px rgba(0, 0, 0, 0.8)';
     translatedTextElement.style.display = state.subtitleSettings.dualSubtitles ? 'block' : 'none';
   }
   
-  if (subtitleTextContainer) {
-    subtitleTextContainer.style.backgroundColor = backgroundMap[state.subtitleSettings.background];
-    subtitleTextContainer.style.padding = '8px 16px';
-    subtitleTextContainer.style.borderRadius = '4px';
-    subtitleTextContainer.style.maxWidth = '80vw';
-    subtitleTextContainer.style.textAlign = 'center';
-  }
-  
   if (subtitleContainer) {
-    subtitleContainer.style.transition = 'all 0.3s ease';
+    subtitleContainer.style.backgroundColor = backgroundMap[state.subtitleSettings.background];
   }
 }
 
-// 자막 표시 설정
+/**
+ * 자막 표시 설정
+ * 자막 컨테이너를 생성하고 표시합니다.
+ * 
+ * @requires state.subtitlesEnabled - 자막 활성화 상태
+ * @fires createSubtitleContainer - 자막 컨테이너 생성 함수 호출
+ */
 function setupSubtitles() {
-  console.log('[Whatsub] 자막 설정 시작...');
+  console.log('자막 설정 시작...');
   
-  try {
-    if (!subtitleContainer) {
-      createSubtitleContainer();
-    }
-    
-    // 자막 컨테이너 추가
-    injectSubtitleContainer();
-    
-    // 컨트롤 패널 추가
-    injectControlPanel();
-    
-    // 댓글 컨테이너 추가
-    injectCommentsContainer();
-    
-    // 흐름 댓글 컨테이너 추가
-    injectFloatingCommentsContainer();
-    
-    // 현재 URL이 YouTube인지 확인하고 처리
-    if (isYouTube()) {
-      // YouTube 특화 로직
-      setupYouTubeSubtitles();
-    }
-    
-    // 자막 상태 업데이트
-    state.subtitlesEnabled = true;
-    
-    // 자막 컨테이너 표시
-    if (subtitleContainer) {
-      subtitleContainer.style.display = 'block';
-      // 초기 자막이 없는 경우를 위한 처리
-      if (!currentSubtitleText) {
-        showSubtitle("자막이 준비되었습니다. 미디어가 재생되면 자막이 표시됩니다.", 
-                    "Subtitles are ready. When media plays, subtitles will be displayed.");
-      }
-    }
-    
-    // 설정 저장
-    saveSettings();
-    
-    console.log('[Whatsub] 자막 설정 완료');
-  } catch (error) {
-    console.error('[Whatsub] 자막 설정 중 오류:', error);
+  // 인증 상태와 상관없이 자막 표시 (인증 확인 제거)
+  if (!subtitleContainer) {
+    createSubtitleContainer();
   }
-}
-
-// 자막 컨테이너 주입
-function injectSubtitleContainer() {
-  // 이미 존재하는지 확인
-  if (!document.getElementById('whatsub-subtitle-container') && subtitleContainer) {
-    document.body.appendChild(subtitleContainer);
+  
+  // 현재 URL이 YouTube인지 확인하고 처리
+  if (isYouTube()) {
+    // YouTube 특화 로직
+    setupYouTubeSubtitles();
   }
-}
-
-// 컨트롤 패널 주입
-function injectControlPanel() {
-  // 컨트롤 패널 추가 - 이미 createSubtitleContainer에서 처리됨
-  setupControlPanelEvents();
-}
-
-// 댓글 컨테이너 주입
-function injectCommentsContainer() {
-  // 이미 createSubtitleContainer에서 처리됨
-  setupCommentsFeature();
+  
+  // 자막 컨테이너 표시
+  subtitleContainer.style.display = 'block';
+  
+  console.log('자막 설정 완료');
 }
 
 // YouTube 자막 설정
 function setupYouTubeSubtitles() {
-  // YouTube 자막 요소 감시 시작
-  startYouTubeObserver();
-  
-  // 초기 자막 상태 확인
-  checkForYouTubeSubtitles();
+  // YouTube 특화 코드 (필요한 경우)
+  console.log('YouTube 자막 처리 로직');
 }
 
-// 자막 제거
+/**
+ * 자막 제거
+ * 자막 컨테이너를 숨기거나 제거합니다.
+ * 
+ * @requires subtitleContainer - 자막 컨테이너 DOM 요소
+ */
 function removeSubtitles() {
-  console.log('[Whatsub] 자막 제거');
   if (subtitleContainer) {
+    // 자막 컨테이너 숨기기
     subtitleContainer.style.display = 'none';
   }
-  // 자막 상태 업데이트
-  state.subtitlesEnabled = false;
-  saveSettings();
 }
 
-// 자막 표시
-function showSubtitle(originalText, translatedText) {
-  try {
-    if (!subtitleContainer) {
-      createSubtitleContainer();
-      document.body.appendChild(subtitleContainer);
-    }
-    
-    if (!originalTextElement || !translatedTextElement) {
-      console.error('[Whatsub] 자막 요소가 초기화되지 않았습니다.');
-      return false;
-    }
-    
-    // 원본 자막 설정
-    if (originalText) {
-      originalTextElement.textContent = originalText;
-      originalTextElement.style.display = 'block';
-    } else {
-      originalTextElement.style.display = 'none';
-    }
-    
-    // 번역 자막 설정
-    if (translatedText) {
-      translatedTextElement.textContent = translatedText;
-      translatedTextElement.style.display = state.subtitleSettings.dualSubtitles ? 'block' : 'none';
-    } else {
-      translatedTextElement.style.display = 'none';
-    }
-    
-    // 자막 컨테이너 표시
-    if (subtitleContainer) {
-      subtitleContainer.style.display = 'block';
-      
-      // 현재 자막 텍스트 저장
-      currentSubtitleText = originalText;
-      
-      // 자막 ID 생성
-      currentSubtitleId = hashSubtitle(originalText);
-      
-      // 현재 동영상 ID 저장
-      currentVideoId = getVideoId();
-      
-      // 현재 시간 저장
-      currentTimestamp = getCurrentTime();
-      
-      // 댓글 업데이트
-      if (state.commentsEnabled) {
-        loadComments(currentVideoId, currentSubtitleId);
-      }
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('[Whatsub] 자막 표시 중 오류:', error);
+/**
+ * 자막 표시
+ * 원본 텍스트와 번역 텍스트를 화면에 표시합니다.
+ * 
+ * @param {string} original - 원본 자막 텍스트
+ * @param {string} translated - 번역된 자막 텍스트
+ * @requires subtitleContainer - 자막 컨테이너 DOM 요소
+ * @requires originalTextElement - 원본 자막 텍스트 DOM 요소
+ * @requires translatedTextElement - 번역된 자막 텍스트 DOM 요소
+ */
+function showSubtitle(original, translated) {
+  if (!subtitleContainer) {
+    setupSubtitles();
+  }
+  
+  // 자막 컨테이너가 여전히 없으면 실패
+  if (!subtitleContainer) {
+    console.error('[Whatsub] 자막 컨테이너를 생성할 수 없습니다.');
     return false;
   }
+  
+  // 현재 자막 텍스트 저장 (나중에 피드백 등에 사용)
+  currentSubtitleText = original;
+  
+  // 자막 텍스트 설정
+  if (originalTextElement) {
+    originalTextElement.innerHTML = original || '';
+  }
+  
+  if (translatedTextElement) {
+    translatedTextElement.innerHTML = translated || '';
+    translatedTextElement.style.display = state.subtitleSettings.dualSubtitles ? 'block' : 'none';
+  }
+  
+  // 자막 컨테이너 표시
+  subtitleContainer.style.display = 'block';
+  
+  return true;
 }
 
 // 자막 드래그 가능하게 만들기
@@ -633,913 +624,623 @@ function isYouTube() {
 
 // 컨트롤 패널 이벤트 핸들러
 function setupControlPanelEvents() {
-  try {
-    console.log('[Whatsub] 컨트롤 패널 이벤트 설정 중...');
-    
-    // 자막 켜기/끄기 토글
-    const subtitleToggle = document.getElementById('whatsub-toggle-subtitles');
-    if (subtitleToggle) {
-      subtitleToggle.checked = state.subtitlesEnabled;
-      subtitleToggle.addEventListener('change', function() {
-        state.subtitlesEnabled = this.checked;
-        if (state.subtitlesEnabled) {
-          setupSubtitles();
-        } else {
-          removeSubtitles();
-        }
-        // 상태 저장
-        chrome.runtime.sendMessage({
-          action: 'saveSettings',
-          settings: { subtitleEnabled: state.subtitlesEnabled }
-        });
-      });
-    }
-    
-    // 자동 자막 토글 이벤트
-    const autoSubtitleToggle = document.getElementById('whatsub-auto-subtitles');
-    if (autoSubtitleToggle) {
-      autoSubtitleToggle.checked = state.autoSubtitlesEnabled;
-      autoSubtitleToggle.disabled = !userState.features.autoSubtitles;
-      
-      autoSubtitleToggle.addEventListener('change', function() {
-        if (!userState.features.autoSubtitles) {
-          this.checked = false;
-          alert('자동 자막 기능은 프리미엄 회원만 사용할 수 있습니다.');
-          return;
-        }
-        
-        state.autoSubtitlesEnabled = this.checked;
-        
-        // 자동 자막 기능 토글
-        if (state.autoSubtitlesEnabled) {
-          console.log('[Whatsub] 자동 자막 활성화 시도');
-          whisperAI.start();
-        } else {
-          console.log('[Whatsub] 자동 자막 비활성화');
-          whisperAI.stop();
-        }
-        
-        // 상태 저장
-        saveSettings();
-      });
-    }
-    
-    // 듀얼 자막 토글 이벤트
-    const dualSubtitleToggle = document.getElementById('whatsub-dual-subtitles');
-    const singleLanguageSelector = document.querySelector('.whatsub-single-language');
-    const dualLanguageSelector = document.querySelector('.whatsub-dual-language');
-    
-    if (dualSubtitleToggle) {
-      dualSubtitleToggle.checked = state.subtitleSettings.dualSubtitles;
-      
-      // 초기 상태에 따라 표시할 언어 선택기 결정
-      if (singleLanguageSelector && dualLanguageSelector) {
-        if (state.subtitleSettings.dualSubtitles) {
-          singleLanguageSelector.style.display = 'none';
-          dualLanguageSelector.style.display = 'block';
-        } else {
-          singleLanguageSelector.style.display = 'flex';
-          dualLanguageSelector.style.display = 'none';
-        }
-      }
-      
-      dualSubtitleToggle.addEventListener('change', function() {
-        state.subtitleSettings.dualSubtitles = this.checked;
-        
-        // 언어 선택기 전환
-        if (singleLanguageSelector && dualLanguageSelector) {
-          if (state.subtitleSettings.dualSubtitles) {
-            singleLanguageSelector.style.display = 'none';
-            dualLanguageSelector.style.display = 'block';
-          } else {
-            singleLanguageSelector.style.display = 'flex';
-            dualLanguageSelector.style.display = 'none';
-          }
-        }
-        
-        // 설정 저장
-        chrome.runtime.sendMessage({
-          action: 'updateSettings',
-          settings: { dualSubtitles: state.subtitleSettings.dualSubtitles }
-        });
-        
-        // 자막 업데이트
-        updateSubtitleStyle();
-        if (originalTextElement && translatedTextElement) {
-          translatedTextElement.style.display = state.subtitleSettings.dualSubtitles ? 'block' : 'none';
-        }
-      });
-    }
-    
-    // 단일 언어 선택 이벤트
-    const languageSelect = document.getElementById('whatsub-language-select');
-    if (languageSelect) {
-      // 현재 언어 선택
-      Array.from(languageSelect.options).forEach(option => {
-        if (option.value === state.currentLanguage) {
-          option.selected = true;
-        }
-      });
-      
-      languageSelect.addEventListener('change', function() {
-        state.currentLanguage = this.value;
-        // 언어 변경 메시지 전송
-        chrome.runtime.sendMessage({
-          action: 'changeLanguage',
-          language: state.currentLanguage
-        });
-        // 현재 자막 다시 번역
-        if (currentSubtitleText) {
-          translateSubtitle(currentSubtitleText);
-        }
-      });
-    }
-    
-    // 듀얼 모드 원본 언어 선택 이벤트
-    const originalLanguageSelect = document.getElementById('whatsub-original-language-select');
-    if (originalLanguageSelect) {
-      // 현재 원본 언어 선택
-      Array.from(originalLanguageSelect.options).forEach(option => {
-        if (option.value === state.originalLanguage) {
-          option.selected = true;
-        }
-      });
-      
-      originalLanguageSelect.addEventListener('change', function() {
-        state.originalLanguage = this.value;
-        
-        // 원본 언어와 번역 언어가 동일한 경우, 번역 언어 자동 변경
-        const translatedLanguageSelect = document.getElementById('whatsub-translated-language-select');
-        if (translatedLanguageSelect && state.originalLanguage === state.currentLanguage) {
-          // 기본 대체 언어 설정 (영어가 아니면 영어로, 영어면 한국어로)
-          const fallbackLanguage = state.originalLanguage === 'en' ? 'ko' : 'en';
-          state.currentLanguage = fallbackLanguage;
-          
-          // 번역 언어 드롭다운 업데이트
-          Array.from(translatedLanguageSelect.options).forEach(option => {
-            option.selected = option.value === fallbackLanguage;
-          });
-        }
-        
-        // 언어 변경 메시지 전송
-        chrome.runtime.sendMessage({
-          action: 'changeOriginalLanguage',
-          language: state.originalLanguage
-        });
-        
-        // 현재 자막 다시 번역
-        if (currentSubtitleText) {
-          translateSubtitle(currentSubtitleText);
-        }
-      });
-    }
-    
-    // 듀얼 모드 번역 언어 선택 이벤트
-    const translatedLanguageSelect = document.getElementById('whatsub-translated-language-select');
-    if (translatedLanguageSelect) {
-      // 현재 번역 언어 선택
-      Array.from(translatedLanguageSelect.options).forEach(option => {
-        if (option.value === state.currentLanguage) {
-          option.selected = true;
-        }
-      });
-      
-      translatedLanguageSelect.addEventListener('change', function() {
-        // 원본 언어와 동일한 언어로 설정하지 못하도록 방지
-        if (this.value === state.originalLanguage) {
-          alert('원본 언어와 동일한 언어로 설정할 수 없습니다.');
-          
-          // 이전 선택으로 되돌림
-          Array.from(this.options).forEach(option => {
-            option.selected = option.value === state.currentLanguage;
-          });
-          return;
-        }
-        
-        state.currentLanguage = this.value;
-        
-        // 언어 변경 메시지 전송
-        chrome.runtime.sendMessage({
-          action: 'changeLanguage',
-          language: state.currentLanguage
-        });
-        
-        // 현재 자막 다시 번역
-        if (currentSubtitleText) {
-          translateSubtitle(currentSubtitleText);
-        }
-      });
-    }
-    
-    // 언어 전환 버튼 이벤트
-    const swapButton = document.getElementById('whatsub-language-swap');
-    if (swapButton) {
-      swapButton.addEventListener('click', function() {
-        // 현재 선택된 언어 가져오기
-        const originalSelect = document.getElementById('whatsub-original-language-select');
-        const translatedSelect = document.getElementById('whatsub-translated-language-select');
-        
-        if (originalSelect && translatedSelect) {
-          // 현재 값 저장
-          const originalValue = originalSelect.value;
-          const translatedValue = translatedSelect.value;
-          
-          // 값 교환
-          state.originalLanguage = translatedValue;
-          state.currentLanguage = originalValue;
-          
-          // 드롭다운 업데이트
-          Array.from(originalSelect.options).forEach(option => {
-            option.selected = option.value === translatedValue;
-          });
-          
-          Array.from(translatedSelect.options).forEach(option => {
-            option.selected = option.value === originalValue;
-          });
-          
-          // 언어 변경 메시지 전송
-          chrome.runtime.sendMessage({
-            action: 'changeOriginalLanguage',
-            language: state.originalLanguage
-          });
-          
-          chrome.runtime.sendMessage({
-            action: 'changeLanguage',
-            language: state.currentLanguage
-          });
-          
-          // 자막 업데이트
-          if (currentSubtitleText) {
-            translateSubtitle(currentSubtitleText);
-          }
-        }
-      });
-    }
-    
-    // 댓글 토글 이벤트
-    const commentsToggle = document.getElementById('whatsub-comments-toggle');
-    if (commentsToggle) {
-      commentsToggle.checked = state.commentsEnabled;
-      commentsToggle.addEventListener('change', function() {
-        state.commentsEnabled = this.checked;
-        
-        if (state.commentsEnabled) {
-          showComments();
-          // 현재 자막에 댓글 로드
-          loadComments(currentVideoId || getVideoId(), currentSubtitleId);
-        } else {
-          hideComments();
-        }
-        
-        // 설정 저장
-        saveSettings();
-      });
-    }
-    
-    // 피드백 버튼 이벤트
-    const likeBtn = document.getElementById('whatsub-like-btn');
-    const dislikeBtn = document.getElementById('whatsub-dislike-btn');
-    const recommendBtn = document.getElementById('whatsub-recommend-btn');
-    
-    if (likeBtn) {
-      likeBtn.addEventListener('click', function() {
-        this.classList.toggle('active');
-        if (this.classList.contains('active') && dislikeBtn) {
-          dislikeBtn.classList.remove('active');
-        }
-        // 피드백 전송
-        if (this.classList.contains('active') && currentSubtitleText) {
-          chrome.runtime.sendMessage({
-            action: 'sendFeedback',
-            type: 'like',
-            subtitleText: currentSubtitleText
-          });
-        }
-      });
-    }
-    
-    if (dislikeBtn) {
-      dislikeBtn.addEventListener('click', function() {
-        this.classList.toggle('active');
-        if (this.classList.contains('active') && likeBtn) {
-          likeBtn.classList.remove('active');
-        }
-        // 피드백 전송
-        if (this.classList.contains('active') && currentSubtitleText) {
-          chrome.runtime.sendMessage({
-            action: 'sendFeedback',
-            type: 'dislike',
-            subtitleText: currentSubtitleText
-          });
-        }
-      });
-    }
-    
-    if (recommendBtn) {
-      recommendBtn.addEventListener('click', function() {
-        this.classList.toggle('active');
-        // 추천 전송
-        if (this.classList.contains('active') && currentSubtitleText) {
-          chrome.runtime.sendMessage({
-            action: 'sendFeedback',
-            type: 'recommend',
-            subtitleText: currentSubtitleText
-          });
-        }
-      });
-    }
-    
-    // 설정 버튼 및 패널 이벤트
-    const settingsBtn = document.getElementById('whatsub-settings-btn');
-    const settingsPanel = document.getElementById('whatsub-settings-panel');
-    const closeSettingsBtn = document.getElementById('whatsub-close-settings');
-    
-    if (settingsBtn && settingsPanel) {
-      settingsBtn.addEventListener('click', function() {
-        settingsPanel.classList.toggle('visible');
-      });
-    }
-    
-    if (closeSettingsBtn && settingsPanel) {
-      closeSettingsBtn.addEventListener('click', function() {
-        settingsPanel.classList.remove('visible');
-      });
-    }
-    
-    // 위치 버튼 이벤트
-    const positionButtons = document.querySelectorAll('.whatsub-settings-choices [data-position]');
-    positionButtons.forEach(button => {
-      if (button.getAttribute('data-position') === state.subtitleSettings.position) {
-        button.classList.add('active');
-      }
-      
-      button.addEventListener('click', function() {
-        positionButtons.forEach(btn => btn.classList.remove('active'));
-        this.classList.add('active');
-        
-        state.subtitleSettings.position = this.getAttribute('data-position');
-        updateSubtitleStyle();
-        saveSettings();
-      });
-    });
-    
-    // 글꼴 크기 버튼 이벤트
-    const fontSizeButtons = document.querySelectorAll('.whatsub-settings-choices [data-font-size]');
-    fontSizeButtons.forEach(button => {
-      if (button.getAttribute('data-font-size') === state.subtitleSettings.fontSize) {
-        button.classList.add('active');
-      }
-      
-      button.addEventListener('click', function() {
-        fontSizeButtons.forEach(btn => btn.classList.remove('active'));
-        this.classList.add('active');
-        
-        state.subtitleSettings.fontSize = this.getAttribute('data-font-size');
-        updateSubtitleStyle();
-        saveSettings();
-      });
-    });
-    
-    // 투명도 버튼 이벤트
-    const opacityButtons = document.querySelectorAll('.whatsub-settings-choices [data-opacity]');
-    opacityButtons.forEach(button => {
-      // opacity와 background 설정을 매핑
-      const opacityToBackground = {
-        'low': 'transparent',
-        'medium': 'semi',
-        'high': 'solid'
-      };
-      
-      const backgroundToOpacity = {
-        'transparent': 'low',
-        'semi': 'medium',
-        'solid': 'high'
-      };
-      
-      if (backgroundToOpacity[state.subtitleSettings.background] === button.getAttribute('data-opacity')) {
-        button.classList.add('active');
-      }
-      
-      button.addEventListener('click', function() {
-        opacityButtons.forEach(btn => btn.classList.remove('active'));
-        this.classList.add('active');
-        
-        state.subtitleSettings.background = opacityToBackground[this.getAttribute('data-opacity')];
-        updateSubtitleStyle();
-        saveSettings();
-      });
-    });
-    
-    // 자막 토글과 자동 자막 토글 연동
-    setupSubtitleToggleSync();
-    
-    console.log('[Whatsub] 컨트롤 패널 이벤트 설정 완료');
-  } catch (error) {
-    console.error('[Whatsub] 컨트롤 패널 이벤트 설정 오류:', error);
-  }
-}
-
-// 설정 로드
-function loadSettings() {
-  console.log('[Whatsub] 설정 로드 시작...');
-  chrome.runtime.sendMessage({ action: 'getSettings' }, function(response) {
-    if (response && response.settings) {
-      console.log('[Whatsub] 설정 로드됨:', response.settings);
-      
-      // 기본 설정
-      if (response.settings.subtitleEnabled !== undefined) {
-        state.subtitlesEnabled = response.settings.subtitleEnabled;
-      }
-      
-      if (response.settings.language) {
-        state.currentLanguage = response.settings.language;
-      }
-      
-      if (response.settings.originalLanguage) {
-        state.originalLanguage = response.settings.originalLanguage;
-      }
-      
-      if (response.settings.autoSubtitlesEnabled !== undefined) {
-        state.autoSubtitlesEnabled = response.settings.autoSubtitlesEnabled;
-      }
-      
-      if (response.settings.commentsEnabled !== undefined) {
-        state.commentsEnabled = response.settings.commentsEnabled;
-      }
-      
-      // 자막 설정
-      if (response.settings.subtitleSettings) {
-        const settings = response.settings.subtitleSettings;
-        
-        if (settings.position) {
-          state.subtitleSettings.position = settings.position;
-        }
-        
-        if (settings.fontSize) {
-          state.subtitleSettings.fontSize = settings.fontSize;
-        }
-        
-        if (settings.background) {
-          state.subtitleSettings.background = settings.background;
-        }
-        
-        if (settings.dualSubtitles !== undefined) {
-          state.subtitleSettings.dualSubtitles = settings.dualSubtitles;
-        }
-      }
-      
-      // 설정에 따라 자막 표시 상태 업데이트
+  // 자막 켜기/끄기 토글
+  const subtitleToggle = document.getElementById('whatsub-subtitle-toggle');
+  if (subtitleToggle) {
+    subtitleToggle.checked = state.subtitlesEnabled;
+    subtitleToggle.addEventListener('change', function() {
+      state.subtitlesEnabled = this.checked;
       if (state.subtitlesEnabled) {
         setupSubtitles();
       } else {
         removeSubtitles();
       }
+      // 상태 저장
+      chrome.runtime.sendMessage({
+        action: 'saveSettings',
+        settings: { subtitleEnabled: state.subtitlesEnabled }
+      });
       
-      // 자동 자막 상태 업데이트
-      if (state.autoSubtitlesEnabled) {
+      // 팝업에 상태 변경 알림 (확장 팝업의 필터 토글과 동기화)
+      chrome.runtime.sendMessage({
+        action: 'updateFilterToggle',
+        enabled: state.subtitlesEnabled
+      }, function(response) {
+        if (chrome.runtime.lastError) {
+          console.debug('[Whatsub] 필터 토글 업데이트 메시지 전송 중 오류:', chrome.runtime.lastError.message);
+        }
+      });
+    });
+  }
+
+  // 언어 선택 이벤트
+  const languageSelect = document.getElementById('whatsub-language-select');
+  if (languageSelect) {
+    // 현재 언어 선택
+    Array.from(languageSelect.options).forEach(option => {
+      if (option.value === state.currentLanguage) {
+        option.selected = true;
+      }
+    });
+    
+    languageSelect.addEventListener('change', function() {
+      state.currentLanguage = this.value;
+      // 언어 변경 메시지 전송
+      chrome.runtime.sendMessage({
+        action: 'changeLanguage',
+        language: state.currentLanguage
+      });
+      
+      // 팝업의 필터 언어 선택과 동기화
+      chrome.runtime.sendMessage({
+        action: 'updateFilterLanguage',
+        language: state.currentLanguage
+      }, function(response) {
+        if (chrome.runtime.lastError) {
+          console.debug('[Whatsub] 필터 언어 업데이트 메시지 전송 중 오류:', chrome.runtime.lastError.message);
+        }
+      });
+      
+      // 현재 자막 다시 번역
+      if (currentSubtitleText) {
+        translateSubtitle(currentSubtitleText);
+      }
+    });
+  }
+
+  // 듀얼 자막 토글 이벤트
+  const dualSubtitleToggle = document.getElementById('whatsub-dual-subtitle-toggle');
+  if (dualSubtitleToggle) {
+    dualSubtitleToggle.checked = state.subtitleSettings.dualSubtitles;
+    dualSubtitleToggle.addEventListener('change', function() {
+      state.subtitleSettings.dualSubtitles = this.checked;
+      
+      // 듀얼 언어 선택기 표시/숨김
+      const dualLanguageSelector = document.getElementById('whatsub-dual-language-selector');
+      if (dualLanguageSelector) {
+        dualLanguageSelector.style.display = this.checked ? 'flex' : 'none';
+      }
+      
+      // 설정 저장
+      chrome.runtime.sendMessage({
+        action: 'updateSettings',
+        settings: { dualSubtitles: state.subtitleSettings.dualSubtitles }
+      });
+      
+      // 팝업의 이중 자막 토글과 동기화
+      chrome.runtime.sendMessage({
+        action: 'updateDualSubtitleToggle',
+        enabled: state.subtitleSettings.dualSubtitles
+      }, function(response) {
+        if (chrome.runtime.lastError) {
+          console.debug('[Whatsub] 이중 자막 토글 업데이트 메시지 전송 중 오류:', chrome.runtime.lastError.message);
+        }
+      });
+      
+      // 자막 업데이트
+      updateSubtitleStyle();
+      if (originalTextElement && translatedTextElement) {
+        translatedTextElement.style.display = state.subtitleSettings.dualSubtitles ? 'block' : 'none';
+      }
+    });
+  }
+
+  // 듀얼 언어 선택 이벤트
+  const dualLanguageSelect = document.getElementById('whatsub-dual-language-select');
+  if (dualLanguageSelect) {
+    // 현재 듀얼 언어 선택
+    if (state.subtitleSettings.dualLanguage) {
+      Array.from(dualLanguageSelect.options).forEach(option => {
+        if (option.value === state.subtitleSettings.dualLanguage) {
+          option.selected = true;
+        }
+      });
+    }
+    
+    dualLanguageSelect.addEventListener('change', function() {
+      state.subtitleSettings.dualLanguage = this.value;
+      
+      // 설정 저장
+      chrome.runtime.sendMessage({
+        action: 'updateSettings',
+        settings: { dualLanguage: state.subtitleSettings.dualLanguage }
+      });
+      
+      // 현재 자막 다시 번역 (필요한 경우)
+      if (currentSubtitleText && state.subtitleSettings.dualSubtitles) {
+        // 듀얼 언어로 다시 번역
         chrome.runtime.sendMessage({
-          action: 'startSpeechRecognition',
-          tabId: chrome.runtime.id
+          action: 'translateText',
+          text: currentSubtitleText,
+          source: 'auto',
+          target: state.subtitleSettings.dualLanguage
+        }, function(response) {
+          if (response && response.success && response.translatedText) {
+            // 듀얼 자막 텍스트 업데이트
+            if (translatedTextElement) {
+              translatedTextElement.textContent = response.translatedText;
+            }
+          }
         });
       }
-      
-      // 댓글 기능 상태 업데이트
-      if (state.commentsEnabled && commentsContainer) {
-        commentsContainer.style.display = 'flex';
-      } else if (commentsContainer) {
-        commentsContainer.style.display = 'none';
+    });
+  }
+
+  // 자동 자막 토글 이벤트
+  const autoSubtitleToggle = document.getElementById('whatsub-auto-subtitle-toggle');
+  if (autoSubtitleToggle) {
+    autoSubtitleToggle.checked = state.autoSubtitlesEnabled;
+    autoSubtitleToggle.addEventListener('change', function() {
+      state.autoSubtitlesEnabled = this.checked;
+      // 자동 자막 기능 토글
+      chrome.runtime.sendMessage({
+        action: state.autoSubtitlesEnabled ? 'startSpeechRecognition' : 'stopSpeechRecognition',
+        tabId: chrome.runtime.id
+      });
+    });
+  }
+
+  // 피드백 버튼 이벤트
+  const likeBtn = document.getElementById('whatsub-like-btn');
+  const dislikeBtn = document.getElementById('whatsub-dislike-btn');
+  const recommendBtn = document.getElementById('whatsub-recommend-btn');
+
+  if (likeBtn) {
+    likeBtn.addEventListener('click', function() {
+      this.classList.toggle('active');
+      if (this.classList.contains('active') && dislikeBtn) {
+        dislikeBtn.classList.remove('active');
       }
-      
-      // 컨트롤 패널 이벤트 다시 설정
-      setupControlPanelEvents();
+      // 피드백 전송
+      if (this.classList.contains('active') && currentSubtitleText) {
+        chrome.runtime.sendMessage({
+          action: 'sendFeedback',
+          type: 'like',
+          subtitleText: currentSubtitleText
+        });
+      }
+    });
+  }
+
+  if (dislikeBtn) {
+    dislikeBtn.addEventListener('click', function() {
+      this.classList.toggle('active');
+      if (this.classList.contains('active') && likeBtn) {
+        likeBtn.classList.remove('active');
+      }
+      // 피드백 전송
+      if (this.classList.contains('active') && currentSubtitleText) {
+        chrome.runtime.sendMessage({
+          action: 'sendFeedback',
+          type: 'dislike',
+          subtitleText: currentSubtitleText
+        });
+      }
+    });
+  }
+
+  if (recommendBtn) {
+    recommendBtn.addEventListener('click', function() {
+      this.classList.toggle('active');
+      // 추천 전송
+      if (this.classList.contains('active') && currentSubtitleText) {
+        chrome.runtime.sendMessage({
+          action: 'sendFeedback',
+          type: 'recommend',
+          subtitleText: currentSubtitleText
+        });
+      }
+    });
+  }
+
+  // 설정 버튼 및 패널 이벤트
+  const settingsBtn = document.getElementById('whatsub-settings-btn');
+  const settingsPanel = document.getElementById('whatsub-settings-panel');
+  const closeSettingsBtn = document.getElementById('whatsub-close-settings');
+
+  if (settingsBtn && settingsPanel) {
+    settingsBtn.addEventListener('click', function() {
+      settingsPanel.classList.toggle('visible');
+    });
+  }
+
+  if (closeSettingsBtn && settingsPanel) {
+    closeSettingsBtn.addEventListener('click', function() {
+      settingsPanel.classList.remove('visible');
+    });
+  }
+
+  // 위치 버튼 이벤트
+  const positionButtons = document.querySelectorAll('.whatsub-settings-choices [data-position]');
+  positionButtons.forEach(button => {
+    if (button.getAttribute('data-position') === state.subtitleSettings.position) {
+      button.classList.add('active');
     }
+    
+    button.addEventListener('click', function() {
+      positionButtons.forEach(btn => btn.classList.remove('active'));
+      this.classList.add('active');
+      
+      state.subtitleSettings.position = this.getAttribute('data-position');
+      updateSubtitleStyle();
+      saveSubtitleSettings();
+    });
   });
+
+  // 글꼴 크기 버튼 이벤트
+  const fontSizeButtons = document.querySelectorAll('.whatsub-settings-choices [data-font-size]');
+  fontSizeButtons.forEach(button => {
+    if (button.getAttribute('data-font-size') === state.subtitleSettings.fontSize) {
+      button.classList.add('active');
+    }
+    
+    button.addEventListener('click', function() {
+      fontSizeButtons.forEach(btn => btn.classList.remove('active'));
+      this.classList.add('active');
+      
+      state.subtitleSettings.fontSize = this.getAttribute('data-font-size');
+      updateSubtitleStyle();
+      saveSubtitleSettings();
+    });
+  });
+
+  // 투명도 버튼 이벤트
+  const opacityButtons = document.querySelectorAll('.whatsub-settings-choices [data-opacity]');
+  opacityButtons.forEach(button => {
+    // opacity와 background 설정을 매핑
+    const opacityToBackground = {
+      'low': 'transparent',
+      'medium': 'semi',
+      'high': 'solid'
+    };
+    
+    const backgroundToOpacity = {
+      'transparent': 'low',
+      'semi': 'medium',
+      'solid': 'high'
+    };
+    
+    if (backgroundToOpacity[state.subtitleSettings.background] === button.getAttribute('data-opacity')) {
+      button.classList.add('active');
+    }
+    
+    button.addEventListener('click', function() {
+      opacityButtons.forEach(btn => btn.classList.remove('active'));
+      this.classList.add('active');
+      
+      state.subtitleSettings.background = opacityToBackground[this.getAttribute('data-opacity')];
+      updateSubtitleStyle();
+      saveSubtitleSettings();
+    });
+  });
+}
+
+// 설정 로드
+function loadSettings() {
+  console.log('[Whatsub] 설정 로드 시작...');
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ action: 'getSettings' }, function(response) {
+      if (response && response.settings) {
+        console.log('[Whatsub] 설정 로드됨:', response.settings);
+        
+        // 기본 설정
+        if (response.settings.subtitleEnabled !== undefined) {
+          state.subtitlesEnabled = response.settings.subtitleEnabled;
+        }
+        
+        if (response.settings.language) {
+          state.currentLanguage = response.settings.language;
+        }
+        
+        if (response.settings.autoSubtitlesEnabled !== undefined) {
+          state.autoSubtitlesEnabled = response.settings.autoSubtitlesEnabled;
+        }
+        
+        // 자막 설정
+        if (response.settings.subtitleSettings) {
+          const settings = response.settings.subtitleSettings;
+          
+          if (settings.position) {
+            state.subtitleSettings.position = settings.position;
+          }
+          
+          if (settings.fontSize) {
+            state.subtitleSettings.fontSize = settings.fontSize;
+          }
+          
+          if (settings.background) {
+            state.subtitleSettings.background = settings.background;
+          }
+          
+          if (settings.dualSubtitles !== undefined) {
+            state.subtitleSettings.dualSubtitles = settings.dualSubtitles;
+          }
+          
+          if (settings.dualLanguage) {
+            state.subtitleSettings.dualLanguage = settings.dualLanguage;
+          }
+        }
+        
+        // 설정에 따라 자막 표시 상태 업데이트
+        if (state.subtitlesEnabled) {
+          setupSubtitles();
+        } else {
+          removeSubtitles();
+        }
+        
+        // 자동 자막 상태 업데이트
+        if (state.autoSubtitlesEnabled) {
+          chrome.runtime.sendMessage({
+            action: 'startSpeechRecognition',
+            tabId: chrome.runtime.id
+          });
+        }
+        
+        // 컨트롤 패널 이벤트 다시 설정
+        setupControlPanelEvents();
+      }
+      resolve(); // Promise 해결
+    });
+  });
+}
+
+// 커뮤니티 서비스와 댓글 관련 컴포넌트 로드
+function loadCommunityComponents() {
+  try {
+    // 컴포넌트 및 서비스 파일 로드 설정
+    const components = [
+      { name: 'CommentDisplay', path: 'components/CommentDisplay.js' },
+      { name: 'communityService', path: 'services/communityService.js' },
+      { name: 'videoCommentService', path: 'services/videoCommentService.js' }
+    ];
+    
+    components.forEach(component => {
+      const script = document.createElement('script');
+      script.src = chrome.runtime.getURL(component.path);
+      script.id = `whatsub-${component.name.toLowerCase()}`;
+      script.onload = () => {
+        console.log(`[Whatsub] ${component.name} 컴포넌트 로드 완료`);
+        script.remove(); // DOM에서 스크립트 태그 제거 (이미 실행됨)
+      };
+      script.onerror = (error) => {
+        console.error(`[Whatsub] ${component.name} 컴포넌트 로드 실패:`, error);
+      };
+      document.head.appendChild(script);
+    });
+  } catch (error) {
+    console.error('[Whatsub] 커뮤니티 컴포넌트 로드 중 오류:', error);
+  }
 }
 
 // 초기화 함수
 function init() {
-  try {
-    console.log('Whatsub 콘텐츠 스크립트 초기화 시작...');
-    
-    // 스타일 로드
-    loadStyles();
-    
-    // 로컬 스토리지에서 설정 로드
-    chrome.storage.sync.get(
-      ['subtitleEnabled', 'subtitleLanguage', 'subtitleSettings', 'universalMode'], 
-      function(data) {
-        console.log('설정 로드 결과:', data);
-        
-        // 자막 활성화 상태 설정
-        state.subtitleActive = data.subtitleEnabled === true;
-        
-        // 언어 설정
-        if (data.subtitleLanguage) {
-          state.subtitleLanguage = data.subtitleLanguage;
-        }
-        
-        // 자막 설정 적용
-        if (data.subtitleSettings) {
-          if (data.subtitleSettings.position) {
-            state.subtitlePosition = data.subtitleSettings.position;
-          }
-          if (data.subtitleSettings.fontSize) {
-            state.subtitleFontSize = data.subtitleSettings.fontSize;
-          }
-          if (data.subtitleSettings.background) {
-            state.subtitleBackground = data.subtitleSettings.background;
-          }
-          if (data.subtitleSettings.hasOwnProperty('dualSubtitles')) {
-            state.dualSubtitles = data.subtitleSettings.dualSubtitles;
-          }
-        }
-        
-        // 유니버설 모드 설정
-        state.universalMode = data.universalMode === true;
-        
-        // 로그
-        console.log('Whatsub 설정 로드 완료:', {
-          활성화: state.subtitleActive,
-          언어: state.subtitleLanguage,
-          이중자막: state.dualSubtitles,
-          위치: state.subtitlePosition,
-          폰트크기: state.subtitleFontSize,
-          배경: state.subtitleBackground,
-          유니버설모드: state.universalMode
-        });
-        
-        // 자막이 활성화되어 있으면 초기 설정
-        if (state.subtitleActive) {
-          setupSubtitleContainer();
-          console.log('자막 컨테이너 초기 설정 완료');
-        }
+  console.log('[Whatsub] 콘텐츠 스크립트 초기화 시작');
+  
+  // 유튜브 페이지 감지
+  checkIfYouTubePage();
+  
+  // 기본 자막 컨테이너 생성
+  createSubtitleContainer();
+  
+  // 메시지 리스너 설정
+  setupMessageListeners();
+  
+  // 설정에 따라 자막 활성화
+  loadSettings()
+    .then(() => {
+      if (state.subtitlesEnabled && (isYouTube() || state.universalMode)) {
+        setupSubtitles();
       }
-    );
-    
-    // 메시지 리스너 설정
-    setupMessageListeners();
-    
-    console.log('Whatsub 콘텐츠 스크립트 초기화 완료');
-    
-    // 15초 후 자막 컨테이너 생성 확인
-    setTimeout(() => {
-      if (state.subtitleActive) {
-        const container = document.getElementById('whatsub-subtitles');
-        if (!container) {
-          console.log('자막 컨테이너가 없어 다시 생성');
-          setupSubtitleContainer();
-        }
-      }
-    }, 15000);
-    
-  } catch (error) {
-    console.error('Whatsub 초기화 중 오류 발생:', error);
-  }
+    })
+    .catch(error => {
+      console.debug('[Whatsub] 설정 로드 중 오류 (무시됨):', error);
+    });
+  
+  // 커뮤니티 기능 로드
+  loadCommunityComponents();
+  
+  console.log('[Whatsub] 콘텐츠 스크립트 초기화 완료');
 }
 
-// 자막 컨테이너 생성 함수
+// 자막 컨테이너 생성
 function createSubtitleContainer() {
-  // 기존 컨테이너가 있으면 제거
-  const existingContainer = document.getElementById('whatsub-container');
-  if (existingContainer) {
-    existingContainer.remove();
+  // 기존 자막 컨테이너가 있으면 제거
+  if (subtitleContainer) {
+    document.body.removeChild(subtitleContainer);
   }
   
-  // 새 컨테이너 생성
-  const container = document.createElement('div');
-  container.id = 'whatsub-container';
-  container.className = 'whatsub-container';
+  // 새로운 자막 컨테이너 생성
+  subtitleContainer = document.createElement('div');
+  subtitleContainer.id = 'whatsub-subtitle-container';
+  subtitleContainer.className = 'whatsub-subtitle-container';
   
-  // 자막 텍스트 컨테이너
-  const subtitleText = document.createElement('div');
-  subtitleText.id = 'whatsub-subtitle-text';
-  subtitleText.className = 'whatsub-subtitle-text';
+  // 유니버설 모드일 때는 항상 드래그 가능하게 설정
+  subtitleContainer.setAttribute('draggable', 'true');
   
-  // 원본 자막과 번역 자막 영역 추가
-  const originalText = document.createElement('div');
-  originalText.id = 'whatsub-original-text';
-  originalText.className = 'whatsub-original-text';
+  // 원본 텍스트 요소
+  originalTextElement = document.createElement('div');
+  originalTextElement.className = 'whatsub-subtitle-text whatsub-original-text';
   
-  const translatedText = document.createElement('div');
-  translatedText.id = 'whatsub-translated-text';
-  translatedText.className = 'whatsub-translated-text';
+  // 번역 텍스트 요소
+  translatedTextElement = document.createElement('div');
+  translatedTextElement.className = 'whatsub-subtitle-text whatsub-translated-text';
   
-  subtitleText.appendChild(originalText);
-  subtitleText.appendChild(translatedText);
+  // 요소 추가
+  subtitleContainer.appendChild(originalTextElement);
+  subtitleContainer.appendChild(translatedTextElement);
   
-  // 컨트롤 버튼들 추가
-  const controlsContainer = document.createElement('div');
-  controlsContainer.id = 'whatsub-controls';
-  controlsContainer.className = 'whatsub-controls';
+  // 컨트롤 패널 추가
+  const controlPanel = createControlPanel();
+  subtitleContainer.appendChild(controlPanel);
   
-  // 자막 제어 버튼 추가
-  controlsContainer.innerHTML = `
-    <button id="whatsub-toggle-btn" class="whatsub-btn" title="자막 켜기/끄기">
-      <span class="material-icons">subtitles</span>
-    </button>
-    <button id="whatsub-dual-btn" class="whatsub-btn" title="이중 자막 켜기/끄기">
-      <span class="material-icons">translate</span>
-    </button>
-    <select id="whatsub-language" class="whatsub-select" title="번역 언어">
+  // 드래그 기능 추가
+  makeSubtitleDraggable();
+  
+  // 자막 스타일 업데이트
+  updateSubtitleStyle();
+  
+  // 문서에 추가
+  document.body.appendChild(subtitleContainer);
+  
+  // 초기에는 숨김
+  subtitleContainer.style.display = 'none';
+  
+  // 이벤트 핸들러 설정
+  setTimeout(() => {
+    setupControlPanelEvents();
+  }, 100);
+  
+  return subtitleContainer;
+}
+
+// 컨트롤 패널 생성
+function createControlPanel() {
+  const controlPanel = document.createElement('div');
+  controlPanel.className = 'whatsub-control-panel';
+  
+  // 자막 켜기/끄기 토글
+  const subtitleToggle = document.createElement('div');
+  subtitleToggle.className = 'whatsub-control-item';
+  subtitleToggle.innerHTML = `
+    <span class="whatsub-label">자막</span>
+    <label class="whatsub-toggle">
+      <input type="checkbox" id="whatsub-subtitle-toggle" checked>
+      <span class="whatsub-toggle-slider"></span>
+    </label>
+  `;
+  
+  // 자막 언어 선택
+  const languageSelector = document.createElement('div');
+  languageSelector.className = 'whatsub-control-item';
+  languageSelector.innerHTML = `
+    <span class="whatsub-label">언어</span>
+    <select class="whatsub-select" id="whatsub-language-select">
       <option value="ko">한국어</option>
       <option value="en">영어</option>
       <option value="ja">일본어</option>
       <option value="zh">중국어</option>
+      <option value="es">스페인어</option>
+      <option value="fr">프랑스어</option>
     </select>
-    <button id="whatsub-settings-btn" class="whatsub-btn" title="설정">
-      <span class="material-icons">settings</span>
+  `;
+  
+  // 듀얼 자막 토글
+  const dualSubtitleToggle = document.createElement('div');
+  dualSubtitleToggle.className = 'whatsub-control-item';
+  dualSubtitleToggle.innerHTML = `
+    <span class="whatsub-label">듀얼 자막</span>
+    <label class="whatsub-toggle">
+      <input type="checkbox" id="whatsub-dual-subtitle-toggle">
+      <span class="whatsub-toggle-slider"></span>
+    </label>
+  `;
+  
+  // 듀얼 자막 언어 선택 (초기에는 숨김)
+  const dualLanguageSelector = document.createElement('div');
+  dualLanguageSelector.className = 'whatsub-control-item';
+  dualLanguageSelector.id = 'whatsub-dual-language-selector';
+  dualLanguageSelector.style.display = state.subtitleSettings.dualSubtitles ? 'flex' : 'none';
+  dualLanguageSelector.innerHTML = `
+    <span class="whatsub-label">듀얼 언어</span>
+    <select class="whatsub-select" id="whatsub-dual-language-select">
+      <option value="ko">한국어</option>
+      <option value="en" selected>영어</option>
+      <option value="ja">일본어</option>
+      <option value="zh">중국어</option>
+      <option value="es">스페인어</option>
+      <option value="fr">프랑스어</option>
+    </select>
+  `;
+  
+  // 자동 자막 토글
+  const autoSubtitleToggle = document.createElement('div');
+  autoSubtitleToggle.className = 'whatsub-control-item';
+  autoSubtitleToggle.innerHTML = `
+    <span class="whatsub-label">자동 인식</span>
+    <label class="whatsub-toggle">
+      <input type="checkbox" id="whatsub-auto-subtitle-toggle">
+      <span class="whatsub-toggle-slider"></span>
+    </label>
+  `;
+  
+  // 피드백 버튼들
+  const feedbackButtons = document.createElement('div');
+  feedbackButtons.className = 'whatsub-feedback-buttons';
+  feedbackButtons.innerHTML = `
+    <button class="whatsub-feedback-btn whatsub-like-btn" id="whatsub-like-btn" title="좋아요">
+      <i class="fas fa-thumbs-up"></i>
     </button>
-    <button id="whatsub-move-btn" class="whatsub-btn" title="위치 이동">
-      <span class="material-icons">open_with</span>
+    <button class="whatsub-feedback-btn whatsub-dislike-btn" id="whatsub-dislike-btn" title="싫어요">
+      <i class="fas fa-thumbs-down"></i>
+    </button>
+    <button class="whatsub-feedback-btn whatsub-recommend-btn" id="whatsub-recommend-btn" title="추천하기">
+      <i class="fas fa-star"></i>
     </button>
   `;
   
-  // 컨테이너에 요소 추가
-  container.appendChild(subtitleText);
-  container.appendChild(controlsContainer);
-  
-  // 문서에 컨테이너 추가
-  document.body.appendChild(container);
-  
-  // 위치 드래그 가능하게 설정
-  makeDraggable(container);
-  
-  // 컨트롤 버튼 이벤트 리스너 추가
-  setupControlListeners();
-  
-  // 설정 적용
-  applySettings();
-  
-  return container;
-}
-
-// 컨트롤 버튼에 이벤트 리스너 추가
-function setupControlListeners() {
-  // 자막 토글 버튼
-  const toggleBtn = document.getElementById('whatsub-toggle-btn');
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', function() {
-      const container = document.getElementById('whatsub-container');
-      if (container) {
-        const isActive = !container.classList.contains('hidden');
-        if (isActive) {
-          container.classList.add('hidden');
-        } else {
-          container.classList.remove('hidden');
-        }
-      }
-    });
-  }
-  
-  // 이중 자막 토글 버튼
-  const dualBtn = document.getElementById('whatsub-dual-btn');
-  if (dualBtn) {
-    dualBtn.addEventListener('click', function() {
-      const translatedText = document.getElementById('whatsub-translated-text');
-      if (translatedText) {
-        const isVisible = translatedText.style.display !== 'none';
-        translatedText.style.display = isVisible ? 'none' : 'block';
-      }
-    });
-  }
-  
-  // 언어 선택 드롭다운
-  const languageSelect = document.getElementById('whatsub-language');
-  if (languageSelect) {
-    languageSelect.addEventListener('change', function(e) {
-      // 현재는 아무 작업도 하지 않음 (백엔드와 연동 필요)
-      console.log('언어 변경:', e.target.value);
-    });
-  }
-  
   // 설정 버튼
-  const settingsBtn = document.getElementById('whatsub-settings-btn');
-  if (settingsBtn) {
-    settingsBtn.addEventListener('click', function() {
-      // 팝업 열도록 크롬 API 호출
-      chrome.runtime.sendMessage({
-        action: 'openPopup',
-        tab: 'settings'
-      });
-    });
-  }
+  const settingsButton = document.createElement('button');
+  settingsButton.className = 'whatsub-settings-btn';
+  settingsButton.id = 'whatsub-settings-btn';
+  settingsButton.innerHTML = '<i class="fas fa-cog"></i>';
+  settingsButton.title = '자막 설정';
+  
+  // 설정 패널
+  const settingsPanel = document.createElement('div');
+  settingsPanel.className = 'whatsub-settings-panel';
+  settingsPanel.id = 'whatsub-settings-panel';
+  settingsPanel.innerHTML = `
+    <div class="whatsub-settings-header">
+      <h3>자막 설정</h3>
+      <button class="whatsub-close-btn" id="whatsub-close-settings">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="whatsub-settings-options">
+      <div class="whatsub-settings-option">
+        <div class="whatsub-settings-label">자막 위치</div>
+        <div class="whatsub-settings-choices">
+          <button class="whatsub-option-button" data-position="top">상단</button>
+          <button class="whatsub-option-button active" data-position="bottom">하단</button>
+        </div>
+      </div>
+      <div class="whatsub-settings-option">
+        <div class="whatsub-settings-label">글꼴 크기</div>
+        <div class="whatsub-settings-choices">
+          <button class="whatsub-option-button" data-font-size="small">작게</button>
+          <button class="whatsub-option-button active" data-font-size="medium">중간</button>
+          <button class="whatsub-option-button" data-font-size="large">크게</button>
+        </div>
+      </div>
+      <div class="whatsub-settings-option">
+        <div class="whatsub-settings-label">배경 투명도</div>
+        <div class="whatsub-settings-choices">
+          <button class="whatsub-option-button" data-opacity="low">낮음</button>
+          <button class="whatsub-option-button active" data-opacity="medium">중간</button>
+          <button class="whatsub-option-button" data-opacity="high">높음</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // 컨트롤 패널에 요소들 추가
+  controlPanel.appendChild(subtitleToggle);
+  controlPanel.appendChild(languageSelector);
+  controlPanel.appendChild(dualSubtitleToggle);
+  controlPanel.appendChild(dualLanguageSelector);
+  controlPanel.appendChild(autoSubtitleToggle);
+  controlPanel.appendChild(feedbackButtons);
+  controlPanel.appendChild(settingsButton);
+  controlPanel.appendChild(settingsPanel);
+  
+  return controlPanel;
 }
 
-// 드래그 가능하게 만드는 함수
-function makeDraggable(element) {
-  let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-  
-  const moveBtn = document.getElementById('whatsub-move-btn');
-  if (!moveBtn) return;
-  
-  moveBtn.onmousedown = dragMouseDown;
-  
-  function dragMouseDown(e) {
-    e.preventDefault();
-    // 마우스 위치 가져오기
-    pos3 = e.clientX;
-    pos4 = e.clientY;
-    // 마우스 이벤트 등록
-    document.onmouseup = closeDragElement;
-    document.onmousemove = elementDrag;
-  }
-  
-  function elementDrag(e) {
-    e.preventDefault();
-    // 새 위치 계산
-    pos1 = pos3 - e.clientX;
-    pos2 = pos4 - e.clientY;
-    pos3 = e.clientX;
-    pos4 = e.clientY;
-    // 요소 위치 설정
-    element.style.top = (element.offsetTop - pos2) + "px";
-    element.style.left = (element.offsetLeft - pos1) + "px";
-  }
-  
-  function closeDragElement() {
-    // 마우스 이벤트 해제
-    document.onmouseup = null;
-    document.onmousemove = null;
-  }
+// 메시지 리스너 설정 함수 (호환성 유지)
+function setupMessageListeners() {
+  console.log('[Whatsub] 메시지 리스너가 이미 설정되어 있습니다.');
+  // 메시지 리스너는 이미 전역 스코프에 설정되어 있음
 }
 
-// 설정 적용 함수
-function applySettings() {
-  chrome.storage.sync.get('subtitleSettings', function(data) {
-    const settings = data.subtitleSettings || {};
-    const container = document.getElementById('whatsub-container');
-    
-    if (!container) return;
-    
-    // 위치 설정
-    if (settings.position === 'top') {
-      container.style.top = '10%';
-      container.style.bottom = 'auto';
-    } else if (settings.position === 'middle') {
-      container.style.top = '50%';
-      container.style.bottom = 'auto';
-      container.style.transform = 'translateY(-50%)';
-    } else {
-      // 기본값: 하단
-      container.style.top = 'auto';
-      container.style.bottom = '10%';
-    }
-    
-    // 폰트 크기 설정
-    const subtitleText = document.getElementById('whatsub-subtitle-text');
-    if (subtitleText) {
-      if (settings.fontSize === 'small') {
-        subtitleText.style.fontSize = '16px';
-      } else if (settings.fontSize === 'large') {
-        subtitleText.style.fontSize = '24px';
-      } else {
-        // 기본값: 중간
-        subtitleText.style.fontSize = '20px';
-      }
-    }
-    
-    // 배경 투명도 설정
-    if (settings.background === 'transparent') {
-      container.style.backgroundColor = 'transparent';
-    } else if (settings.background === 'solid') {
-      container.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-    } else {
-      // 기본값: 반투명
-      container.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    }
-    
-    // 이중 자막 설정
-    const translatedText = document.getElementById('whatsub-translated-text');
-    if (translatedText) {
-      translatedText.style.display = settings.dualSubtitles === false ? 'none' : 'block';
-    }
-  });
-}
-
-// 자막 표시 함수
-function displaySubtitle(text, isTranslation = false) {
-  // 자막 컨테이너가 없으면 생성
-  let container = document.getElementById('whatsub-container');
-  if (!container) {
-    container = createSubtitleContainer();
-  }
-  
-  // 컨테이너가 숨겨져 있으면 표시
-  container.classList.remove('hidden');
-  
-  // 원본 또는 번역 텍스트에 내용 설정
-  if (isTranslation) {
-    const translatedText = document.getElementById('whatsub-translated-text');
-    if (translatedText) {
-      translatedText.textContent = text;
-    }
-  } else {
-    const originalText = document.getElementById('whatsub-original-text');
-    if (originalText) {
-      originalText.textContent = text;
-    }
-  }
-}
-
-// 테스트 자막 표시 함수
-function showTestSubtitle(text, duration = 5000) {
-  // 원본 자막 표시
-  displaySubtitle(text || '이것은 테스트 자막입니다.');
-  
-  // 번역 자막 표시 (이중 자막 테스트)
-  displaySubtitle('This is a test subtitle.', true);
-  
-  // 지정된 시간 후 자막 숨기기
-  setTimeout(() => {
-    displaySubtitle('');
-    displaySubtitle('', true);
-  }, duration);
-}
-
-// 자막 토글 함수
-function toggleSubtitles(enabled) {
-  // 자막 컨테이너가 없으면 생성
-  let container = document.getElementById('whatsub-container');
-  if (!container) {
-    container = createSubtitleContainer();
-  }
-  
-  // 활성화/비활성화 설정
-  if (enabled) {
-    container.classList.remove('hidden');
-  } else {
-    container.classList.add('hidden');
-  }
-  
-  return { success: true, enabled };
-}
-
-// 메시지 핸들러 등록
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('컨텐츠 스크립트에서 메시지 수신:', message.action);
-  
-  try {
-    switch(message.action) {
-      case 'toggleSubtitles':
-        const result = toggleSubtitles(message.enabled);
-        sendResponse(result);
-        break;
-        
-      case 'showTestSubtitle':
-        showTestSubtitle(message.text, message.duration);
-        sendResponse({ success: true });
-        break;
-        
-      case 'updateSettings':
-        applySettings();
-        sendResponse({ success: true });
-        break;
-        
-      case 'changeLanguage':
-        // 현재는 언어 변경 기능이 없으므로 성공만 반환
-        sendResponse({ success: true, language: message.language });
-        break;
-        
-      default:
-        console.warn('알 수 없는 메시지 액션:', message.action);
-        sendResponse({ success: false, error: '알 수 없는 액션' });
-    }
-  } catch (error) {
-    console.error('메시지 처리 중 오류:', error);
-    sendResponse({ success: false, error: error.message });
-  }
-  
-  return true; // 비동기 응답 처리
-});
-
-// 초기화 함수
-function initialize() {
-  console.log('Whatsub 콘텐츠 스크립트 초기화...');
-  
-  // 자동 시작 설정 확인
-  chrome.storage.sync.get(['autoStart', 'subtitleEnabled'], function(data) {
-    const autoStart = data.autoStart === true;
-    const subtitleEnabled = data.subtitleEnabled === true;
-    
-    console.log('자동 시작:', autoStart, '자막 활성화:', subtitleEnabled);
-    
-    // 자동 시작 또는 자막이 활성화되어 있으면 자막 컨테이너 생성
-    if (autoStart || subtitleEnabled) {
-      const container = createSubtitleContainer();
-      // 활성화되어 있지 않으면 숨김
-      if (!subtitleEnabled) {
-        container.classList.add('hidden');
-      }
-    }
-  });
-  
-  // 도메인 기반으로 자동 활성화 (선택적)
-  const currentDomain = window.location.hostname;
-  if (currentDomain.includes('youtube.com')) {
-    console.log('YouTube 감지, 자막 기능 준비');
-    createSubtitleContainer();
-  }
-}
-
-// 페이지 로드 시 초기화
-initialize();
+// 초기화 실행
+init(); 

@@ -72,7 +72,7 @@
           <img id="user-avatar" src="icons/default-avatar.png" alt="사용자 프로필" class="user-avatar" width="40" height="40">
           <div class="user-details">
             <h3 id="user-name">사용자 이름</h3>
-            <p id="user-email"></p>
+            <p id="user-email">example@email.com</p>
           </div>
         </div>
         <div>
@@ -97,16 +97,15 @@
     <div id="controls-container" class="card">
       <div id="filter-container">
         <h3>자막 필터링</h3>
-        <p>모든 웹 비디오(YouTube, Netflix, Vimeo 등)의 자막을 필터링하고 번역하세요.</p>
         <div class="setting-row">
-          <span>자막 기능 활성화</span>
+          <span>자막 필터링 활성화</span>
           <label class="toggle-switch">
             <input type="checkbox" id="filter-toggle">
             <span class="toggle-slider"></span>
           </label>
         </div>
         <div class="setting-row">
-          <span>자막 언어</span>
+          <span>필터 언어</span>
           <select id="filter-language">
             <option value="ko">한국어</option>
             <option value="en">영어</option>
@@ -117,7 +116,7 @@
         <div class="setting-row">
           <span>이중 자막 표시</span>
           <label class="toggle-switch">
-            <input type="checkbox" id="dual-subtitle-main" checked>
+            <input type="checkbox" id="dual-subtitle" checked>
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -193,6 +192,13 @@
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div class="setting-row">
+        <span>개발자 모드</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="dev-mode">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
       <div class="controls">
         <button id="reset-settings">설정 초기화</button>
         <button id="save-settings-2">저장</button>
@@ -204,25 +210,19 @@
   <div id="help-tab" class="tab-content">
     <div class="card">
       <h3>WhaSub 사용 방법</h3>
-      <p>WhaSub는 다양한 웹사이트의 모든 동영상에 자막을 표시하고 번역하는 확장 프로그램입니다.</p>
+      <p>WhaSub는 유튜브 영상의 자막을 번역하고 필터링하는 확장 프로그램입니다.</p>
       <ol>
-        <li>동영상(YouTube, Netflix, Vimeo 등)이 재생되는 페이지에서 확장 프로그램 아이콘을 클릭합니다.</li>
-        <li>자막 기능을 활성화합니다.</li>
-        <li>원하는 언어를 선택합니다.</li>
-        <li>영상 자막이 자동으로 표시되며, 필요한 경우 번역됩니다.</li>
+        <li>유튜브 영상 페이지에서 확장 프로그램 아이콘을 클릭합니다.</li>
+        <li>자막 필터링 기능을 활성화합니다.</li>
+        <li>원하는 필터 언어를 선택합니다.</li>
+        <li>유튜브 영상의 자막이 자동으로 번역됩니다.</li>
       </ol>
       <p>더 많은 도움말은 <a href="#" id="help-center-link">도움말 센터</a>를 참조하세요.</p>
     </div>
     <div class="card">
       <h3>자주 묻는 질문</h3>
       <p><strong>Q: 자막이 표시되지 않아요.</strong></p>
-      <p>A: 다음 사항들을 확인해보세요:
-        <br>1. 확장 프로그램이 활성화되어 있는지 확인하세요.
-        <br>2. 영상이 재생 중인지 확인하세요. 영상이 일시정지된 상태에서는 자막이 표시되지 않을 수 있습니다.
-        <br>3. 오디오 출력이 있는지 확인하세요. Whatsub은 오디오를 분석하여 자막을 생성합니다.
-        <br>4. 브라우저 권한 설정을 확인하세요. 확장 프로그램이 오디오 캡처 권한을 가지고 있어야 합니다.
-        <br>5. Whatsub은 다양한 웹사이트(YouTube, Netflix, Vimeo 등)의 모든 비디오에서 작동합니다.
-      </p>
+      <p>A: 유튜브 영상에 자막이 있는지 확인하세요. 영상에 자막이 없으면 기능이 작동하지 않습니다.</p>
       <p><strong>Q: 사용량은 어떻게 결정되나요?</strong></p>
       <p>A: 자막 번역 및 필터링을 사용할 때마다 사용량이 증가합니다. 구독 플랜에 따라 월간 사용량이 결정됩니다.</p>
       <p><strong>Q: 자막 위치를 변경할 수 있나요?</strong></p>

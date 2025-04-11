@@ -42,7 +42,10 @@
         subtitleDisplay: null,
         authService: null,
         debugLogger: null,
-        videoDetector: null
+        videoDetector: null,
+        commentDisplay: null,
+        communityService: null,
+        videoCommentService: null
     };
 
     // 디버그 로거 서비스
@@ -869,6 +872,9 @@
                 dualSubtitles: true, // 원본 및 번역 자막 모두 표시
                 customPosition: null // 사용자가 직접 위치 지정 시 {x, y} 값 저장
             };
+            
+            // 자막 표시 관련 상태
+            this.isShowing = false;
         }
 
         // 이미 존재하는 자막 컨테이너 제거
@@ -1575,6 +1581,29 @@
                 this.translatedSubtitleElement = null;
             }
         }
+        
+        /**
+         * 자막 표시 함수
+         * - 원본 및 번역 자막을 표시
+         * @dependency 자막 컨테이너 초기화 함수에 의존
+         * @relatedFiles popup.js (showTestSubtitle 함수)
+         */
+        showSubtitle(original, translated = '') {
+            // 컨테이너가 없다면 초기화
+            if (!this.container) {
+                this.createContainer();
+            }
+            
+            // 자막 텍스트 업데이트
+            this.updateText(original, translated);
+            
+            // 컨테이너 표시
+            this.setVisibility(true);
+            this.isShowing = true;
+            
+            // 자막 위치 조정
+            this.positionRelativeToVideo();
+        }
     }
 
     // 자막 표시/숨김 토글
@@ -2194,39 +2223,66 @@
     // 서비스 초기화 함수
     async function initializeServices() {
         try {
-            console.log('[Whatsub] 서비스 초기화 중...');
-            
-            // 이미 초기화된 경우 재사용
-            if (state.servicesInitialized) {
-                console.log('[Whatsub] 서비스가 이미 초기화되어 있습니다.');
-                return true;
-            }
+            console.log('서비스 초기화 시작...');
             
             // 디버그 로거 초기화
             services.debugLogger = new DebugLogger();
+            await services.debugLogger.initialize();
             
             // 상태 표시기 초기화
             services.statusIndicator = new StatusIndicator();
+            await services.statusIndicator.initialize();
             
-            // 비디오 감지기 초기화
+            // 오디오 캡처 서비스 초기화
+            services.audioCapture = new AudioCaptureService();
+            await services.audioCapture.initialize();
+            
+            // 자막 표시 서비스 초기화
+            if (typeof window.subtitleDisplay !== 'undefined') {
+                services.subtitleDisplay = window.subtitleDisplay;
+                console.log('외부 자막 표시 서비스 사용');
+            } else {
+                services.subtitleDisplay = new SubtitleDisplay();
+                await services.subtitleDisplay.initialize();
+            }
+            
+            // 비디오 감지 서비스 초기화
             services.videoDetector = new VideoDetector();
             await services.videoDetector.initialize();
             
-            // 자막 디스플레이 초기화
-            services.subtitleDisplay = new SubtitleDisplay();
-            await services.subtitleDisplay.initialize();
+            // 커뮤니티 서비스 초기화
+            if (typeof window.communityService !== 'undefined') {
+                services.communityService = window.communityService;
+                await services.communityService.initialize();
+                console.log('커뮤니티 서비스 초기화 완료');
+            }
             
-            // 오디오 캡처 초기화
-            services.audioCapture = new AudioCaptureService();
+            // 댓글 표시 서비스 초기화
+            if (typeof window.commentDisplay !== 'undefined') {
+                services.commentDisplay = window.commentDisplay;
+                console.log('댓글 표시 서비스 초기화 완료');
+            }
             
-            // 초기화 완료 표시
-            state.servicesInitialized = true;
-            console.log('[Whatsub] 모든 서비스 초기화 완료');
+            // 비디오 댓글 서비스 초기화
+            if (typeof window.videoCommentService !== 'undefined') {
+                services.videoCommentService = window.videoCommentService;
+                await services.videoCommentService.initialize();
+                console.log('비디오 댓글 서비스 초기화 완료');
+            }
             
-            return true;
+            // 초기화 완료 설정
+            state.isInitialized = true;
+            
+            // 페이지 로드 이벤트 전송
+            chrome.runtime.sendMessage({
+                action: 'pageLoaded',
+                url: window.location.href,
+                isYouTubePage: window.location.hostname.includes('youtube.com')
+            });
+            
+            console.log('모든 서비스 초기화 완료');
         } catch (error) {
-            console.error('[Whatsub] 서비스 초기화 실패:', error);
-            return false;
+            console.error('서비스 초기화 중 오류 발생:', error);
         }
     }
 
@@ -2389,6 +2445,51 @@
         console.log(`[Whatsub] ${message}`, details || '');
         sendLogToBackground('debug', message, details);
     }
+
+    // 메시지 리스너 설정 (chrome.runtime.onMessage.addListener 부분 수정)
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log('[Whatsub] 콘텐츠 스크립트 메시지 수신:', message.action);
+      
+      // ... existing code ...
+      
+      // 시뮬레이션된 자막 표시 (테스트용)
+      if (message.action === 'showTestSubtitle') {
+        try {
+          // 서비스 초기화 확인
+          if (!state.servicesInitialized) {
+            initializeServices().then(() => {
+              // 자막 표시
+              services.subtitleDisplay.showSubtitle(message.original, message.translated);
+              
+              // 상태 업데이트
+              state.subtitleEnabled = true;
+              
+              sendResponse({ success: true });
+            }).catch(error => {
+              console.error('[Whatsub] 테스트 자막 표시 초기화 오류:', error);
+              sendResponse({ success: false, error: error.message });
+            });
+          } else {
+            // 서비스가 이미 초기화된 경우 바로 자막 표시
+            services.subtitleDisplay.showSubtitle(message.original, message.translated);
+            
+            // 상태 업데이트
+            state.subtitleEnabled = true;
+            
+            sendResponse({ success: true });
+          }
+          
+          return true; // 비동기 응답 지원
+        } catch (error) {
+          console.error('[Whatsub] 테스트 자막 표시 오류:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+      }
+      
+      // ... existing code ...
+      
+      return true; // 비동기 응답 지원
+    });
 })();
 
 // 기본 content script
