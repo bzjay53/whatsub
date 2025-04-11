@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whatsub 디버그 도구</title>
+  <style>
+    :root {
+      --primary-color: #2196F3;
+      --accent-color: #FF9800;
+      --success-color: #4CAF50;
+      --danger-color: #F44336;
+      --warning-color: #FFEB3B;
+      --gray-100: #f8f9fa;
+      --gray-200: #e9ecef;
+      --gray-300: #dee2e6;
+      --gray-400: #ced4da;
+      --gray-500: #adb5bd;
+      --gray-600: #6c757d;
+      --gray-700: #495057;
+      --gray-800: #343a40;
+      --gray-900: #212529;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: var(--gray-800);
+      background-color: var(--gray-100);
+      padding: 0;
+      margin: 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 20px 0;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 500;
+    }
+
+    .version {
+      font-size: 14px;
+      opacity: 0.8;
+    }
+
+    .card {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 15px 20px;
+      background-color: var(--gray-200);
+      border-bottom: 1px solid var(--gray-300);
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-body {
+      padding: 20px;
+    }
+
+    .logs-container {
+      max-height: 400px;
+      overflow-y: auto;
+      background-color: var(--gray-100);
+      border-radius: 4px;
+      border: 1px solid var(--gray-300);
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    .log-item {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--gray-300);
+      line-height: 1.4;
+    }
+
+    .log-item:last-child {
+      border-bottom: none;
+    }
+
+    .log-error {
+      background-color: rgba(244, 67, 54, 0.1);
+      border-left: 3px solid var(--danger-color);
+    }
+
+    .log-warn {
+      background-color: rgba(255, 193, 7, 0.1);
+      border-left: 3px solid var(--warning-color);
+    }
+
+    .log-info {
+      background-color: rgba(33, 150, 243, 0.1);
+      border-left: 3px solid var(--primary-color);
+    }
+
+    .log-debug {
+      background-color: rgba(139, 195, 74, 0.1);
+      border-left: 3px solid var(--success-color);
+    }
+
+    .log-time {
+      color: var(--gray-600);
+      font-size: 12px;
+      display: inline-block;
+      width: 90px;
+    }
+
+    .log-level {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-right: 8px;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .log-level.error {
+      background-color: var(--danger-color);
+      color: white;
+    }
+
+    .log-level.warn {
+      background-color: var(--warning-color);
+      color: var(--gray-900);
+    }
+
+    .log-level.info {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .log-level.debug {
+      background-color: var(--success-color);
+      color: white;
+    }
+
+    .log-source {
+      color: var(--gray-700);
+      font-style: italic;
+      margin-right: 8px;
+    }
+
+    .log-message {
+      font-weight: 500;
+    }
+
+    .log-details {
+      display: block;
+      margin-top: 5px;
+      padding: 8px;
+      background-color: var(--gray-200);
+      border-radius: 4px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+
+    .btn {
+      background-color: var(--gray-200);
+      border: none;
+      border-radius: 4px;
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background-color: var(--gray-300);
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #1976D2;
+    }
+
+    .btn-danger {
+      background-color: var(--danger-color);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background-color: #D32F2F;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 14px;
+      border: 1px solid var(--gray-400);
+      border-radius: 4px;
+    }
+
+    .form-check {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .form-check-input {
+      margin-right: 8px;
+    }
+
+    .status-card {
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+
+    .status-online {
+      background-color: rgba(76, 175, 80, 0.2);
+      border: 1px solid var(--success-color);
+    }
+
+    .status-offline {
+      background-color: rgba(244, 67, 54, 0.2);
+      border: 1px solid var(--danger-color);
+    }
+
+    .status-message {
+      margin-top: 5px;
+      font-size: 14px;
+    }
+
+    .tools-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .tool-card {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tool-title {
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .tool-description {
+      font-size: 14px;
+      color: var(--gray-600);
+      margin-bottom: 15px;
+      flex-grow: 1;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 20px 0;
+      margin-top: 40px;
+      color: var(--gray-600);
+      font-size: 14px;
+      border-top: 1px solid var(--gray-300);
+    }
+
+    @media (max-width: 768px) {
+      .tools-section {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <h1 class="title">Whatsub 디버그 도구</h1>
+      <span class="version" id="version">버전 로딩 중...</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <div class="card-header">
+        <span>확장 프로그램 상태</span>
+        <button id="refresh-status" class="btn btn-primary">새로고침</button>
+      </div>
+      <div class="card-body">
+        <div id="status-container">
+          <div class="status-card" id="extension-status">
+            <strong>확장 프로그램 상태:</strong> <span id="status-text">확인 중...</span>
+          </div>
+          
+          <div class="form-group">
+            <div class="form-check">
+              <input type="checkbox" id="developer-mode" class="form-check-input">
+              <label for="developer-mode" class="form-check-label">개발자 모드 활성화</label>
+            </div>
+          </div>
+          
+          <div id="api-status" class="status-card">
+            <strong>API 서버 상태:</strong> <span id="api-status-text">확인 중...</span>
+            <div id="api-status-message" class="status-message"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span>로그</span>
+        <div class="btn-group">
+          <button id="refresh-logs" class="btn btn-primary">로그 새로고침</button>
+          <button id="clear-logs" class="btn btn-danger">로그 지우기</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="logs-container" class="logs-container">
+          <div class="log-item">로그를 불러오는 중...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span>진단 도구</span>
+      </div>
+      <div class="card-body">
+        <div class="tools-section">
+          <div class="tool-card">
+            <div class="tool-title">컨텐츠 스크립트 진단</div>
+            <div class="tool-description">현재 페이지의 컨텐츠 스크립트 상태를 확인합니다.</div>
+            <button id="check-content-script" class="btn btn-primary">확인</button>
+          </div>
+          
+          <div class="tool-card">
+            <div class="tool-title">오디오 캡처 테스트</div>
+            <div class="tool-description">오디오 캡처 기능이 정상적으로 작동하는지 테스트합니다.</div>
+            <button id="test-audio-capture" class="btn btn-primary">테스트</button>
+          </div>
+          
+          <div class="tool-card">
+            <div class="tool-title">자막 UI 테스트</div>
+            <div class="tool-description">자막 UI가 현재 페이지에 제대로 표시되는지 테스트합니다.</div>
+            <button id="test-subtitle-ui" class="btn btn-primary">테스트</button>
+          </div>
+          
+          <div class="tool-card">
+            <div class="tool-title">Whisper API 테스트</div>
+            <div class="tool-description">OpenAI Whisper API 연결을 테스트합니다.</div>
+            <button id="test-whisper" class="btn btn-primary">테스트</button>
+          </div>
+          
+          <div class="tool-card">
+            <div class="tool-title">인증 상태 확인</div>
+            <div class="tool-description">현재 사용자의 인증 상태를 확인합니다.</div>
+            <button id="check-auth" class="btn btn-primary">확인</button>
+          </div>
+          
+          <div class="tool-card">
+            <div class="tool-title">설정 초기화</div>
+            <div class="tool-description">모든 설정을 기본값으로 초기화합니다.</div>
+            <button id="reset-settings" class="btn btn-danger">초기화</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Whatsub Extension &copy; 2024. 이 도구는 개발자용입니다.</p>
+  </div>
+
+  <script src="js/debug.js"></script>
+</body>
+</html> 

@@ -1,0 +1,75 @@
+﻿# WhaSub 확장 프로그램 구조 분석
+
+## 주요 구성 요소:
+1. manifest.json - 확장 프로그램 설정 파일
+2. background.js - 백그라운드 서비스 워커
+3. content-script.js - 콘텐츠 스크립트
+4. popup.js - 팝업 UI 인터페이스
+5. inject-subtitle.js - 자막 주입 스크립트
+
+## 파일 중복 및 문제점:
+1. content.js와 content-script.js - 유사한 파일명과 기능
+2. background.js와 background-service.js - 중복 기능 가능성
+3. services 디렉토리에 authService.js와 auth-service.js 같은 중복 파일 존재
+
+## 주요 통신 패턴:
+1. chrome.runtime.sendMessage - 백그라운드 스크립트와 통신
+2. chrome.tabs.sendMessage - 콘텐츠 스크립트와 통신
+3. window.postMessage - 인젝션 스크립트와 통신
+
+## 핵심 기능 모듈:
+1. 인증 관리 (handleGoogleSignIn, checkAuth, signInWithGoogle)
+2. 자막 처리 (toggleSubtitle, showSubtitle, translateSubtitle)
+3. 상태 관리 (state 객체)
+4. 오디오 인식 및 캡처 (startAudioCapture, stopAudioCapture)
+5. 설정 관리 (loadSettings, saveSettings)
+
+## 백그라운드 서비스와 콘텐츠 스크립트 연결 방식:
+1. chrome.runtime.sendMessage - 콘텐츠 스크립트에서 백그라운드로 메시지 전송
+2. chrome.tabs.sendMessage - 백그라운드에서 콘텐츠 스크립트로 메시지 전송
+3. 메시지 핸들링 구조: 액션 기반 라우팅 패턴 사용
+
+## 오류 해결 및 개선사항:
+1. chrome.runtime.id를 tabId로 잘못 사용하는 문제 해결
+2. 자막 컨테이너 초기화 및 오류 처리 강화
+3. 스타일 속성 안전하게 접근하도록 setStyle 함수 구현
+4. background.js와 content-script.js 간 메시지 전달 시 sender 정보 활용
+5. 자막 UI 컴포넌트 DOM 참조 안정성 개선
+6. loadSettings, saveSettings 함수 구현하여 설정 관리 안정화
+7. 도메인 URL을 what-sub.com에서 whatsub.netlify.app으로 수정
+8. 자막창 이벤트 핸들러 개선 (좋아요, 설정 버튼 이벤트)
+9. 이벤트 위임 구조 개선으로 UI 응답성 향상
+10. 피드백 관련 이벤트에 preventDefault와 stopPropagation 적용하여 이벤트 버블링 방지
+
+## 파일 경로 구조:
+1. /public/extension/ - 확장 프로그램 루트 디렉토리
+   - manifest.json - 확장 프로그램 메타데이터
+   - background.js - 백그라운드 서비스 워커
+   - content-script.js - 콘텐츠 스크립트
+   - popup.js - 팝업 관련 자바스크립트
+   - popup.html - 팝업 UI HTML
+   - inject-subtitle.js - 자막 주입 스크립트
+2. /public/extension/styles/ - CSS 스타일시트 디렉토리
+   - subtitles.css - 자막 관련 스타일
+   - popup.css - 팝업 UI 스타일
+3. /public/extension/assets/ - 이미지 및 리소스 디렉토리
+4. /public/extension/services/ - 서비스 모듈 디렉토리
+   - auth-service.js - 인증 관련 서비스
+   - subtitle-service.js - 자막 관련 서비스
+
+## 구현된 핵심 기능:
+1. 유튜브 영상 자막 생성 및 표시
+2. 실시간 자막 번역 기능
+3. 오디오 인식을 통한 자막 자동 생성
+4. 사용자 인증 및 구독 관리
+5. 자막 스타일 및 위치 사용자 정의
+6. 커뮤니티 자막 공유 및 다운로드
+7. 자막 피드백 기능 (좋아요, 싫어요, 추천)
+8. 듀얼 자막 표시 기능
+
+## 외부 연결:
+1. 도움말 페이지: https://whatsub.netlify.app/help
+2. 피드백 페이지: https://whatsub.netlify.app/feedback
+3. 개인정보 처리방침: https://whatsub.netlify.app/privacy
+4. 이용약관: https://whatsub.netlify.app/terms
+5. 회원가입: https://whatsub.netlify.app/signup

@@ -199,91 +199,117 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // 기존 메시지 핸들러 함수를 Promise를 반환하도록 수정
 async function handleMessage(message, sender) {
-  console.log('[Whatsub] 메시지 수신:', message.action);
-  
-  // 메시지 타입에 따른 처리
-  switch (message.action) {
-    case 'signInWithGoogle':
-      return await signInWithGoogle();
-      
-    case 'signOut':
-      return await signOut(message.force);
-      
-    case 'checkAuth':
-      return await checkAuth();
-      
-    case 'getUsage':
-      // 사용량 정보 가져오기
-      return {
-        success: true,
-        usage: {
-          whisper: {
-            used: 10,
-            limit: 60,
-            lastUpdated: new Date().toISOString()
-          }
-        },
-        subscription: {
-          plan: 'free'
+  try {
+    console.debug('[Whatsub] 메시지 수신:', message);
+    
+    // 기본 응답 객체
+    let response = { success: false, message: 'Unknown action' };
+    
+    // 메시지 액션에 따른 처리
+    switch (message.action) {
+      case 'signInWithGoogle':
+        return await signInWithGoogle();
+        
+      case 'signOut':
+        return await signOut(message.force);
+        
+      case 'checkAuth':
+        try {
+          const authResult = await checkAuth(message.maxRetries, message.retryDelayMs);
+          // 항상 명확한 응답 반환
+          response = {
+            success: true,
+            isAuthenticated: authResult.isAuthenticated === true,
+            user: authResult.user || null,
+            error: authResult.error || null
+          };
+        } catch (authError) {
+          console.error('[Whatsub] 인증 상태 확인 처리 중 오류:', authError);
+          response = {
+            success: false,
+            isAuthenticated: false,
+            error: 'auth_error',
+            errorMessage: '인증 상태 확인 중 오류가 발생했습니다.'
+          };
         }
-      };
-      
-    case 'translateText':
-      // 텍스트 번역 처리
-      return {
-        success: true,
-        originalText: message.text,
-        translatedText: message.text,
-        source: message.source,
-        target: message.target
-      };
-      
-    case 'pageLoaded':
-      // 페이지 로드 알림
-      console.log('[Whatsub] 페이지 로드됨:', message.url);
-      if (message.isYouTubePage) {
-        console.log('[Whatsub] 유튜브 페이지 감지됨');
-      }
-      return { success: true };
-      
-    case 'disableSubtitles':
-      // 자막 비활성화 요청
-      return { success: true };
-      
-    case 'saveSettings':
-      // 설정 저장 요청
-      return { success: true };
-      
-    case 'startSpeechRecognition':
-      return await startSpeechRecognition(message);
-      
-    case 'stopSpeechRecognition':
-      return await stopSpeechRecognition(message);
-      
-    case 'updateWhisperSettings':
-      return await updateWhisperSettings(message);
-      
-    case 'getSubtitleList':
-      return { 
-        success: true, 
-        subtitles: [] // 실제 구현에서는 저장된 자막 목록 반환
-      };
-      
-    case 'uploadSubtitle':
-      return { success: true, message: '자막이 업로드되었습니다.' };
-      
-    case 'searchSubtitles':
-      return { 
-        success: true, 
-        subtitles: [] // 실제 구현에서는 검색된 자막 목록 반환
-      };
-      
-    case 'applySubtitle':
-      return { success: true, message: '자막이 적용되었습니다.' };
-      
-    default:
-      // 알 수 없는 액션
-      return { success: false, error: '알 수 없는 액션: ' + message.action };
+        break;
+        
+      case 'getUsage':
+        // 사용량 정보 가져오기
+        return {
+          success: true,
+          usage: {
+            whisper: {
+              used: 10,
+              limit: 60,
+              lastUpdated: new Date().toISOString()
+            }
+          },
+          subscription: {
+            plan: 'free'
+          }
+        };
+        
+      case 'translateText':
+        // 텍스트 번역 처리
+        return {
+          success: true,
+          originalText: message.text,
+          translatedText: message.text,
+          source: message.source,
+          target: message.target
+        };
+        
+      case 'pageLoaded':
+        // 페이지 로드 알림
+        console.log('[Whatsub] 페이지 로드됨:', message.url);
+        if (message.isYouTubePage) {
+          console.log('[Whatsub] 유튜브 페이지 감지됨');
+        }
+        return { success: true };
+        
+      case 'disableSubtitles':
+        // 자막 비활성화 요청
+        return { success: true };
+        
+      case 'saveSettings':
+        // 설정 저장 요청
+        return { success: true };
+        
+      case 'startSpeechRecognition':
+        return await startSpeechRecognition(message);
+        
+      case 'stopSpeechRecognition':
+        return await stopSpeechRecognition(message);
+        
+      case 'updateWhisperSettings':
+        return await updateWhisperSettings(message);
+        
+      case 'getSubtitleList':
+        return { 
+          success: true, 
+          subtitles: [] // 실제 구현에서는 저장된 자막 목록 반환
+        };
+        
+      case 'uploadSubtitle':
+        return { success: true, message: '자막이 업로드되었습니다.' };
+        
+      case 'searchSubtitles':
+        return { 
+          success: true, 
+          subtitles: [] // 실제 구현에서는 검색된 자막 목록 반환
+        };
+        
+      case 'applySubtitle':
+        return { success: true, message: '자막이 적용되었습니다.' };
+        
+      default:
+        // 알 수 없는 액션
+        return { success: false, error: '알 수 없는 액션: ' + message.action };
+    }
+  } catch (error) {
+    console.error('[Whatsub] 메시지 처리 중 오류:', error);
+    return response;
   }
 }
 
@@ -671,67 +697,72 @@ async function validateToken(token) {
 
 /**
  * 음성 인식 시작
+ * @dependency content.js의 음성 인식 메시지 처리 로직과 연결됨
+ * @relatedFiles content.js, popup.js (toggleSubtitleFilter 함수)
+ * @messageFlow popup.js → background.js → content.js
  */
 async function startSpeechRecognition(params) {
   try {
-    const { tabId, useWhisper = true, universalMode = false, whisperSettings = {} } = params;
-    
-    if (!tabId) {
-      console.error('[Whatsub] 음성 인식 시작: 탭 ID가 제공되지 않았습니다.');
-      return { success: false, error: '탭 ID가 제공되지 않았습니다.' };
-    }
-    
-    // 이미 활성화된 상태인지 확인
-    if (whisperState.isActive) {
-      // 이미 같은 탭에서 활성화되어 있는 경우 성공으로 처리
-      if (whisperState.tabId === tabId) {
-        return { success: true, message: '이미 음성 인식이 활성화되어 있습니다.' };
-      }
-      
-      // 다른 탭에서 활성화된 경우 기존 인식 중지
-      await stopSpeechRecognition({ tabId: whisperState.tabId });
-    }
-    
-    // 설정 적용
-    Object.assign(whisperState.settings, whisperSettings);
-    whisperState.tabId = tabId;
-    
-    // 권한 획득
-    const hasPermission = await requestAudioPermission();
-    if (!hasPermission) {
+    // 파라미터 유효성 검사
+    if (!params || !params.tabId) {
+      console.error('[Whatsub] 음성 인식 시작: 유효하지 않은 탭 ID');
       return { 
         success: false, 
-        error: '오디오 캡처 권한이 없습니다. 권한을 허용해주세요.' 
+        error: '유효하지 않은 파라미터: tabId가 필요합니다.' 
       };
     }
     
-    console.log('[Whatsub] 음성 인식 시작 (Whisper AI):', {
-      tabId,
-      settings: whisperState.settings
-    });
+    const { tabId, useWhisper, universalMode, whisperSettings } = params;
+    
+    console.log('[Whatsub] 음성 인식 시작 요청:', { tabId, useWhisper, universalMode, settings: whisperSettings });
+    
+    // 이미 활성화된 상태라면 중지 후 재시작
+    if (whisperState.isActive) {
+      await stopSpeechRecognition({ tabId: whisperState.tabId });
+    }
+    
+    // 설정 기록
+    if (whisperSettings) {
+      Object.assign(whisperState.settings, whisperSettings);
+    }
+    
+    // 상태 업데이트
+    whisperState.isActive = true;
+    whisperState.tabId = tabId;
+    whisperState.universalMode = universalMode === true;
     
     // Whisper API 준비
     await prepareWhisperAPI();
     
     // 오디오 캡처 시작
-    await startAudioCapture(tabId);
+    const captureStarted = await startAudioCapture(tabId);
     
-    // 음성 인식 상태 업데이트
-    whisperState.isActive = true;
-    
-    // 인식 시작 메시지 전송
-    chrome.tabs.sendMessage(
-      tabId, 
-      {
-        action: 'whisperStarted',
-        settings: whisperState.settings
-      }, 
-      function(response) {
+    // 시작 메시지 전송 - 콜백 패턴 사용
+    try {
+      // tabId 유효성 확인
+      chrome.tabs.get(tabId, (tab) => {
         if (chrome.runtime.lastError) {
-          console.warn('[Whatsub] 탭에 메시지 전송 실패 (무시됨):', chrome.runtime.lastError);
+          console.debug('[Whatsub] 음성 인식 시작: 탭을 찾을 수 없음', chrome.runtime.lastError.message);
+          return;
         }
-      }
-    );
+        
+        // 함수를 변수에 저장하여 콜백으로 전달
+        const callback = function(response) {
+          if (chrome.runtime.lastError) {
+            console.debug('[Whatsub] 탭에 메시지 전송 실패 (무시됨):', chrome.runtime.lastError.message);
+          }
+        };
+        
+        // 완전히 명시적인 콜백 호출
+        chrome.tabs.sendMessage(tabId, {
+          action: 'whisperStarted',
+          settings: whisperState.settings
+        }, callback);
+      });
+    } catch (messageError) {
+      console.debug('[Whatsub] 음성 인식 시작 메시지 전송 오류:', messageError);
+      // 메시지 전송 실패해도 계속 진행
+    }
     
     return { success: true, message: '음성 인식이 시작되었습니다.' };
   } catch (error) {
@@ -965,46 +996,89 @@ const testPhrases = [
 ];
 
 /**
- * 실시간 음성 인식 시뮬레이션 시작 (테스트용)
+ * 실시간 음성 인식 시뮬레이션
+ * @dependency content.js의 자막 표시 메커니즘에 의존
+ * @relatedFiles content.js (SubtitleDisplay 클래스의 updateText 메서드)
  */
 function startSimulatedRecognition(tabId) {
-  // 이전 타이머 제거
-  if (recognitionTimer) {
-    clearInterval(recognitionTimer);
-    recognitionTimer = null;
+  // 타입 및 값 검사
+  if (!tabId || typeof tabId !== 'number') {
+    // 오류 메시지 대신 조용히 기록하고 반환
+    console.debug('[Whatsub] 시뮬레이션 시작: 유효하지 않은 tabId, 작업 건너뜀');
+    return false;
   }
+  
+  // 탭이 실제로 존재하는지 확인
+  chrome.tabs.get(tabId, (tab) => {
+    if (chrome.runtime.lastError) {
+      console.debug('[Whatsub] 시뮬레이션 시작: 탭을 찾을 수 없음', chrome.runtime.lastError);
+      return;
+    }
+    
+    // 실제 시뮬레이션 로직 시작
+    continueSimulation(tabId);
+  });
+  
+  return true;
+}
+
+/**
+ * 시뮬레이션 로직 실행 (유효한 탭 확인 후)
+ * @param {number} tabId 유효한 탭 ID
+ */
+function continueSimulation(tabId) {
+  // 기존 타이머 제거
+  stopSimulatedRecognition();
+  
+  // 테스트 자막 데이터
+  const subtitles = [
+    { original: "Hello, welcome to Whatsub Extension.", translated: "안녕하세요, Whatsub 확장 프로그램에 오신 것을 환영합니다." },
+    { original: "This is a simulated speech recognition.", translated: "이것은 시뮬레이션된 음성 인식입니다." },
+    { original: "Real-time subtitles will appear here.", translated: "실시간 자막이 여기에 표시됩니다." },
+    { original: "You can customize subtitle appearance in settings.", translated: "설정에서 자막 모양을 변경할 수 있습니다." },
+    { original: "Try different languages for translation.", translated: "다양한 언어로 번역을 시도해보세요." },
+    { original: "Thank you for using Whatsub!", translated: "Whatsub를 이용해 주셔서 감사합니다!" }
+  ];
   
   let index = 0;
   
-  // 주기적으로 자막 생성 시뮬레이션
+  // 일정 간격으로 자막 전송
   recognitionTimer = setInterval(() => {
-    const phrase = testPhrases[index % testPhrases.length];
-    const language = whisperState.settings.language || 'ko';
-    const text = language === 'ko' ? phrase.ko : phrase.en;
+    // 활성화 상태가 아니면 중지
+    if (!whisperState.isActive) {
+      stopSimulatedRecognition();
+      return;
+    }
     
-    // 자막 전송
-    if (tabId) {
-      try {
-        chrome.tabs.sendMessage(
-          tabId, 
-          {
-            action: 'newSubtitle',
-            data: {
-              text: text,
-              translation: language === 'ko' ? phrase.en : phrase.ko,
-              confidence: 0.95,
-              timestamp: Date.now()
-            }
-          },
-          function(response) {
-            if (chrome.runtime.lastError) {
-              console.warn('[Whatsub] 탭에 자막 전송 실패 (무시됨):', chrome.runtime.lastError);
-            }
+    // 현재 자막 가져오기
+    const subtitle = subtitles[index % subtitles.length];
+    
+    // 자막 전송 (tabId가 유효한 경우에만)
+    try {
+      // 탭 존재 여부 다시 확인
+      chrome.tabs.get(tabId, (tab) => {
+        if (chrome.runtime.lastError) {
+          console.debug('[Whatsub] 자막 전송: 탭이 더 이상 존재하지 않음, 시뮬레이션 중지');
+          stopSimulatedRecognition();
+          return;
+        }
+        
+        // 콜백 함수를 명시적으로 변수에 저장
+        const callback = function(response) {
+          if (chrome.runtime.lastError) {
+            console.debug('[Whatsub] 탭에 자막 전송 실패 (무시됨):', chrome.runtime.lastError.message);
           }
-        );
-      } catch (error) {
-        console.error('[Whatsub] 자막 전송 중 오류 발생:', error);
-      }
+        };
+        
+        // 명시적 콜백 패턴으로 메시지 전송
+        chrome.tabs.sendMessage(tabId, {
+          action: 'updateTranscription',
+          text: subtitle.original,
+          translation: subtitle.translated
+        }, callback);
+      });
+    } catch (error) {
+      console.debug('[Whatsub] 자막 전송 중 오류 발생:', error);
     }
     
     index++;
@@ -1050,12 +1124,17 @@ chrome.commands.onCommand.addListener(async (command) => {
   
   const tabId = tabs[0].id;
   
+  /**
+   * 단축키: 자막 켜기/끄기 토글
+   * @dependency manifest.json에 정의된 toggle-subtitles 명령과 연결
+   * @relatedFiles content.js (SubtitleDisplay.setVisibility 메서드), manifest.json
+   */
   if (command === 'toggle-subtitles') {
     // 현재 자막 상태 가져오기
     chrome.storage.sync.get('subtitleEnabled', (data) => {
       const newState = !(data.subtitleEnabled === true);
       
-      // 콘텐츠 스크립트에 메시지 전송
+      // 콘텐츠 스크립트에 메시지 전송 - 콜백 패턴 사용
       chrome.tabs.sendMessage(
         tabId, 
         {
@@ -1075,8 +1154,13 @@ chrome.commands.onCommand.addListener(async (command) => {
       console.log('[Whatsub] 자막 상태 토글:', newState ? '활성화' : '비활성화');
     });
   } 
+  /**
+   * 단축키: 자막 위치 초기화
+   * @dependency manifest.json에 정의된 reset-position 명령과 연결
+   * @relatedFiles content.js (SubtitleDisplay.resetPosition 메서드), manifest.json
+   */
   else if (command === 'reset-position') {
-    // 자막 위치 초기화 요청
+    // 자막 위치 초기화 요청 - 콜백 패턴 사용
     chrome.tabs.sendMessage(
       tabId, 
       {
@@ -1091,4 +1175,127 @@ chrome.commands.onCommand.addListener(async (command) => {
     
     console.log('[Whatsub] 자막 위치 초기화 요청 전송');
   }
-}); 
+  /**
+   * 단축키: 음성 인식 토글
+   * @dependency manifest.json에 정의된 toggle-speech-recognition 명령과 연결
+   * @relatedFiles content.js (startSubtitleService, stopSubtitleService 함수), manifest.json
+   */
+  else if (command === 'toggle-speech-recognition') {
+    // 현재 음성 인식 상태 토글
+    if (whisperState.isActive && whisperState.tabId === tabId) {
+      // 현재 활성화 상태이고 같은 탭이면 중지
+      await stopSpeechRecognition({ tabId });
+    } else {
+      // 활성화 상태가 아니거나 다른 탭이면 시작
+      await startSpeechRecognition({ 
+        tabId,
+        useWhisper: true,
+        universalMode: true,
+        whisperSettings: whisperState.settings
+      });
+    }
+  }
+});
+
+/**
+ * 비디오 메시지 처리
+ * @dependency content.js의 비디오 감지 및 이벤트 처리 로직과 연결됨
+ * @relatedFiles content.js (VideoDetector 클래스), content-script.js
+ * @messageFlow content.js → background.js → 필요 시 다른 탭으로 전달
+ */
+function handleVideoMessages(request, sender, sendResponse) {
+  try {
+    const { action, data } = request;
+    
+    // 비디오 감지 이벤트
+    if (action === 'videoDetected') {
+      console.log('[Whatsub] 비디오 감지됨:', data.url);
+      
+      // 현재 탭 정보 저장
+      if (sender.tab) {
+        videosState.tabs[sender.tab.id] = {
+          url: data.url,
+          videoCount: data.count || 1,
+          title: sender.tab.title || '알 수 없는 제목',
+          status: 'active'
+        };
+      }
+      
+      // 자막 설정 정보 로드
+      chrome.storage.sync.get(['subtitleEnabled', 'autoStart'], function(settings) {
+        const shouldAutoStart = settings.autoStart === true;
+        
+        // 자막 자동 시작 설정이 활성화되어 있는 경우
+        if (shouldAutoStart && sender.tab) {
+          console.log('[Whatsub] 자막 자동 시작 처리:', sender.tab.id);
+          
+          // 자막 활성화 메시지 전송 - 콜백 패턴 사용
+          chrome.tabs.sendMessage(
+            sender.tab.id, 
+            {
+              action: 'toggleSubtitles',
+              enabled: true
+            }, 
+            function(response) {
+              if (chrome.runtime.lastError) {
+                console.warn('[Whatsub] 자막 자동 시작 메시지 전송 실패 (무시됨):', chrome.runtime.lastError);
+              }
+            }
+          );
+          
+          // 스토리지에 상태 저장
+          chrome.storage.sync.set({ subtitleEnabled: true });
+        }
+      });
+      
+      // 응답 전송
+      sendResponse({ 
+        success: true, 
+        message: '비디오 감지 정보 수신됨',
+        settings: {
+          shouldActivateSubtitles: videosState.autoActivateSubtitles
+        }
+      });
+    }
+    // 비디오 재생/일시정지 이벤트
+    else if (action === 'videoPlayStateChanged') {
+      console.log('[Whatsub] 비디오 재생 상태 변경:', data.isPlaying ? '재생 중' : '일시 정지');
+      
+      // 탭 정보 업데이트
+      if (sender.tab) {
+        const tabInfo = videosState.tabs[sender.tab.id] || {};
+        tabInfo.isPlaying = data.isPlaying;
+        videosState.tabs[sender.tab.id] = tabInfo;
+      }
+      
+      // 추가 작업이 필요한 경우 여기에 구현...
+      
+      sendResponse({ success: true });
+    }
+    // 비디오 시간 업데이트 이벤트
+    else if (action === 'videoTimeUpdate') {
+      // 세부 로깅 비활성화 (과도한 로그 방지)
+      // console.log('[Whatsub] 비디오 시간 업데이트:', data.currentTime);
+      
+      // 현재 재생 중인 비디오 시간 저장
+      if (sender.tab) {
+        const tabInfo = videosState.tabs[sender.tab.id] || {};
+        tabInfo.currentTime = data.currentTime;
+        videosState.tabs[sender.tab.id] = tabInfo;
+      }
+      
+      sendResponse({ success: true });
+    }
+    // 기타 비디오 관련 이벤트
+    else {
+      console.log('[Whatsub] 처리되지 않은 비디오 메시지:', action);
+      sendResponse({ success: false, error: 'Unknown video action' });
+    }
+  } catch (error) {
+    console.error('[Whatsub] 비디오 메시지 처리 중 오류:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+  
+  // 비동기 응답을 위해 true 반환
+  return true;
+} 

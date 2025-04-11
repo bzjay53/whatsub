@@ -1,275 +1,166 @@
-# Whatsub - 모든 웹사이트 자막 번역
+# WhaSub - 영상에 실시간 자막과 댓글을 입히는 크롬 확장 프로그램
 
-모든 웹사이트에서 동작하는 자막 번역 및 생성 Chrome 확장 프로그램
+WhaSub는 YouTube 및 일반 웹 비디오에 실시간으로 자막을 생성하고 커뮤니티 자막 및 댓글을 표시하는 크롬 확장 프로그램입니다.
 
-## 목차
-1. [개요](#개요)
-2. [기능](#기능)
-3. [설치 방법](#설치-방법)
-4. [OAuth 설정 방법](#oauth-설정-방법)
-5. [사용 방법](#사용-방법)
-6. [문제 해결](#문제-해결)
-7. [자주 묻는 질문](#자주-묻는-질문)
+## 주요 기능
 
-## 개요
-Whatsub은 모든 웹사이트에서 영상 자막을 실시간으로 생성하고 번역해주는 Chrome 확장 프로그램입니다. YouTube, Netflix, Vimeo 등 다양한 동영상 플랫폼에서 작동하며, 언어 장벽 없이 콘텐츠를 즐길 수 있습니다.
-
-## 기능
-
-- 영상 자막 실시간 추출 및 표시
-- 추출된 자막 자동 번역
-- 다양한 웹사이트 지원 (YouTube, Netflix, Vimeo 등)
-- 사용자 정의 자막 스타일 및 설정
-- 자막 위치 조정 및 동기화
-- 노이즈 감소 오디오 처리
+- **실시간 자막 생성**: Whisper AI를 활용한, 비디오의 음성 내용을 실시간으로 자막으로 변환합니다.
+- **커뮤니티 자막**: 사용자들이 자막 파일을 업로드하고 공유할 수 있습니다.
+- **자막 번역**: 자동으로 자막을 사용자가 선택한 언어로 번역합니다.
+- **실시간 댓글 표시**: 빌리빌리/틱톡 스타일의 비디오 타임스탬프 기반 댓글 시스템.
+- **맞춤형 UI**: 자막 위치, 크기, 배경 투명도 등을 사용자가 조절할 수 있습니다.
 
 ## 설치 방법
-1. 최신 버전의 Chrome 브라우저가 설치되어 있는지 확인하세요.
-2. Chrome 웹 스토어에서 "Whatsub"을 검색하거나 [여기](https://chrome.google.com/webstore/detail/whatsub)를 클릭하여 설치 페이지로 이동하세요.
-3. "Chrome에 추가" 버튼을 클릭하여 확장 프로그램을 설치하세요.
 
-## OAuth 설정 방법
-
-### 중요: 확장 프로그램을 사용하려면 Google OAuth 클라이언트 ID가 필요합니다.
-
-아래 단계를 따라 Google Cloud Platform에서 OAuth 클라이언트 ID를 생성하고 확장 프로그램에 설정하세요:
-
-### 1. Google Cloud Console에서 프로젝트 생성
-1. [Google Cloud Console](https://console.cloud.google.com/)에 접속하여 로그인하세요.
-2. 상단의 프로젝트 선택 드롭다운 메뉴에서 "새 프로젝트"를 클릭하세요.
-3. 프로젝트 이름(예: "Whatsub Extension")을 입력하고 "만들기"를 클릭하세요.
-4. 프로젝트가 생성될 때까지 기다린 후, 생성된 프로젝트를 선택하세요.
-
-### 2. OAuth 동의 화면 설정
-1. 왼쪽 메뉴에서 "API 및 서비스" > "OAuth 동의 화면"을 클릭하세요.
-2. 사용자 유형으로 "외부"를 선택하고 "만들기"를 클릭하세요.
-3. 앱 정보를 입력하세요:
-   - 앱 이름: "Whatsub"
-   - 사용자 지원 이메일: 귀하의 이메일 주소
-   - 개발자 연락처 정보: 귀하의 이메일 주소
-4. "저장 후 계속"을 클릭하세요.
-5. 범위 화면에서 "범위 추가" 버튼을 클릭하고 다음 범위를 추가하세요:
-   - `./auth/userinfo.email`
-   - `./auth/userinfo.profile`
-   - `openid`
-6. "저장 후 계속"을 클릭하세요.
-7. 테스트 사용자 화면에서 "저장 후 계속"을 클릭하세요.
-8. 요약 화면을 확인하고 "대시보드로 돌아가기"를 클릭하세요.
-
-### 3. OAuth 클라이언트 ID 생성
-1. 왼쪽 메뉴에서 "API 및 서비스" > "사용자 인증 정보"를 클릭하세요.
-2. 상단의 "사용자 인증 정보 만들기" 버튼을 클릭하고 "OAuth 클라이언트 ID"를 선택하세요.
-3. 애플리케이션 유형으로 "Chrome 앱"을 선택하세요.
-4. 이름을 입력하세요 (예: "Whatsub Chrome Extension").
-5. 앱 ID 필드에 확장 프로그램의 ID를 입력하세요. 
-   - 확장 프로그램 ID를 찾으려면:
-     - Chrome 브라우저에서 `chrome://extensions`로 이동하세요.
-     - 개발자 모드를 활성화하세요 (오른쪽 상단).
-     - Whatsub 확장 프로그램을 찾아 ID를 복사하세요.
-6. 리디렉션 URI에 다음을 입력하세요:
-   - `https://<확장 프로그램 ID>.chromiumapp.org/oauth2`
-   - 여기서 `<확장 프로그램 ID>`는 이전 단계에서 복사한 ID로 교체하세요.
-7. "만들기" 버튼을 클릭하세요.
-
-### 4. 클라이언트 ID를 확장 프로그램에 추가
-1. 생성된 OAuth 클라이언트 ID를 복사하세요.
-2. 확장 프로그램 소스 코드의 `manifest.json` 파일을 찾으세요:
-   - Chrome에서 `chrome://extensions`로 이동하세요.
-   - Whatsub 확장 프로그램을 찾아 "세부정보" 버튼을 클릭하세요.
-   - "소스 보기" 버튼을 클릭하세요.
-   - `manifest.json` 파일을 찾아 에디터로 열거나, Whatsub 폴더에서 파일을 직접 찾으세요.
-3. `manifest.json` 파일에서 `"oauth2"` 섹션을 찾아 `"client_id"` 값을 복사한 OAuth 클라이언트 ID로 변경하세요:
-   ```json
-   "oauth2": {
-     "client_id": "여기에_복사한_클라이언트_ID를_붙여넣으세요.apps.googleusercontent.com",
-     "scopes": ["openid", "profile", "email"]
-   }
-   ```
-4. 파일을 저장하고 확장 프로그램을 새로고침하세요.
-
-### 5. 확장 프로그램 업데이트 및 확인
-1. Chrome에서 `chrome://extensions`로 이동하세요.
-2. Whatsub 확장 프로그램 옆의 새로고침 아이콘을 클릭하세요.
-3. 확장 프로그램을 클릭하여 열고 "Google로 로그인" 버튼을 클릭하세요.
-4. 이제 Google 계정으로 로그인할 수 있어야 합니다.
+1. Chrome 웹 스토어에서 "WhaSub" 확장 프로그램을 검색하여 설치합니다.
+2. 또는 개발 모드에서 직접 설치:
+   - Chrome 브라우저에서 `chrome://extensions/` 페이지 열기
+   - 개발자 모드 활성화
+   - "압축해제된 확장 프로그램 로드" 버튼 클릭
+   - 이 저장소의 `/public/extension` 폴더 선택
 
 ## 사용 방법
-1. 확장 프로그램을 설치한 후 브라우저 오른쪽 상단의 확장 프로그램 아이콘을 클릭하세요.
-2. "Google로 로그인" 버튼을 클릭하여 계정에 로그인하세요.
-3. 자막을 표시할 동영상이 있는 웹사이트로 이동하세요.
-4. 확장 프로그램 팝업에서 "자막 추출 시작" 버튼을 클릭하거나, 단축키 `Alt+Shift+S`를 사용하세요.
-5. 동영상 하단에 자막이 표시됩니다.
 
-### 단축키
-- `Alt+Shift+S`: 자막 켜기/끄기
-- `Alt+Shift+R`: 자막 위치 초기화
+1. 확장 프로그램 아이콘 클릭하여 팝업 메뉴 열기
+2. Google 계정으로 로그인
+3. "자막 필터 활성화" 토글을 켜고 영상 시청 시작
+4. (선택 사항) "자동 인식" 토글을 켜서 실시간 자막 생성 활성화
+5. 설정에서 원하는 언어 및 UI 옵션 선택
+
+## 개발 가이드
+
+### 프로젝트 구조
+
+```
+my-next-app/public/extension/
+├── manifest.json            # 확장 프로그램 선언 및 권한 정의
+├── popup.html               # 확장 프로그램 팝업 UI
+├── popup.js                 # 팝업 UI 로직
+├── content-script.js        # 페이지에 주입되는 스크립트
+├── content.js               # 페이지의 DOM 조작 메인 로직
+├── background.js            # 백그라운드 서비스 로직
+├── components/              # UI 컴포넌트
+├── services/                # 기능 서비스
+├── styles/                  # CSS 스타일시트
+└── docs/                    # 개발 문서
+```
+
+### 개발 환경 설정
+
+1. 저장소 클론:
+   ```
+   git clone https://github.com/username/whatsub.git
+   cd whatsub
+   ```
+
+2. 의존성 설치:
+   ```
+   npm install
+   ```
+
+3. 개발 서버 실행:
+   ```
+   npm run dev
+   ```
+
+4. 빌드:
+   ```
+   npm run build
+   ```
+
+### 문서 참고
+
+추가 개발 정보는 다음 문서를 참조하세요:
+
+- [메시지 통신 플로우](./docs/message-flow.md)
+- [파일 의존성 다이어그램](./docs/file-dependencies.md)
+
+## 주요 컴포넌트
+
+### 1. SubtitleDisplay.js
+
+자막 UI를 관리하는 컴포넌트입니다. 자막의 표시, 위치, 스타일 등을 담당합니다.
+
+```javascript
+const subtitleDisplay = new SubtitleDisplay();
+subtitleDisplay.initialize();
+subtitleDisplay.showSubtitle("Original text", "Translated text");
+```
+
+### 2. CommentDisplay.js
+
+실시간 댓글 표시를 관리하는 컴포넌트입니다. 화면을 가로지르는 댓글 애니메이션을 담당합니다.
+
+```javascript
+const commentDisplay = new CommentDisplay();
+commentDisplay.initialize();
+commentDisplay.displayComments([{ text: "Sample comment", color: "#fff" }]);
+```
+
+### 3. videoCommentService.js
+
+비디오 시간에 따른 댓글 관리 서비스입니다. 특정 시간에 어떤 댓글이 표시될지 관리합니다.
+
+```javascript
+const videoCommentService = new VideoCommentService();
+videoCommentService.initialize();
+videoCommentService.trackVideoTime();
+```
+
+### 4. communityService.js
+
+커뮤니티 자막 및 댓글 관리 서비스입니다. 자막 파일 업로드, 다운로드, 검색 등을 담당합니다.
+
+```javascript
+const communityService = new CommunityService();
+communityService.initialize();
+communityService.searchSubtitles(videoUrl);
+```
+
+## 메시지 통신
+
+컴포넌트 간 통신은 Chrome의 메시지 시스템을 통해 이루어집니다:
+
+```javascript
+// 메시지 보내기
+chrome.runtime.sendMessage({ action: 'someAction', data: someData }, function(response) {
+  // 응답 처리
+});
+
+// 메시지 받기
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'someAction') {
+    // 처리 로직
+    sendResponse({ success: true });
+  }
+});
+```
 
 ## 문제 해결
 
-### "OAuth 클라이언트 ID가 유효하지 않습니다" 오류
-1. 정확한 클라이언트 ID를 `manifest.json` 파일에 입력했는지 확인하세요.
-2. Google Cloud Console에서 클라이언트 ID가 Chrome 앱 유형으로 올바르게 설정되었는지 확인하세요.
-3. 리디렉션 URI가 올바르게 설정되었는지 확인하세요.
+일반적인 문제 및 해결 방법:
 
-### 자막이 표시되지 않음
-1. 웹사이트가 현재 동영상을 재생 중인지 확인하세요.
-2. 인터넷 연결이 안정적인지 확인하세요.
-3. 브라우저 콘솔에서 오류 메시지를 확인하세요.
-4. 확장 프로그램을 새로고침하거나 브라우저를 재시작해보세요.
+1. **자막이 표시되지 않는 경우**:
+   - 자막 필터가 활성화되어 있는지 확인
+   - 페이지를 새로고침한 후 다시 시도
+   - 콘솔 오류 확인 (F12 > Console)
 
-### 오디오 인식 품질이 낮음
-1. 설정에서 "노이즈 감소" 옵션을 활성화하세요.
-2. 가능하면 헤드폰이나 외부 마이크를 사용하여 오디오 품질을 개선하세요.
-3. 조용한 환경에서 동영상을 시청하세요.
+2. **인증 오류**:
+   - 로그아웃 후 다시 로그인 시도
+   - 쿠키 및 캐시 삭제 후 재시도
 
-## 자주 묻는 질문
+3. **자동 인식이 작동하지 않는 경우**:
+   - 브라우저의 마이크 권한 확인
+   - 인터넷 연결 상태 확인
+   - 계정의 API 사용량 한도 확인
 
-### 이 확장 프로그램은 모든 웹사이트에서 작동하나요?
-Whatsub은 대부분의 비디오 플레이어를 지원하도록 설계되었습니다. 그러나 일부 사이트에서는 기술적 제한으로 인해 작동하지 않을 수 있습니다.
+## 기여 방법
 
-### 내 데이터는 어떻게 처리되나요?
-오디오 데이터는 자막 생성을 위해 필요한 시간 동안만 처리되며, 서버에 저장되지 않습니다. Google 로그인 정보는 확장 프로그램 기능 제공과 사용자 식별을 위해서만 사용됩니다.
+1. 이슈 확인 또는 새 이슈 생성
+2. 저장소 포크 및 변경사항 개발
+3. 철저한 테스트 및 코드 스타일 준수
+4. Pull Request 제출
 
-### 무료로 사용할 수 있나요?
-기본 기능은 무료로 제공되지만, 일부 고급 기능은 프리미엄 구독이 필요할 수 있습니다.
+## 라이선스
 
-### 다른 질문이나 피드백이 있으면 어떻게 하나요?
-확장 프로그램 내의 피드백 옵션을 사용하거나 support@whatsub.app로 이메일을 보내주세요.
-
-## 개발 참고 사항
-
-- [Chrome Extension Manifest V3](https://developer.chrome.com/docs/extensions/mv3/intro/) 기반
-- 로컬 스토리지 사용
-- Background Script와 Content Script 통신 구조
-- AudioWorklet API를 활용한 고성능 오디오 처리
-
-## 트러블슈팅
-
-### 로그인 문제
-
-- "유효한 OAuth 클라이언트 ID가 설정되지 않았습니다" 오류가 표시된다면 위의 "OAuth 클라이언트 ID 설정" 섹션을 참고하여 설정을 완료하세요.
-- 로그인 후에도 인증이 유지되지 않는다면 Chrome 브라우저의 쿠키 설정을 확인하세요.
-
-### 자막이 표시되지 않는 경우
-
-1. 확장 프로그램이 해당 사이트에 접근할 수 있는지 확인하세요.
-2. 브라우저를 새로고침한 후 다시 시도하세요.
-3. 콘솔 로그에서 오류 메시지를 확인하세요.
-4. 다른 브라우저 확장 프로그램과의 충돌 가능성을 확인하세요.
-
-## 피드백 및 지원
-
-문제가 발생하거나 피드백이 있으면 확장 프로그램 내 "피드백 보내기" 기능을 사용하거나 이 저장소에 이슈를 등록해주세요.
-
----
-
-© 2023 Whatsub. 모든 권리 보유. 
-
-# WhatsUb 확장 프로그램 개발자 가이드
-
-## Google OAuth 설정 방법
-
-WhatsUb 확장 프로그램은 Google로 로그인하기 위해 OAuth 2.0 인증을 사용합니다. 이 기능을 사용하려면 Google 개발자 콘솔에서 다음과 같이 설정해야 합니다.
-
-### 1. Google Cloud Console에서 프로젝트 생성하기
-
-1. [Google Cloud Console](https://console.cloud.google.com/)에 로그인합니다.
-2. 상단 메뉴에서 "프로젝트 선택" > "새 프로젝트"를 클릭합니다.
-3. 프로젝트 이름을 입력하고 "만들기"를 클릭합니다.
-
-### 2. OAuth 동의 화면 설정하기
-
-1. 왼쪽 메뉴에서 "API 및 서비스" > "OAuth 동의 화면"을 선택합니다.
-2. 사용자 유형으로 "외부"를 선택하고 "만들기"를 클릭합니다.
-3. 앱 정보를 입력합니다:
-   - 앱 이름: "WhatsUb"
-   - 사용자 지원 이메일: 귀하의 이메일 주소
-   - 개발자 연락처 정보: 귀하의 이메일 주소
-4. "저장 후 계속"을 클릭합니다.
-5. 범위 화면에서 "범위 추가" 버튼을 클릭하고 다음 범위를 추가합니다:
-   - `userinfo.email`
-   - `userinfo.profile`
-   - `openid`
-6. "저장 후 계속"을 클릭합니다.
-7. 테스트 사용자 화면에서 "저장 후 계속"을 클릭합니다.
-
-### 3. OAuth 클라이언트 ID 생성하기
-
-1. 왼쪽 메뉴에서 "API 및 서비스" > "사용자 인증 정보"를 선택합니다.
-2. "사용자 인증 정보 만들기" > "OAuth 클라이언트 ID"를 클릭합니다.
-3. 애플리케이션 유형으로 "Chrome 앱"을 선택합니다.
-4. 이름을 "WhatsUb Chrome Extension"으로 입력합니다.
-5. 리디렉션 URI 섹션에서 "URI 추가" 버튼을 클릭합니다.
-6. 확장 프로그램에서 제공하는 리디렉션 URI를 정확히 입력합니다. URI는 다음 형식으로 나타납니다:
-   ```
-   https://<확장프로그램 ID>.chromiumapp.org/oauth2
-   ```
-   
-   **중요:** 이 URI는 확장 프로그램마다 다릅니다. 확장 프로그램을 로드한 후 콘솔에 출력되는 URI를 복사하여 사용하세요.
-   
-7. "만들기" 버튼을 클릭합니다.
-
-### 4. 클라이언트 ID를 manifest.json에 추가하기
-
-1. 생성된 클라이언트 ID를 복사합니다.
-2. `manifest.json` 파일을 열고 다음과 같이 `oauth2` 섹션에 추가합니다:
-   ```json
-   "oauth2": {
-     "client_id": "복사한_클라이언트_ID를_여기에_붙여넣기.apps.googleusercontent.com",
-     "scopes": [
-       "https://www.googleapis.com/auth/userinfo.email",
-       "https://www.googleapis.com/auth/userinfo.profile"
-     ]
-   }
-   ```
-
-### 5. 확장 프로그램 재로드 및 로그인 테스트
-
-1. Chrome 확장 프로그램 페이지(`chrome://extensions/`)를 열고 WhatsUb 확장프로그램을 찾습니다.
-2. 확장 프로그램의 "새로고침" 아이콘을 클릭하여 재로드합니다.
-3. 확장 프로그램을 클릭하고 "Google로 로그인" 버튼을 눌러 테스트합니다.
-
-## 문제 해결
-
-### 리디렉션 URI 불일치 오류
-
-만약 "redirect_uri_mismatch" 오류가 발생하면 다음을 확인하세요:
-
-1. 콘솔에 출력된 정확한 리디렉션 URI를 사용했는지 확인합니다.
-2. 리디렉션 URI에 추가 공백이나 오타가 없는지 확인합니다.
-3. Google 개발자 콘솔에서 '승인된 리디렉션 URI' 목록에 URI가 정확히 등록되었는지 확인합니다.
-
-### 클라이언트 ID 오류
-
-1. manifest.json에 입력한 클라이언트 ID가 정확한지 확인합니다.
-2. Google 개발자 콘솔에서 생성한 클라이언트 ID와 일치하는지 확인합니다.
-
-### 기타 문제
-
-추가 도움이 필요하면 다음 정보를 포함하여 개발자에게 문의하세요:
-- 오류 메시지 전체
-- 확장 프로그램 버전
-- Chrome 브라우저 버전
-- OS 정보
-
-## 개발자 연락처
-
-이메일: contact@whatsub.io 
-
-### 로그인 테스트 방법
-
-확장 프로그램의 로그인 기능을 테스트하기 위한 스크립트가 포함되어 있습니다:
-
-1. Chrome에서 확장 프로그램 아이콘을 클릭하여 팝업 창을 엽니다.
-2. 팝업 창에서 오른쪽 클릭 후 '검사'를 선택하여 개발자 도구를 엽니다.
-3. 콘솔 탭에서 다음 함수를 사용할 수 있습니다:
-   - `testGoogleLogin()`: Google 로그인 테스트
-   - `testLogout()`: 로그아웃 테스트
-   - `runFullLoginTest()`: 전체 로그인/로그아웃 테스트
-
-### 로그인 테스트 시 주의사항
-
-- 테스트 계정 정보는 `test-login.js` 파일에서 확인 및 수정할 수 있습니다.
-- 실제 테스트에는 유효한 Google 계정을 사용해야 합니다.
-- 로그인 과정 중 Google OAuth 팝업이 차단되지 않도록 브라우저 설정을 확인하세요.
-- 개발 중에만 테스트 스크립트를 사용하고, 배포 버전에서는 테스트 스크립트를 제거하는 것이 좋습니다. 
+이 프로젝트는 MIT 라이선스로 배포됩니다. 자세한 내용은 [LICENSE](./LICENSE) 파일을 참고하세요.

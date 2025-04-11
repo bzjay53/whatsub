@@ -1,0 +1,6 @@
+=== 확장 프로그램 주요 컴포넌트 관계 ===
+
+manifest.json -> background.js (service worker)
+manifest.json -> content-script.js (content script)
+manifest.json -> popup.js (popup UI)
+content-script.js -> inject-subtitle.js (injected script)

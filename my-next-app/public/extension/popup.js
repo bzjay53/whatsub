@@ -11,11 +11,25 @@ const state = {
 };
 
 // 메시지 리스너 설정
-chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
-  console.log('[Whatsub] 팝업에서 메시지 수신:', message.action);
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.debug('[Whatsub] 메시지 수신:', message.action);
   
-  // 자막 필터 토글 상태 업데이트 (콘텐츠 스크립트에서 전송됨)
+  if (message.action === 'checkAuth') {
+    // 전역 authService 객체가 없을 경우 대비
+    try {
+      // 간단히 인증되었다고 가정 (개발 단계용)
+      sendResponse({ isAuthenticated: true });
+      console.log('[Whatsub] 인증 상태 확인: 개발 모드에서 항상 인증됨으로 처리');
+    } catch (error) {
+      console.error('[Whatsub] 인증 상태 확인 중 오류:', error);
+      sendResponse({ isAuthenticated: false, error: '인증 상태 확인 중 오류가 발생했습니다.' });
+    }
+    return true;
+  }
+  
+  // 자막 토글 상태 동기화 (자막 창에서 변경된 상태를 팝업에 반영)
   if (message.action === 'updateFilterToggle') {
+    console.log('[Whatsub] 자막 필터 상태 업데이트:', message.enabled);
     const filterToggle = document.getElementById('filter-toggle');
     if (filterToggle) {
       filterToggle.checked = message.enabled;
@@ -24,9 +38,68 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
       // 스토리지에 상태 저장
       chrome.storage.sync.set({ 
         subtitleEnabled: message.enabled
+      }, function() {
+        if (chrome.runtime.lastError) {
+          console.error('[Whatsub] 필터 상태 저장 중 오류:', chrome.runtime.lastError);
+        } else {
+          console.log('[Whatsub] 자막 필터 상태가 저장되었습니다:', message.enabled);
+        }
       });
+    }
+    
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  // 필터 언어 상태 동기화 (자막 창에서 변경된 언어를 팝업에 반영)
+  if (message.action === 'updateFilterLanguage') {
+    console.log('[Whatsub] 필터 언어 업데이트:', message.language);
+    const filterLanguage = document.getElementById('filter-language');
+    if (filterLanguage) {
+      filterLanguage.value = message.language;
       
-      console.log(`[Whatsub] 자막 필터 상태 업데이트됨: ${message.enabled ? '활성화' : '비활성화'}`);
+      // 스토리지에 상태 저장
+      chrome.storage.sync.set({ 
+        subtitleLanguage: message.language
+      }, function() {
+        if (chrome.runtime.lastError) {
+          console.error('[Whatsub] 언어 설정 저장 중 오류:', chrome.runtime.lastError);
+        } else {
+          console.log('[Whatsub] 자막 언어 설정이 저장되었습니다:', message.language);
+        }
+      });
+    }
+    
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  // 이중 자막 토글 상태 동기화 (자막 창에서 변경된 상태를 팝업에 반영)
+  if (message.action === 'updateDualSubtitleToggle') {
+    console.log('[Whatsub] 이중 자막 상태 업데이트:', message.enabled);
+    const dualSubtitle = document.getElementById('dual-subtitle');
+    if (dualSubtitle) {
+      dualSubtitle.checked = message.enabled;
+      state.dualSubtitleActive = message.enabled;
+      
+      // 스토리지에 설정 업데이트
+      chrome.storage.sync.get(['subtitleSettings'], function(data) {
+        const settings = data.subtitleSettings || {};
+        const updatedSettings = {
+          ...settings,
+          dualSubtitles: message.enabled
+        };
+        
+        chrome.storage.sync.set({ 
+          subtitleSettings: updatedSettings 
+        }, function() {
+          if (chrome.runtime.lastError) {
+            console.error('[Whatsub] 이중 자막 설정 저장 중 오류:', chrome.runtime.lastError);
+          } else {
+            console.log('[Whatsub] 이중 자막 설정이 저장되었습니다:', message.enabled);
+          }
+        });
+      });
     }
     
     sendResponse({ success: true });
@@ -37,68 +110,41 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
 });
 
 /**
- * Whatsub 팝업 - 통신 함수
- * background.js로 메시지를 전송하고 응답을 받는 함수
+ * 백그라운드 서비스에 메시지를 전송합니다.
+ * @dependency background.js의 메시지 처리 함수
+ * @relatedFiles background.js
+ * @messageFlow popup.js → background.js
+ * 
+ * @param {string} action - 메시지 작업 유형
+ * @param {object} params - 메시지 파라미터
+ * @param {function} callback - 응답을 처리할 콜백 함수
  */
-async function sendMessage(action, data = {}) {
-  // 메시지 서비스가 사용 가능한지 확인
-  if (window.whatsub && window.whatsub.messageService) {
-    console.log(`[Whatsub] 메시지 서비스 사용 (${action})`);
-    try {
-      return await window.whatsub.messageService.sendToBackground(
-        { action, ...data }, 
-        { timeout: 10000 }
-      );
-    } catch (error) {
-      console.error(`[Whatsub] 메시지 서비스 오류 (${action}):`, error);
-      return { 
-        success: false, 
-        error: error.message, 
-        errorType: 'service_error',
-        fallback: true 
-      };
+function sendMessage(action, params, callback) {
+  try {
+    console.debug(`[Whatsub] 백그라운드로 메시지 전송: ${action}`, params);
+    chrome.runtime.sendMessage({ action, ...params }, function(response) {
+      if (chrome.runtime.lastError) {
+        console.debug('[Whatsub] 메시지 전송 오류:', chrome.runtime.lastError.message);
+        if (callback) {
+          callback({ 
+            success: false, 
+            error: chrome.runtime.lastError.message || '메시지 전송 중 오류가 발생했습니다.' 
+          });
+        }
+        return;
+      }
+      
+      if (callback) {
+        // 응답이 undefined인 경우에도 안전하게 처리
+        callback(response || { success: false, error: '응답을 받지 못했습니다.' });
+      }
+    });
+  } catch (error) {
+    console.error(`[Whatsub] sendMessage 함수 오류 (${action}):`, error);
+    if (callback) {
+      callback({ success: false, error: error.message || '메시지 전송 중 예외가 발생했습니다.' });
     }
   }
-  
-  // 메시지 서비스를 사용할 수 없는 경우 직접 메시지 전송
-  console.log(`[Whatsub] 직접 메시지 전송 (${action})`);
-  return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      console.warn(`[Whatsub] 메시지 응답 타임아웃: ${action}`);
-      resolve({ success: false, error: 'timeout', errorType: 'timeout' });
-    }, 10000); // 10초 타임아웃
-
-    try {
-      chrome.runtime.sendMessage(
-        { action, ...data },
-        (response) => {
-          clearTimeout(timeoutId);
-          
-          if (chrome.runtime.lastError) {
-            console.error(`[Whatsub] 메시지 전송 오류 (${action}):`, chrome.runtime.lastError);
-            resolve({ 
-              success: false, 
-              error: chrome.runtime.lastError.message, 
-              errorType: 'runtime_error',
-              fallback: true 
-            });
-            return;
-          }
-          
-          resolve(response);
-        }
-      );
-    } catch (error) {
-      clearTimeout(timeoutId);
-      console.error(`[Whatsub] 메시지 전송 예외 (${action}):`, error);
-      resolve({ 
-        success: false, 
-        error: error.message, 
-        errorType: 'exception',
-        fallback: true 
-      });
-    }
-  });
 }
 
 // Whatsub 팝업 초기화 함수
@@ -218,6 +264,20 @@ function initializePopup() {
               chrome.tabs.sendMessage(tabs[0].id, {
                 action: 'updateSettings',
                 settings: { dualSubtitles: isEnabled }
+              }, function(response) {
+                if (chrome.runtime.lastError) {
+                  console.debug('[Whatsub] 설정 업데이트 메시지 전송 중 오류:', chrome.runtime.lastError.message);
+                }
+              });
+              
+              // 자막 창의 듀얼 자막 토글 업데이트
+              chrome.tabs.sendMessage(tabs[0].id, {
+                action: 'updateDualSubtitleToggle',
+                enabled: isEnabled
+              }, function(response) {
+                if (chrome.runtime.lastError) {
+                  console.debug('[Whatsub] 듀얼 자막 토글 업데이트 메시지 전송 중 오류:', chrome.runtime.lastError.message);
+                }
               });
             }
           });
@@ -277,126 +337,141 @@ function initializePopup() {
 }
 
 // 자막 필터링 토글
-async function toggleSubtitleFilter(isEnabled) {
+function toggleSubtitleFilter(isEnabled) {
   try {
     // 현재 활성 탭 가져오기
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    if (!tabs || tabs.length === 0) {
-      console.error('[Whatsub] 활성 탭을 찾을 수 없습니다.');
-      showMessage('활성 탭을 찾을 수 없습니다.', 'error');
-      return;
-    }
-    
-    const currentTab = tabs[0];
-    
-    if (!currentTab || !currentTab.id) {
-      console.error('[Whatsub] 유효한 탭 ID를 찾을 수 없습니다.');
-      showMessage('유효한 탭 ID를 찾을 수 없습니다.', 'error');
-      return;
-    }
-    
-    // 상태 업데이트
-    state.subtitleActive = isEnabled;
-    
-    // 콘텐츠 스크립트에 메시지 전송
-    const message = {
-      action: 'toggleSubtitles',
-      enabled: isEnabled,
-      universalMode: true
-    };
-    
-    // 확장 프로그램 아이콘 상태 업데이트 표시
-    const filterToggle = document.getElementById('filter-toggle');
-    if (filterToggle) {
-      filterToggle.checked = isEnabled;
-    }
-    
-    const dualSubtitleToggle = document.getElementById('dual-subtitle-toggle');
-    
-    // 스토리지에 상태 저장
-    chrome.storage.sync.set({ 
-      subtitleEnabled: isEnabled,
-      universalMode: true,
-      dualSubtitleEnabled: dualSubtitleToggle ? dualSubtitleToggle.checked : false
-    });
-    
-    // 자막 활성화 시 음성 인식 시작
-    if (isEnabled) {
-      console.log('[Whatsub] 음성 인식 시작 요청:', {
-        tabId: currentTab.id,
-        url: currentTab.url
-      });
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+      if (!tabs || tabs.length === 0) {
+        console.debug('[Whatsub] 활성 탭을 찾을 수 없습니다.');
+        showMessage('활성 탭을 찾을 수 없습니다.', 'warning');
+        return;
+      }
       
-      // 백그라운드에 음성 인식 시작 메시지 전송
-      const response = await sendMessage('startSpeechRecognition', { 
-        tabId: currentTab.id,
-        useWhisper: true,
-        universalMode: true,
-        enableCommunitySubtitles: true,
-        whisperSettings: {
-          language: document.getElementById('filter-language')?.value || 'ko',
-          realTime: true,
-          captureAudioFromTab: true,
-          modelSize: 'medium'
+      const currentTab = tabs[0];
+      
+      if (!currentTab || !currentTab.id) {
+        console.debug('[Whatsub] 유효한 탭 ID를 찾을 수 없습니다.');
+        showMessage('유효한 탭 ID를 찾을 수 없습니다.', 'warning');
+        return;
+      }
+      
+      // 상태 업데이트
+      state.subtitleActive = isEnabled;
+      
+      // 콘텐츠 스크립트에 메시지 전송
+      const message = {
+        action: 'toggleSubtitles',
+        enabled: isEnabled,
+        universalMode: true
+      };
+      
+      // 콜백 패턴으로 메시지 전송
+      chrome.tabs.sendMessage(currentTab.id, message, function(response) {
+        if (chrome.runtime.lastError) {
+          console.debug('[Whatsub] 자막 토글 메시지 전송 중 오류:', chrome.runtime.lastError.message);
+          // 오류가 발생해도 UI는 업데이트
+        }
+        
+        // 확장 프로그램 아이콘 상태 업데이트 표시
+        const filterToggle = document.getElementById('filter-toggle');
+        if (filterToggle) {
+          filterToggle.checked = isEnabled;
+        }
+        
+        const dualSubtitleToggle = document.getElementById('dual-subtitle-toggle');
+        
+        // 스토리지에 상태 저장
+        chrome.storage.sync.set({ 
+          subtitleEnabled: isEnabled,
+          universalMode: true,
+          dualSubtitleEnabled: dualSubtitleToggle ? dualSubtitleToggle.checked : false
+        });
+        
+        // 자막이 활성화되면 테스트 자막 표시
+        if (isEnabled) {
+          setTimeout(() => {
+            // 테스트 자막 표시
+            chrome.tabs.sendMessage(currentTab.id, {
+              action: 'showTestSubtitle',
+              original: '자막 테스트 문구입니다.',
+              translated: '이 자막은 테스트용으로 표시됩니다.',
+              universalMode: true
+            }, function(response) {
+              if (chrome.runtime.lastError) {
+                console.debug('[Whatsub] 테스트 자막 표시 중 오류:', chrome.runtime.lastError.message);
+              }
+            });
+          }, 1000); // 1초 후 테스트 자막 표시
         }
       });
-      
-      if (response && response.success) {
-        console.log('[Whatsub] 음성 인식 시작됨:', response);
-      } else {
-        console.error('[Whatsub] 음성 인식 시작 실패:', response?.error || '알 수 없는 오류', response);
-        showMessage('음성 인식 시작에 실패했습니다.', 'error');
-      }
-    } else {
-      // 백그라운드에 음성 인식 중지 메시지 전송
-      await sendMessage('stopSpeechRecognition', { tabId: currentTab.id });
-    }
+    });
   } catch (error) {
-    console.error('[Whatsub] 자막 필터링 토글 중 오류 발생:', error);
-    showMessage('자막 기능 제어 중 오류가 발생했습니다.', 'error');
+    console.debug('[Whatsub] 자막 필터 토글 중 오류:', error);
+    showMessage('자막 필터 토글 중 오류가 발생했습니다.', 'warning');
   }
 }
 
 // 필터 언어 변경
-async function changeFilterLanguage(language) {
+/**
+ * 자막 필터 언어를 변경하고 관련 설정을 업데이트합니다.
+ * @dependency content.js의 changeLanguage 메시지 처리, background.js의 updateWhisperSettings
+ * @relatedFiles content.js, background.js, chrome.storage
+ * @messageFlow popup.js → content.js, popup.js → background.js
+ */
+function changeFilterLanguage(language) {
   try {
     // 현재 활성화된 탭 가져오기
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tabs || tabs.length === 0) {
-      console.error('활성화된 탭을 찾을 수 없습니다.');
-      return;
-    }
-    
-    // 콘텐츠 스크립트에 메시지 전송
-    await chrome.tabs.sendMessage(tabs[0].id, {
-      action: 'changeLanguage',
-      language: language
-    });
-    
-    // 상태 저장
-    chrome.storage.sync.set({ subtitleLanguage: language });
-    
-    // 자막이 활성화된 상태에서 언어가 변경되면 Whisper 언어 설정도 변경
-    if (state.subtitleActive) {
-      const response = await sendMessage('updateWhisperSettings', {
-        tabId: tabs[0].id,
-        settings: {
-          language: language
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+      if (!tabs || tabs.length === 0) {
+        console.debug('[Whatsub] 활성화된 탭을 찾을 수 없습니다.');
+        showMessage('활성화된 탭을 찾을 수 없습니다.', 'warning');
+        return;
+      }
+      
+      // 탭 ID 유효성 검사
+      const tabId = tabs[0].id;
+      
+      // 콘텐츠 스크립트에 메시지 전송 - 콜백 패턴 사용
+      chrome.tabs.sendMessage(tabId, {
+        action: 'changeLanguage',
+        language: language
+      }, function(response) {
+        if (chrome.runtime.lastError) {
+          console.debug('[Whatsub] 언어 변경 메시지 전송 중 오류:', chrome.runtime.lastError.message);
+          // 오류가 발생해도 계속 진행
+        }
+        
+        // 상태 저장
+        chrome.storage.sync.set({ subtitleLanguage: language });
+        
+        // 자막이 활성화된 상태에서 언어가 변경되면 Whisper 언어 설정도 변경
+        if (state.subtitleActive) {
+          // 백그라운드에 Whisper 설정 업데이트 요청
+          chrome.runtime.sendMessage({
+            action: 'updateWhisperSettings',
+            tabId: tabId,
+            settings: {
+              language: language
+            }
+          }, function(response) {
+            if (chrome.runtime.lastError) {
+              console.debug('[Whatsub] Whisper 설정 업데이트 중 오류:', chrome.runtime.lastError.message);
+            } else if (response && response.success) {
+              console.log('Whisper 언어 설정 변경 성공');
+            } else {
+              console.debug('[Whatsub] Whisper 언어 설정 변경 실패:', response?.error || '알 수 없는 오류');
+            }
+            
+            showMessage(`번역 언어가 변경되었습니다: ${getLanguageName(language)}`);
+          });
+        } else {
+          showMessage(`번역 언어가 변경되었습니다: ${getLanguageName(language)}`);
         }
       });
-      
-      if (response && response.success) {
-        console.log('Whisper 언어 설정 변경 성공');
-      } else {
-        console.error('Whisper 언어 설정 변경 실패:', response?.error || '알 수 없는 오류');
-      }
-    }
-    
-    showMessage(`번역 언어가 변경되었습니다: ${getLanguageName(language)}`);
+    });
   } catch (error) {
-    console.error('필터 언어 변경 중 오류 발생:', error);
-    showMessage('언어 설정 변경 중 오류가 발생했습니다.', 'error');
+    console.debug('[Whatsub] 필터 언어 변경 중 오류 발생:', error);
+    showMessage('언어 설정 변경 중 오류가 발생했습니다.', 'warning');
   }
 }
 
@@ -412,7 +487,13 @@ function getLanguageName(code) {
 }
 
 // 자막 설정 저장
-async function saveSubtitleSettings() {
+/**
+ * 사용자가 설정한 자막 설정을 저장하고 적용합니다.
+ * @dependency content.js의 updateSettings 메시지 처리
+ * @relatedFiles content.js (SubtitleDisplay.updateSettings 메서드), chrome.storage
+ * @messageFlow popup.js → content.js
+ */
+function saveSubtitleSettings() {
   try {
     // 설정 값 가져오기
     const captionPosition = document.getElementById('caption-position').value;
@@ -429,19 +510,34 @@ async function saveSubtitleSettings() {
     };
     
     // 현재 활성화된 탭 가져오기
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs && tabs.length > 0) {
-      // 콘텐츠 스크립트에 메시지 전송
-      await chrome.tabs.sendMessage(tabs[0].id, {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+      if (!tabs || tabs.length === 0) {
+        console.error('[Whatsub] 활성화된 탭을 찾을 수 없습니다.');
+        showMessage('활성화된 탭을 찾을 수 없습니다.', 'error');
+        return;
+      }
+      
+      // 콘텐츠 스크립트에 메시지 전송 - 콜백 패턴 사용
+      chrome.tabs.sendMessage(tabs[0].id, {
         action: 'updateSettings',
         settings: settings
+      }, function(response) {
+        if (chrome.runtime.lastError) {
+          console.error('[Whatsub] 설정 업데이트 메시지 전송 중 오류:', chrome.runtime.lastError);
+          // 오류가 발생해도 계속 진행
+        }
+        
+        // 로컬 스토리지에 설정 저장
+        chrome.storage.sync.set({ subtitleSettings: settings }, function() {
+          if (chrome.runtime.lastError) {
+            console.error('[Whatsub] 설정 저장 중 오류:', chrome.runtime.lastError);
+            showMessage('설정 저장 중 오류가 발생했습니다.', 'error');
+          } else {
+            showMessage('자막 설정이 저장되었습니다.', 'success');
+          }
+        });
       });
-    }
-    
-    // 로컬 스토리지에 설정 저장
-    chrome.storage.sync.set({ subtitleSettings: settings });
-    
-    showMessage('자막 설정이 저장되었습니다.', 'success');
+    });
   } catch (error) {
     console.error('자막 설정 저장 중 오류 발생:', error);
     showMessage('설정 저장 중 오류가 발생했습니다.', 'error');
@@ -450,47 +546,82 @@ async function saveSubtitleSettings() {
 
 // 자막 설정 불러오기
 function loadSubtitleSettings() {
-  chrome.storage.sync.get(['subtitleEnabled', 'subtitleLanguage', 'subtitleSettings', 'universalMode'], function(data) {
-    console.log('[Whatsub] 자막 설정 불러오기:', data);
-    
-    // 자막 필터링 활성화 상태 설정
-    const filterToggle = document.getElementById('filter-toggle');
-    if (filterToggle) {
-      filterToggle.checked = data.subtitleEnabled === true;
-      state.subtitleActive = data.subtitleEnabled === true;
-    }
-    
-    // 필터 언어 설정
-    const filterLanguage = document.getElementById('filter-language');
-    if (filterLanguage && data.subtitleLanguage) {
-      filterLanguage.value = data.subtitleLanguage;
-    }
-    
-    // 자막 설정 적용
-    if (data.subtitleSettings) {
-      const captionPosition = document.getElementById('caption-position');
-      const fontSize = document.getElementById('font-size');
-      const backgroundOpacity = document.getElementById('background-opacity');
-      const dualSubtitle = document.getElementById('dual-subtitle');
-      
-      if (captionPosition && data.subtitleSettings.position) {
-        captionPosition.value = data.subtitleSettings.position;
+  try {
+    // 스토리지에서 설정 불러오기
+    chrome.storage.sync.get(['subtitleSettings', 'subtitleEnabled', 'subtitleLanguage'], function(data) {
+      if (chrome.runtime.lastError) {
+        console.debug('[Whatsub] 설정 불러오기 중 오류 발생:', chrome.runtime.lastError);
+        return;
       }
       
-      if (fontSize && data.subtitleSettings.fontSize) {
-        fontSize.value = data.subtitleSettings.fontSize;
+      // 불러온 설정 적용
+      if (data.subtitleSettings) {
+        const settings = data.subtitleSettings;
+        
+        // 자막 위치 설정
+        const positionSelect = document.getElementById('caption-position');
+        if (positionSelect && settings.position) {
+          positionSelect.value = settings.position;
+        }
+        
+        // 글꼴 크기 설정
+        const fontSizeSelect = document.getElementById('font-size');
+        if (fontSizeSelect && settings.fontSize) {
+          fontSizeSelect.value = settings.fontSize;
+        }
+        
+        // 배경 투명도 설정
+        const backgroundSelect = document.getElementById('background-opacity');
+        if (backgroundSelect && settings.background) {
+          backgroundSelect.value = settings.background;
+        }
+        
+        // 듀얼 자막 설정
+        const dualSubtitleToggle = document.getElementById('dual-subtitle');
+        if (dualSubtitleToggle && settings.dualSubtitles !== undefined) {
+          dualSubtitleToggle.checked = settings.dualSubtitles;
+          state.dualSubtitleActive = settings.dualSubtitles;
+        }
       }
       
-      if (backgroundOpacity && data.subtitleSettings.background) {
-        backgroundOpacity.value = data.subtitleSettings.background;
+      // 자막 활성화 상태 설정
+      const filterToggle = document.getElementById('filter-toggle');
+      if (filterToggle && data.subtitleEnabled !== undefined) {
+        filterToggle.checked = data.subtitleEnabled;
+        state.subtitleActive = data.subtitleEnabled;
+        
+        // 현재 탭의 자막 상태 확인하여 동기화
+        chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+          if (tabs && tabs.length > 0) {
+            chrome.tabs.sendMessage(tabs[0].id, { action: 'checkStatus' }, function(response) {
+              if (chrome.runtime.lastError) {
+                console.debug('[Whatsub] 상태 확인 메시지 전송 중 오류:', chrome.runtime.lastError.message);
+                return;
+              }
+              
+              if (response && response.isSubtitleEnabled !== undefined) {
+                // 콘텐츠 스크립트의 상태와 팝업의 상태가 다를 경우 동기화
+                if (response.isSubtitleEnabled !== state.subtitleActive) {
+                  filterToggle.checked = response.isSubtitleEnabled;
+                  state.subtitleActive = response.isSubtitleEnabled;
+                }
+              }
+            });
+          }
+        });
       }
       
-      if (dualSubtitle) {
-        dualSubtitle.checked = data.subtitleSettings.dualSubtitles !== false;
-        state.dualSubtitleActive = data.subtitleSettings.dualSubtitles !== false;
+      // 언어 설정
+      const languageSelect = document.getElementById('filter-language');
+      if (languageSelect && data.subtitleLanguage) {
+        languageSelect.value = data.subtitleLanguage;
       }
-    }
-  });
+      
+      console.log('[Whatsub] 자막 설정 로드 완료');
+    });
+  } catch (error) {
+    console.error('자막 설정을 불러오는 중 오류가 발생했습니다:', error);
+  }
 }
 
 // 기존 설정 초기화
@@ -522,72 +653,84 @@ async function loadUsageData() {
     if (!state.isAuthenticated) return;
     
     // 백그라운드에 사용량 데이터 요청
-    const response = await sendMessage('getUsage');
-    
-    if (response && response.success) {
-      // 사용량 데이터 저장
-      state.usageData = response.usage;
-      
-      // 구독 정보 표시
-      const subscriptionStatus = document.getElementById('subscription-status');
-      if (subscriptionStatus && response.subscription) {
-        // 관리자 계정인 경우 무제한 표시
-        if (state.isAdmin) {
-          subscriptionStatus.textContent = '현재 플랜: 관리자 (무제한)';
-        } else {
-          const planName = response.subscription.plan === 'free' ? '무료' : 
-                          (response.subscription.plan === 'pro' ? '프로' : '프리미엄');
-          subscriptionStatus.textContent = `현재 플랜: ${planName}`;
-        }
-      }
-      
-      // 사용량 정보 표시
-      const usageText = document.getElementById('usage-text');
-      const usageFill = document.getElementById('usage-fill');
-      
-      if (usageText && usageFill) {
-        // 관리자 계정인 경우 무제한 표시
-        if (state.isAdmin) {
-          usageText.textContent = '무제한 사용 가능';
-          usageFill.style.width = '100%';
-          usageFill.style.backgroundColor = '#4caf50'; // 초록색
-        } else if (response.usage.whisper) {
-          const used = response.usage.whisper.used || 0;
-          const limit = response.usage.whisper.limit || 60;
-          const percentage = Math.min(Math.round((used / limit) * 100), 100);
-          
-          usageText.textContent = `오늘 ${used}/${limit}분 사용함`;
-          usageFill.style.width = `${percentage}%`;
-          
-          // 사용량에 따른 색상 변경
-          if (percentage >= 90) {
-            usageFill.style.backgroundColor = '#e53935'; // 빨간색
-          } else if (percentage >= 70) {
-            usageFill.style.backgroundColor = '#ff9800'; // 주황색
+    const response = await sendMessage('getUsage', {}, function(response) {
+      if (response && response.success) {
+        // 사용량 데이터 저장
+        state.usageData = response.usage;
+        
+        // 구독 정보 표시
+        const subscriptionStatus = document.getElementById('subscription-status');
+        if (subscriptionStatus && response.subscription) {
+          // 관리자 계정인 경우 무제한 표시
+          if (state.isAdmin) {
+            subscriptionStatus.textContent = '현재 플랜: 관리자 (무제한)';
           } else {
-            usageFill.style.backgroundColor = '#4caf50'; // 초록색
+            const planName = response.subscription.plan === 'free' ? '무료' : 
+                            (response.subscription.plan === 'pro' ? '프로' : '프리미엄');
+            subscriptionStatus.textContent = `현재 플랜: ${planName}`;
           }
         }
+        
+        // 사용량 정보 표시
+        const usageText = document.getElementById('usage-text');
+        const usageFill = document.getElementById('usage-fill');
+        
+        if (usageText && usageFill) {
+          // 관리자 계정인 경우 무제한 표시
+          if (state.isAdmin) {
+            usageText.textContent = '무제한 사용 가능';
+            usageFill.style.width = '100%';
+            usageFill.style.backgroundColor = '#4caf50'; // 초록색
+          } else if (response.usage.whisper) {
+            const used = response.usage.whisper.used || 0;
+            const limit = response.usage.whisper.limit || 60;
+            const percentage = Math.min(Math.round((used / limit) * 100), 100);
+            
+            usageText.textContent = `오늘 ${used}/${limit}분 사용함`;
+            usageFill.style.width = `${percentage}%`;
+            
+            // 사용량에 따른 색상 변경
+            if (percentage >= 90) {
+              usageFill.style.backgroundColor = '#e53935'; // 빨간색
+            } else if (percentage >= 70) {
+              usageFill.style.backgroundColor = '#ff9800'; // 주황색
+            } else {
+              usageFill.style.backgroundColor = '#4caf50'; // 초록색
+            }
+          }
+        }
+        
+        // 디버그 정보 업데이트
+        updateDebugInfo({ usageData: response.usage });
       }
-      
-      // 디버그 정보 업데이트
-      updateDebugInfo({ usageData: response.usage });
-    }
+    });
   } catch (error) {
     console.error('사용량 데이터 로드 중 오류:', error);
   }
 }
 
 // 구글 로그인 처리
-async function handleGoogleSignIn() {
+/**
+ * Google OAuth를 통해 사용자 로그인을 처리합니다.
+ * @dependency background.js의 signInWithGoogle 함수
+ * @relatedFiles background.js (signInWithGoogle, fetchUserInfo 함수)
+ * @messageFlow popup.js → background.js
+ */
+function handleGoogleSignIn() {
   try {
     showLoading();
     showMessage('로그인 중...', 'info');
     
-    // 백그라운드 서비스에 로그인 요청
-    const response = await sendMessage('signInWithGoogle');
-    
-    if (response && response.success) {
+    // 백그라운드 서비스에 로그인 요청 - 콜백 패턴 사용
+    sendMessage('signInWithGoogle', {}, function(response) {
+      if (!response || !response.success) {
+        console.error('로그인 실패:', response?.error || '알 수 없는 오류');
+        showMessage(response?.error || '로그인에 실패했습니다.', 'error');
+        switchTab('signin');
+        hideLoading();
+        return;
+      }
+      
       console.log('로그인 성공:', response.user);
       showMessage('로그인 성공', 'success');
       
@@ -614,15 +757,11 @@ async function handleGoogleSignIn() {
       
       // 메인 탭으로 전환
       switchTab('main');
-    } else {
-      console.error('로그인 실패:', response?.error || '알 수 없는 오류');
-      showMessage(response?.error || '로그인에 실패했습니다.', 'error');
-      switchTab('signin');
-    }
+      hideLoading();
+    });
   } catch (error) {
     console.error('로그인 중 오류 발생:', error);
     showMessage('로그인 중 오류가 발생했습니다.', 'error');
-  } finally {
     hideLoading();
   }
 }
@@ -633,15 +772,26 @@ function handleSignup() {
 }
 
 // 로그아웃 처리
-async function handleLogout() {
+/**
+ * 사용자 로그아웃을 처리합니다.
+ * @dependency background.js의 signOut 함수
+ * @relatedFiles background.js (signOut 함수)
+ * @messageFlow popup.js → background.js
+ */
+function handleLogout() {
   try {
     showLoading();
     showMessage('로그아웃 중...', 'info');
     
-    // 백그라운드 서비스에 로그아웃 요청
-    const response = await sendMessage('signOut');
-    
-    if (response && response.success) {
+    // 백그라운드 서비스에 로그아웃 요청 - 콜백 패턴 사용
+    sendMessage('signOut', {}, function(response) {
+      if (!response || !response.success) {
+        console.error('로그아웃 실패:', response?.error || '알 수 없는 오류');
+        showMessage(response?.error || '로그아웃에 실패했습니다.', 'error');
+        hideLoading();
+        return;
+      }
+      
       console.log('로그아웃 성공');
       showMessage('로그아웃 되었습니다.', 'success');
       
@@ -655,122 +805,134 @@ async function handleLogout() {
       
       // 로그인 탭으로 전환
       switchTab('signin');
-    } else {
-      console.error('로그아웃 실패:', response?.error || '알 수 없는 오류');
-      showMessage(response?.error || '로그아웃에 실패했습니다.', 'error');
-    }
+      hideLoading();
+    });
   } catch (error) {
     console.error('로그아웃 중 오류 발생:', error);
     showMessage('로그아웃 중 오류가 발생했습니다.', 'error');
-  } finally {
     hideLoading();
   }
 }
 
 // 인증 상태 확인 (재시도 메커니즘 포함)
-async function checkAuthState(retryCount = 2, retryDelay = 1000) {
-  try {
-    showLoading('인증 상태 확인 중...');
-    
-    // 최대 재시도 횟수만큼 시도
-    for (let attempt = 0; attempt <= retryCount; attempt++) {
-      try {
-        // 백그라운드 서비스에 인증 상태 요청
-        const response = await sendMessage('checkAuth');
-        console.log(`[Whatsub] 인증 상태 확인 응답 (시도 ${attempt + 1}/${retryCount + 1}):`, response);
+/**
+ * 사용자의 인증 상태를 확인합니다. 실패 시 재시도합니다.
+ * @dependency background.js의 checkAuth 함수
+ * @relatedFiles background.js (checkAuth, validateToken 함수)
+ * @messageFlow popup.js → background.js
+ * 
+ * @param {number} retryCount - 최대 재시도 횟수
+ * @param {number} retryDelay - 재시도 간격(밀리초)
+ * @param {function} callback - 응답을 처리할 콜백 함수
+ */
+function checkAuthState(retryCount = 2, retryDelay = 1000, callback) {
+  let attempt = 0;
+  
+  function attemptAuthCheck() {
+    try {
+      showLoading('인증 상태 확인 중...');
+      
+      // 백그라운드 서비스에 인증 상태 요청 - 콜백 패턴 사용
+      sendMessage('checkAuth', {}, function(response) {
+        // 응답이 없거나 오류가 있는 경우 처리
+        if (!response || response.error) {
+          console.debug(`[Whatsub] 인증 상태 확인 응답 오류 (시도 ${attempt + 1}/${retryCount + 1}):`, response?.error || '응답 없음');
+          handleRetryOrFallback();
+          return;
+        }
+        
+        console.debug(`[Whatsub] 인증 상태 확인 응답 (시도 ${attempt + 1}/${retryCount + 1}):`, response);
         
         // 타임아웃이나 오류 발생 시 로컬 스토리지에서 확인
-        if (response.fallback || response.error) {
-          console.warn('[Whatsub] 백그라운드 통신 실패, 로컬 스토리지에서 인증 상태 확인');
-          
-          const authData = await new Promise(resolve => {
-            chrome.storage.local.get(['auth', 'whatsub_auth', 'user'], resolve);
-          });
-          
-          // 스토리지에서 인증 상태 복원
-          if (authData.auth?.isAuthenticated && authData.user) {
-            console.log('[Whatsub] 로컬 스토리지에서 인증 상태 복원 성공');
-            
-            // 상태 업데이트
-            state.isAuthenticated = true;
-            state.user = authData.user;
-            
-            // 관리자 계정 체크
-            checkAdminAccount();
-            
-            // 디버그 정보 업데이트
-            updateDebugInfo({ 
-              authState: 'restored_from_storage', 
-              isAdmin: state.isAdmin,
-              storageData: authData 
-            });
-            
-            // UI 업데이트
-            updateMainTabContent();
-            updateAuthState();
-            
-            hideLoading();
-            return { isAuthenticated: true, user: authData.user, restoredFromStorage: true };
-          }
-          
-          // 재시도할 경우 대기
-          if (attempt < retryCount) {
-            console.log(`[Whatsub] 재시도 대기 중... (${retryDelay}ms)`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
-            continue;
-          }
-          
-          // 모든 재시도 실패, 로그아웃 상태로 처리
-          console.warn('[Whatsub] 인증 상태 확인 실패, 로그아웃 상태로 처리');
-          handleUnauthenticatedState();
-          hideLoading();
-          return { isAuthenticated: false, error: 'auth_check_failed' };
+        if (response.fallback) {
+          console.debug('[Whatsub] 백그라운드 통신 실패, 로컬 스토리지에서 인증 상태 확인');
+          checkLocalStorageAuth();
+          return;
         }
         
         // 정상 응답 처리
-        state.isAuthenticated = response.isAuthenticated;
-        state.user = response.user;
+        state.isAuthenticated = response.isAuthenticated === true;
+        state.user = response.user || null;
         
         // 관리자 계정 체크
         checkAdminAccount();
-        
-        // 디버그 정보 업데이트
-        updateDebugInfo({ authState: response, isAdmin: state.isAdmin });
         
         // UI 업데이트
         updateMainTabContent();
         updateAuthState();
         
         hideLoading();
-        return response;
-      } catch (attemptError) {
-        console.error(`[Whatsub] 인증 확인 시도 ${attempt + 1} 실패:`, attemptError);
         
-        // 마지막 시도가 아니면 재시도
-        if (attempt < retryCount) {
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
-          continue;
+        if (callback) {
+          callback(response);
         }
-        
-        // 모든 재시도 실패
-        throw attemptError;
-      }
+      });
+    } catch (error) {
+      console.debug(`[Whatsub] 인증 상태 확인 중 오류 (시도 ${attempt + 1}/${retryCount + 1}):`, error);
+      handleRetryOrFallback();
     }
-  } catch (error) {
-    console.error('[Whatsub] 인증 상태 확인 오류:', error);
-    
-    // 오류가 UI에 표시되지 않도록 함
-    // 디버그 정보 에러 표시
-    updateDebugInfo({ authError: error.message });
-    
-    // 로그인 안 된 상태로 간주
-    handleUnauthenticatedState();
-    
-    // 오류 반환 (호출자가 처리할 수 있도록)
-    return { isAuthenticated: false, error: error.message };
-  } finally {
-    hideLoading();
   }
+  
+  // 로컬 스토리지에서 인증 상태 확인
+  function checkLocalStorageAuth() {
+    chrome.storage.local.get(['auth', 'whatsub_auth', 'user'], function(authData) {
+      // 스토리지에서 인증 상태 복원
+      if (authData.auth?.isAuthenticated && authData.user) {
+        console.debug('[Whatsub] 로컬 스토리지에서 인증 상태 복원 성공');
+        
+        // 상태 업데이트
+        state.isAuthenticated = true;
+        state.user = authData.user;
+        
+        // 관리자 계정 체크
+        checkAdminAccount();
+        
+        // 디버그 정보 업데이트
+        updateDebugInfo({ 
+          authState: 'restored_from_storage', 
+          isAdmin: state.isAdmin,
+          storageData: authData 
+        });
+        
+        // UI 업데이트
+        updateMainTabContent();
+        updateAuthState();
+        
+        hideLoading();
+        
+        if (callback) {
+          callback({ isAuthenticated: true, user: authData.user, restoredFromStorage: true });
+        }
+        return;
+      }
+      
+      // 로컬 스토리지에도 인증 정보가 없으면 재시도 또는 실패 처리
+      handleRetryOrFallback();
+    });
+  }
+  
+  // 재시도 또는 실패 처리
+  function handleRetryOrFallback() {
+    // 재시도할 경우 대기
+    if (attempt < retryCount) {
+      console.debug(`[Whatsub] 재시도 대기 중... (${retryDelay}ms)`);
+      attempt++;
+      setTimeout(attemptAuthCheck, retryDelay);
+      return;
+    }
+    
+    // 모든 재시도 실패, 로그아웃 상태로 처리
+    console.debug('[Whatsub] 인증 상태 확인 실패, 로그아웃 상태로 처리');
+    handleUnauthenticatedState();
+    hideLoading();
+    
+    if (callback) {
+      callback({ isAuthenticated: false, error: 'auth_check_failed' });
+    }
+  }
+  
+  // 초기 시도 시작
+  attemptAuthCheck();
 }
 
 // 관리자 계정 체크 함수
@@ -1062,43 +1224,63 @@ function showMessage(message, type = 'info', duration = 1000) {
 }
 
 // 테스트 자막 표시 함수
-async function showTestSubtitle() {
+function showTestSubtitle() {
   try {
     // 현재 활성화된 탭 가져오기
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tabs || tabs.length === 0) {
-      console.error('활성화된 탭을 찾을 수 없습니다.');
-      showMessage('테스트 자막을 표시할 탭을 찾을 수 없습니다.', 'error');
-      return;
-    }
-    
-    // 테스트 자막 텍스트 준비
-    const originalText = "This is a test subtitle for WhatSub extension.";
-    const translatedText = "이것은 WhatSub 확장 프로그램을 위한 테스트 자막입니다.";
-    
-    // 콘텐츠 스크립트에 메시지 전송
-    const response = await chrome.tabs.sendMessage(tabs[0].id, {
-      action: 'showTestSubtitle',
-      original: originalText,
-      translated: translatedText,
-      universalMode: true
-    });
-    
-    // 자막 활성화가 안 되어 있다면 활성화
-    if (response && response.success) {
-      // 필터 토글 켜기
-      const filterToggle = document.getElementById('filter-toggle');
-      if (filterToggle && !filterToggle.checked) {
-        filterToggle.checked = true;
-        toggleSubtitleFilter(true);
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+      if (!tabs || tabs.length === 0) {
+        console.debug('[Whatsub] 활성화된 탭을 찾을 수 없습니다.');
+        showMessage('테스트 자막을 표시할 탭을 찾을 수 없습니다.', 'warning');
+        return;
       }
       
-      showMessage('테스트 자막이 표시되었습니다.', 'success');
-    } else {
-      showMessage('테스트 자막 표시 중 오류가 발생했습니다.', 'error');
-    }
+      const tabId = tabs[0].id;
+      
+      // 탭 존재 여부 확인
+      chrome.tabs.get(tabId, (tab) => {
+        if (chrome.runtime.lastError) {
+          console.debug('[Whatsub] 유효하지 않은 탭:', chrome.runtime.lastError.message);
+          showMessage('테스트 자막을 표시할 유효한 탭을 찾을 수 없습니다.', 'warning');
+          return;
+        }
+        
+        // 테스트 자막 텍스트 준비
+        const originalText = "WhatSub 확장 프로그램의 자막 테스트입니다.";
+        const translatedText = "This is a subtitle test for WhatSub extension.";
+        
+        // 콘텐츠 스크립트에 메시지 전송 (콜백 패턴 사용)
+        chrome.tabs.sendMessage(tabId, {
+          action: 'showTestSubtitle',
+          original: originalText,
+          translated: translatedText,
+          universalMode: true
+        }, function(response) {
+          // 오류 처리
+          if (chrome.runtime.lastError) {
+            console.debug('[Whatsub] 테스트 자막 표시 중 오류:', chrome.runtime.lastError.message);
+            showMessage('테스트 자막 표시 중 오류가 발생했습니다', 'warning');
+            return;
+          }
+          
+          // 응답 처리
+          if (response && response.success) {
+            // 필터 토글 켜기
+            const filterToggle = document.getElementById('filter-toggle');
+            if (filterToggle && !filterToggle.checked) {
+              filterToggle.checked = true;
+              toggleSubtitleFilter(true);
+            }
+            
+            showMessage('테스트 자막이 표시되었습니다.', 'success');
+          } else {
+            const errorMsg = response ? response.error || '알 수 없는 오류' : '응답이 없습니다';
+            showMessage('테스트 자막 표시 중 오류가 발생했습니다: ' + errorMsg, 'error');
+          }
+        });
+      });
+    });
   } catch (error) {
-    console.error('테스트 자막 표시 중 오류 발생:', error);
+    console.debug('[Whatsub] 테스트 자막 표시 중 오류 발생:', error);
     showMessage('테스트 자막 표시 중 오류가 발생했습니다. 페이지를 새로고침해 주세요.', 'error');
   }
 }
@@ -1142,14 +1324,14 @@ async function handleSubtitleUpload() {
           uploadedBy: state.user.email,
           timestamp: new Date().toISOString()
         }
+      }, function(response) {
+        if (response.success) {
+          showMessage('자막이 성공적으로 업로드되었습니다.', 'success');
+          loadSubtitleList(); // 목록 새로고침
+        } else {
+          showMessage('자막 업로드에 실패했습니다.', 'error');
+        }
       });
-      
-      if (response.success) {
-        showMessage('자막이 성공적으로 업로드되었습니다.', 'success');
-        loadSubtitleList(); // 목록 새로고침
-      } else {
-        showMessage('자막 업로드에 실패했습니다.', 'error');
-      }
     };
     
     input.click();
@@ -1174,14 +1356,14 @@ async function handleSubtitleDownload() {
     // 백그라운드로 자막 검색 요청 전송
     const response = await sendMessage('searchSubtitles', {
       url: currentUrl
+    }, function(response) {
+      if (response.success && response.subtitles.length > 0) {
+        // 자막 목록 표시
+        displaySubtitleList(response.subtitles);
+      } else {
+        showMessage('사용 가능한 자막이 없습니다.', 'warning');
+      }
     });
-    
-    if (response.success && response.subtitles.length > 0) {
-      // 자막 목록 표시
-      displaySubtitleList(response.subtitles);
-    } else {
-      showMessage('사용 가능한 자막이 없습니다.', 'warning');
-    }
   } catch (error) {
     console.error('자막 검색 중 오류:', error);
     showMessage('자막 검색 중 오류가 발생했습니다.', 'error');
@@ -1224,13 +1406,13 @@ async function applySubtitle(subtitleId) {
     showLoading();
     showMessage('자막을 적용하는 중...', 'info');
     
-    const response = await sendMessage('applySubtitle', { subtitleId });
-    
-    if (response.success) {
-      showMessage('자막이 성공적으로 적용되었습니다.', 'success');
-    } else {
-      showMessage('자막 적용에 실패했습니다.', 'error');
-    }
+    const response = await sendMessage('applySubtitle', { subtitleId }, function(response) {
+      if (response.success) {
+        showMessage('자막이 성공적으로 적용되었습니다.', 'success');
+      } else {
+        showMessage('자막 적용에 실패했습니다.', 'error');
+      }
+    });
   } catch (error) {
     console.error('자막 적용 중 오류:', error);
     showMessage('자막 적용 중 오류가 발생했습니다.', 'error');
@@ -1254,17 +1436,17 @@ async function loadSubtitleList() {
     // 백그라운드로 자막 목록 요청 전송
     const response = await sendMessage('getSubtitleList', {
       url: currentUrl
-    });
-    
-    if (response && response.success && response.subtitles) {
-      displaySubtitleList(response.subtitles);
-    } else {
-      // 자막 목록이 없으면 안내 메시지 표시
-      const listContainer = document.getElementById('subtitle-list');
-      if (listContainer) {
-        listContainer.innerHTML = '<div class="no-subtitles">현재 페이지에 사용 가능한 자막이 없습니다.</div>';
+    }, function(response) {
+      if (response && response.success && response.subtitles) {
+        displaySubtitleList(response.subtitles);
+      } else {
+        // 자막 목록이 없으면 안내 메시지 표시
+        const listContainer = document.getElementById('subtitle-list');
+        if (listContainer) {
+          listContainer.innerHTML = '<div class="no-subtitles">현재 페이지에 사용 가능한 자막이 없습니다.</div>';
+        }
       }
-    }
+    });
   } catch (error) {
     console.error('자막 목록 로드 중 오류:', error);
     // 오류 발생 시 빈 컨테이너로 설정
@@ -1296,9 +1478,10 @@ document.addEventListener('DOMContentLoaded', function() {
     switchTab('main');
     
     // 인증 상태는 비동기적으로 확인하되, 오류가 발생해도 UI에 표시하지 않음
-    checkAuthState().catch(error => {
-      console.error('인증 상태 확인 중 백그라운드 연결 오류:', error);
-      // 오류가 발생해도 UI에는 표시하지 않고 콘솔에만 기록
+    checkAuthState(2, 1000, function(response) {
+      if (!response || !response.isAuthenticated) {
+        console.error('인증 상태 확인 결과: 인증되지 않음');
+      }
     });
     
   } catch (error) {

@@ -1,0 +1,34 @@
+=== WhaSub 확장 프로그램 구조 분석 ===
+
+## 주요 구성 요소:
+1. manifest.json - 확장 프로그램 설정 파일
+2. background.js - 백그라운드 서비스 워커
+3. content-script.js - 콘텐츠 스크립트
+4. popup.js - 팝업 UI 인터페이스
+5. inject-subtitle.js - 자막 주입 스크립트
+
+
+## 파일 중복 및 문제점:
+1. content.js와 content-script.js - 유사한 파일명과 기능
+2. background.js와 background-service.js - 중복 기능 가능성
+3. services 디렉토리에 authService.js와 auth-service.js 같은 중복 파일 존재
+
+
+## 주요 통신 패턴:
+1. chrome.runtime.sendMessage - 백그라운드 스크립트와 통신
+2. chrome.tabs.sendMessage - 콘텐츠 스크립트와 통신
+3. window.postMessage - 인젝션 스크립트와 통신
+
+## 핵심 기능 모듈:
+1. 인증 관리 (handleGoogleSignIn, checkAuth, signInWithGoogle)
+2. 자막 처리 (toggleSubtitle, showSubtitle, translateSubtitle)
+3. 상태 관리 (state 객체)
+
+
+## 확장 프로그램 초기화 흐름:
+1. manifest.json이 background.js를 백그라운드 스크립트로 등록
+2. background.js의 initializeApp()이 실행되어 전역 상태 및 인증 설정
+3. manifest.json이 content-script.js를 콘텐츠 스크립트로 등록
+4. content-script.js의 init()이 실행되어 DOM 처리 및 이벤트 설정
+5. 사용자가 확장 프로그램 아이콘 클릭 시 popup.js의 initializePopup() 실행
+6. 필요 시 content-script.js가 inject-subtitle.js를 웹 페이지에 주입

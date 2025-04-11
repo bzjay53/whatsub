@@ -61,6 +61,8 @@
         "icons/*",
         "images/*",
         "processors/*.js",
+        "components/*.js",
+        "services/*.js",
         "firebase-sdk.js",
         "firebase-config.js",
         "audio-worklet/*.js",

@@ -45,6 +45,8 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 
 // 단축키 명령 리스너 추가
+// 의존성: manifest.json의 "commands" 섹션에 정의된 명령과 연결됨
+// 관련 파일: content-script.js (toggleSubtitles, resetPosition, toggleSpeechRecognition 액션 처리)
 chrome.commands.onCommand.addListener((command) => {
     console.log('[Whatsub] 단축키 명령 수신:', command);
     
@@ -60,29 +62,50 @@ chrome.commands.onCommand.addListener((command) => {
         switch (command) {
             case 'toggle-subtitles':
                 // 자막 표시/숨김 토글
-                chrome.tabs.sendMessage(activeTab.id, { 
-                    action: 'toggleSubtitles'
-                }).catch(err => {
-                    console.error('[Whatsub] 자막 토글 명령 전송 오류:', err);
-                });
+                // 콜백 기반 방식으로 변경 (Promise 기반 .catch() 방식 제거)
+                chrome.tabs.sendMessage(
+                    activeTab.id, 
+                    { 
+                        action: 'toggleSubtitles'
+                    }, 
+                    function(response) {
+                        if (chrome.runtime.lastError) {
+                            console.error('[Whatsub] 자막 토글 명령 전송 오류:', chrome.runtime.lastError);
+                        }
+                    }
+                );
                 break;
                 
             case 'reset-position':
                 // 자막 위치 초기화
-                chrome.tabs.sendMessage(activeTab.id, { 
-                    action: 'resetPosition'
-                }).catch(err => {
-                    console.error('[Whatsub] 자막 위치 초기화 명령 전송 오류:', err);
-                });
+                // 콜백 기반 방식으로 변경 (Promise 기반 .catch() 방식 제거)
+                chrome.tabs.sendMessage(
+                    activeTab.id, 
+                    { 
+                        action: 'resetPosition'
+                    }, 
+                    function(response) {
+                        if (chrome.runtime.lastError) {
+                            console.error('[Whatsub] 자막 위치 초기화 명령 전송 오류:', chrome.runtime.lastError);
+                        }
+                    }
+                );
                 break;
                 
             case 'toggle-speech-recognition':
                 // 음성 인식 시작/중지
-                chrome.tabs.sendMessage(activeTab.id, { 
-                    action: 'toggleSpeechRecognition'
-                }).catch(err => {
-                    console.error('[Whatsub] 음성 인식 토글 명령 전송 오류:', err);
-                });
+                // 콜백 기반 방식으로 변경 (Promise 기반 .catch() 방식 제거)
+                chrome.tabs.sendMessage(
+                    activeTab.id, 
+                    { 
+                        action: 'toggleSpeechRecognition'
+                    }, 
+                    function(response) {
+                        if (chrome.runtime.lastError) {
+                            console.error('[Whatsub] 음성 인식 토글 명령 전송 오류:', chrome.runtime.lastError);
+                        }
+                    }
+                );
                 break;
                 
             default:
@@ -355,12 +378,22 @@ async function handleSubtitleMessages(request, sender, sendResponse) {
             
         case 'updateSubtitle':
             // 활성 탭에만 자막 업데이트 메시지 전송
+            // 의존성: content-script.js의 updateSubtitle 액션 핸들러에 의존
+            // 관련 기능: 자막 텍스트 업데이트, 자막 컨테이너 표시
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                 if (tabs.length > 0) {
-                    chrome.tabs.sendMessage(tabs[0].id, {
-                        action: 'updateSubtitle',
-                        text: request.text
-                    }).catch(err => console.error('[WhatSub] 자막 업데이트 메시지 전송 오류:', err));
+                    chrome.tabs.sendMessage(
+                        tabs[0].id, 
+                        {
+                            action: 'updateSubtitle',
+                            text: request.text
+                        },
+                        function(response) {
+                            if (chrome.runtime.lastError) {
+                                console.error('[WhatSub] 자막 업데이트 메시지 전송 오류:', chrome.runtime.lastError);
+                            }
+                        }
+                    );
                 }
             });
             sendResponse({ success: true });
@@ -421,12 +454,22 @@ async function handleSubtitleMessages(request, sender, sendResponse) {
             
         case 'updateCaptionUI':
             // 활성 탭에 자막 UI 업데이트 알림
+            // 의존성: content-script.js의 updateSettings 액션 핸들러에 의존
+            // 관련 기능: 자막 표시/숨김 상태 변경, 자막 컨테이너 스타일 업데이트
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                 if (tabs.length > 0) {
-                    chrome.tabs.sendMessage(tabs[0].id, {
-                        action: 'updateSettings',
-                        settings: { enabled: request.enabled }
-                    }).catch(err => console.error('[WhatSub] 자막 UI 업데이트 메시지 전송 오류:', err));
+                    chrome.tabs.sendMessage(
+                        tabs[0].id, 
+                        {
+                            action: 'updateSettings',
+                            settings: { enabled: request.enabled }
+                        },
+                        function(response) {
+                            if (chrome.runtime.lastError) {
+                                console.error('[WhatSub] 자막 UI 업데이트 메시지 전송 오류:', chrome.runtime.lastError);
+                            }
+                        }
+                    );
                 }
             });
             sendResponse({ success: true });
@@ -435,10 +478,19 @@ async function handleSubtitleMessages(request, sender, sendResponse) {
         case 'offerSpeechRecognition':
             // 음성 인식 자막 제안
             // 팝업에 알림 표시
-            chrome.runtime.sendMessage({
-                action: 'showSpeechRecognitionOffer',
-                videoId: request.videoId
-            }).catch(err => console.error('[WhatSub] 음성 인식 알림 메시지 전송 오류:', err));
+            // 의존성: popup.js의 showSpeechRecognitionOffer 액션 핸들러에 의존
+            // 관련 기능: 사용자에게 음성 인식 자막 기능 제안 UI 표시
+            chrome.runtime.sendMessage(
+                {
+                    action: 'showSpeechRecognitionOffer',
+                    videoId: request.videoId
+                },
+                function(response) {
+                    if (chrome.runtime.lastError) {
+                        console.error('[WhatSub] 음성 인식 알림 메시지 전송 오류:', chrome.runtime.lastError);
+                    }
+                }
+            );
             
             sendResponse({ success: true });
             break;
@@ -451,6 +503,8 @@ async function handleSubtitleMessages(request, sender, sendResponse) {
 }
 
 // 자막 공유 처리
+// 의존성: storage API, content-script.js의 addComment 액션 핸들러, popup.js의 showLoginPrompt 액션 핸들러
+// 관련 파일: popup.js, content-script.js, storage 스키마
 function handleSubtitleSharing(request, sendResponse) {
     // 로그인 상태 확인
     chrome.storage.local.get(['authState'], (result) => {
@@ -458,14 +512,22 @@ function handleSubtitleSharing(request, sendResponse) {
         
         if (!isLoggedIn) {
             // 로그인되지 않은 경우 팝업 표시 요청
-            chrome.runtime.sendMessage({ action: 'showLoginPrompt' })
-                .catch(err => console.error('[WhatSub] 로그인 알림 메시지 전송 오류:', err));
+            // 의존성: popup.js의 showLoginPrompt 액션 핸들러에 의존
+            chrome.runtime.sendMessage(
+                { action: 'showLoginPrompt' },
+                function(response) {
+                    if (chrome.runtime.lastError) {
+                        console.error('[WhatSub] 로그인 알림 메시지 전송 오류:', chrome.runtime.lastError);
+                    }
+                }
+            );
             
             sendResponse({ success: false, error: '로그인이 필요합니다.' });
             return;
         }
         
         // 공유 정보 저장
+        // 데이터 구조: { videoId, timestamp, comment, userId, username, sharedAt }
         const shareData = {
             videoId: request.videoId,
             timestamp: request.timestamp,
@@ -476,6 +538,7 @@ function handleSubtitleSharing(request, sendResponse) {
         };
         
         // 일단 로컬에 저장
+        // 의존성: chrome.storage.local의 'sharedSubtitles' 키 사용
         chrome.storage.local.get(['sharedSubtitles'], (data) => {
             const sharedSubtitles = data.sharedSubtitles || [];
             sharedSubtitles.push(shareData);
@@ -489,14 +552,24 @@ function handleSubtitleSharing(request, sendResponse) {
                 
                 // 활성 탭에 댓글 추가 알림
                 if (request.comment) {
+                    // 의존성: content-script.js의 addComment 액션 핸들러에 의존
+                    // 관련 기능: 자막 옆 댓글 표시, 댓글 목록 업데이트
                     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                         if (tabs.length > 0) {
-                            chrome.tabs.sendMessage(tabs[0].id, {
-                                action: 'addComment',
-                                text: request.comment,
-                                timestamp: request.timestamp,
-                                userId: result.authState.userId
-                            }).catch(err => console.error('[WhatSub] 댓글 추가 메시지 전송 오류:', err));
+                            chrome.tabs.sendMessage(
+                                tabs[0].id, 
+                                {
+                                    action: 'addComment',
+                                    text: request.comment,
+                                    timestamp: request.timestamp,
+                                    userId: result.authState.userId
+                                },
+                                function(response) {
+                                    if (chrome.runtime.lastError) {
+                                        console.error('[WhatSub] 댓글 추가 메시지 전송 오류:', chrome.runtime.lastError);
+                                    }
+                                }
+                            );
                         }
                     });
                 }
@@ -825,26 +898,54 @@ function stopTabCapture() {
 }
 
 // 자막 업데이트
-function updateTranscription(text) {
-    if (!activeTabId || !isRecognizing) return;
-    
-    lastTranscriptTime = Date.now();
-    
-    // 활성 탭에 자막 텍스트 전송
-    chrome.tabs.sendMessage(activeTabId, {
-        action: 'updateTranscription',
-        text: text
-    }).catch(err => console.error('[WhatSub] 자막 업데이트 메시지 전송 오류:', err));
+function updateTranscription(text, isFinal = false) {
+    if (!activeTabId) {
+        console.error('[Whatsub] 활성 탭 ID가 없습니다.');
+        return;
+    }
+
+    // 음성 인식 결과 전송
+    chrome.tabs.sendMessage(
+        activeTabId, 
+        {
+            action: 'updateTranscription',
+            text: text,
+            isFinal: isFinal,
+            language: recognitionLanguage
+        },
+        function(response) {
+            if (chrome.runtime.lastError) {
+                console.error('[Whatsub] 자막 전송 중 오류 발생:', chrome.runtime.lastError);
+            }
+        }
+    );
+
+    // 저장
+    if (isFinal && text.trim().length > 0) {
+        saveTranscription(text, recognitionLanguage);
+    }
 }
 
 // 음성 인식 상태 알림
-function notifyTabAboutTranscriptionStatus(active) {
-    if (!activeTabId) return;
-    
-    chrome.tabs.sendMessage(activeTabId, {
-        action: 'transcriptionStatus',
-        active: active
-    }).catch(err => console.error('[WhatSub] 상태 업데이트 메시지 전송 오류:', err));
+function notifyTabAboutTranscriptionStatus(status, errorMessage = '') {
+    if (!activeTabId) {
+        console.error('[Whatsub] 활성 탭 ID가 없습니다.');
+        return;
+    }
+
+    chrome.tabs.sendMessage(
+        activeTabId, 
+        {
+            action: 'transcriptionStatusChanged',
+            status: status,
+            errorMessage: errorMessage
+        },
+        function(response) {
+            if (chrome.runtime.lastError) {
+                console.error('[Whatsub] 상태 업데이트 중 오류 발생:', chrome.runtime.lastError);
+            }
+        }
+    );
 }
 
 // 자막 평가 처리
@@ -889,6 +990,8 @@ function handleSubtitleRating(request, sender, sendResponse) {
 }
 
 // 비디오 관련 메시지 처리
+// 의존성: content-script.js의 비디오 관련 이벤트 핸들러
+// 관련 파일: content-script.js, storage API
 function handleVideoMessages(request, sender, sendResponse) {
     const { action, url } = request;
     const tabId = sender.tab?.id;
@@ -901,17 +1004,27 @@ function handleVideoMessages(request, sender, sendResponse) {
     switch (action) {
         case 'videoDetected':
             console.log(`[Whatsub] 비디오 감지됨: ${request.title}`);
-            // 필요한 경우 여기서 사용자의 구독 상태나 권한 확인
+            // 의존성: chrome.storage.sync의, subtitleEnabled, subtitleStyle 키
+            // 관련 기능: 비디오 요소 감지, 자막 컨테이너 초기화
             chrome.storage.sync.get(['subtitleEnabled', 'subtitleStyle'], function(result) {
                 const enabled = result.subtitleEnabled !== undefined ? result.subtitleEnabled : true;
                 const style = result.subtitleStyle || {};
                 
                 // 자막 기능 초기화 메시지 보내기
-                chrome.tabs.sendMessage(tabId, {
-                    action: 'initializeSubtitles',
-                    enabled: enabled,
-                    style: style
-                }).catch(err => console.error('[Whatsub] 자막 초기화 메시지 전송 오류:', err));
+                // 의존성: content-script.js의 initializeSubtitles 액션 핸들러
+                chrome.tabs.sendMessage(
+                    tabId, 
+                    {
+                        action: 'initializeSubtitles',
+                        enabled: enabled,
+                        style: style
+                    },
+                    function(response) {
+                        if (chrome.runtime.lastError) {
+                            console.error('[Whatsub] 자막 초기화 메시지 전송 오류:', chrome.runtime.lastError);
+                        }
+                    }
+                );
             });
             
             sendResponse({ success: true });
@@ -928,22 +1041,27 @@ function handleVideoMessages(request, sender, sendResponse) {
             // 빈번하게 호출되므로 로그는 최소화
             
             // 임시: 재생 시간에 따른 테스트 자막 표시
+            // 의존성: content-script.js의 updateSubtitle 액션 핸들러
             if (Math.floor(request.currentTime) % 10 === 0) {
-                chrome.tabs.sendMessage(tabId, {
-                    action: 'updateSubtitle',
-                    text: `테스트 자막 - ${Math.floor(request.currentTime)}초`
-                }).catch(err => {
-                    // 오류는 첫 번째만 로깅
-                    if (!window.subtitleUpdateErrorLogged) {
-                        console.error('[Whatsub] 자막 업데이트 메시지 전송 오류:', err);
-                        window.subtitleUpdateErrorLogged = true;
-                        
-                        // 30초 후 오류 로그 재설정
-                        setTimeout(() => {
-                            window.subtitleUpdateErrorLogged = false;
-                        }, 30000);
+                chrome.tabs.sendMessage(
+                    tabId, 
+                    {
+                        action: 'updateSubtitle',
+                        text: `테스트 자막 - ${Math.floor(request.currentTime)}초`
+                    },
+                    function(response) {
+                        // 오류는 첫 번째만 로깅하도록 설정
+                        if (chrome.runtime.lastError && !window.subtitleUpdateErrorLogged) {
+                            console.error('[Whatsub] 자막 업데이트 메시지 전송 오류:', chrome.runtime.lastError);
+                            window.subtitleUpdateErrorLogged = true;
+                            
+                            // 30초 후 오류 로그 재설정
+                            setTimeout(() => {
+                                window.subtitleUpdateErrorLogged = false;
+                            }, 30000);
+                        }
                     }
-                });
+                );
             }
             
             // 응답 필요 없음
@@ -978,12 +1096,20 @@ function handleContentScriptMessage(message, sender, sendResponse) {
                         if (enabled) {
                             // 웰컴 메시지 표시
                             setTimeout(() => {
-                                chrome.tabs.sendMessage(currentTabId, {
-                                    action: 'showSubtitle',
-                                    text: 'WhatsUb 자막 서비스가 활성화되었습니다',
-                                    duration: 3000,
-                                    from: 'whatsub_background'
-                                }).catch(err => console.error('[Whatsub] 웰컴 메시지 전송 실패:', err));
+                                chrome.tabs.sendMessage(
+                                    currentTabId, 
+                                    {
+                                        action: 'showSubtitle',
+                                        text: 'WhatsUb 자막 서비스가 활성화되었습니다',
+                                        duration: 3000,
+                                        from: 'whatsub_background'
+                                    },
+                                    function(response) {
+                                        if (chrome.runtime.lastError) {
+                                            console.error('[Whatsub] 웰컴 메시지 전송 실패:', chrome.runtime.lastError);
+                                        }
+                                    }
+                                );
                             }, 1000);
                         }
                     });
@@ -996,12 +1122,20 @@ function handleContentScriptMessage(message, sender, sendResponse) {
         case 'showSubtitle':
             // 자막 표시 요청 처리
             if (currentTabId) {
-                chrome.tabs.sendMessage(currentTabId, {
-                    action: 'showSubtitle',
-                    text: message.text,
-                    duration: message.duration || 5000,
-                    from: 'whatsub_background'
-                }).catch(err => console.error('[Whatsub] 자막 표시 메시지 전송 실패:', err));
+                chrome.tabs.sendMessage(
+                    currentTabId, 
+                    {
+                        action: 'showSubtitle',
+                        text: message.text,
+                        duration: message.duration || 5000,
+                        from: 'whatsub_background'
+                    },
+                    function(response) {
+                        if (chrome.runtime.lastError) {
+                            console.error('[Whatsub] 자막 표시 메시지 전송 실패:', chrome.runtime.lastError);
+                        }
+                    }
+                );
             }
             
             sendResponse({ success: true });
